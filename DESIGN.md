@@ -11,16 +11,49 @@ DM-ratified state loop. Everything else below is the design as it now stands.
 **No schema in this document, by design.** The data model comes later, after the concept
 has been lived with. Structure before shape.
 
+## Terminology
+
+The document began in a garden metaphor, and the metaphor still carries the philosophy.
+It is now demoted to *voice*: it may appear in how we talk to each other and in the
+product's user-facing copy, never in function names, state, or mechanism sections. The
+mapping is frozen:
+
+| Metaphor | Mechanism |
+| --- | --- |
+| the garden | the ledger (all durable state) |
+| the gardener | the DM |
+| the seed | the LLM-played character |
+| weather, growth notes | observations (scan output) |
+| a bloom | a recorded turn |
+| legacy | residue |
+| pruning, trimming | editing, retiring appetite entries |
+| tending | ratifying a change |
+
+The product's functions, plainly named:
+
+- **The Ledger** — durable state: the appetite register, threads, turns, residue, history.
+- **The Digest** — the per-generation conditions block handed to the character model.
+- **The Scan** — the periodic observation pass over recent scenes.
+- **The Queue** — observations awaiting the DM's decision.
+- **The Board** — the DM's discussion surface. Observes only.
+- **The Sheet** — the DM-facing full view of the ledger.
+
+No new metaphors are invented from here. The existing ones are already spoken for.
+
 ## 1. The three roles
 
 The capstone. Everything in the product sorts under this:
 
-- **The LLM is the seed.** It grows; it does not take direction from us.
-- **We are nature.** Light, weather, season, the conditions growth happens inside of.
-- **The DM is the gardener.** They own the plot and every arrangement in it.
+- **The DM authors and rules.** They write the character's appetites and limits, decide
+  where and how things go, and own every arrangement in the campaign.
+- **The LLM plays the character.** It acts on the appetites it has been given, under the
+  conditions Trellis renders. It is never told what to want.
+- **Trellis renders the conditions.** It holds the ledger, observes the campaign, and
+  hands the character its impulses. It authors nothing.
 
-We are not a participant at the table with a vote. We are the medium the garden exists
-in. Nature works because it never argues, never suggests, never explains itself.
+The founding image, kept as voice: *the LLM is the seed, Trellis is the trellis it grows
+through, the DM is the gardener who owns the plot.* Nature works because it never argues,
+never suggests, never explains itself.
 
 ## 2. Purpose
 
@@ -31,28 +64,34 @@ harder. It is a counter-current instrument: it keeps one changing character aliv
 hungry, and legible across a campaign long past where human memory would have quietly
 dropped half the story.
 
-Two readers, two registers, one engine: the gardener sees a garden; the seed leans
-toward light. Neither is told anything.
+Two readers, two registers, one engine: the DM sees a complete, remembered ledger; the
+character acts on impulse. Neither is told anything.
 
 ## 3. Sovereignty
 
 The DM determines limitations and chooses where and how things go down. Our purpose is
-to make the choosing *informed by a living, complete, remembered garden* — never to
+to make the choosing *informed by a living, complete, remembered ledger* — never to
 choose, suggest, or arrange.
 
-Why silence is better than suggestion: a gardener offered arrangements starts approving
-the tool's taste instead of tending their own plot; a seed told where to lean performs
+Why silence is better than suggestion: a DM offered arrangements starts approving the
+tool's taste instead of ruling their own campaign; a model told where to lean performs
 the lean instead of feeling it. Suggestion corrupts both sides. The moment we explain
 ourselves, we are just another voice — and the table already has the two voices that
 matter.
 
-Constraints are the gardener's instrument. A limit appears in the garden only because
-the gardener wrote it there. We never invent limits, never require them, never enforce
-them.
+Constraints are the DM's instrument. A limit enters the ledger only because the DM wrote
+it there. We never invent limits, never require them, never enforce them.
+
+Appetite genesis follows the same law: no new want enters the register unbidden. Appetites
+are written by the DM directly, or — only where the DM has granted growth permission —
+surfaced by the scan and ratified before taking root. Editing and retiring entries are
+the DM's tools too. Unbidden want-spawning is the old failure mode by another name
+(escalation ex nihilo, one issue thrashing into the next), and the register stays closed
+to it by default.
 
 ## 4. The unit: the turn
 
-All change in the garden is a **turn** — a narrative event, never a stat adjustment.
+All change in the ledger is a **turn** — a narrative event, never a stat adjustment.
 
 > "She stopped holding back after the bridge."
 
@@ -62,28 +101,28 @@ not a turn yet.
 
 ## 5. The turn lifecycle
 
-**Seed.** Play plants seeds without announcing them: she used flight in front of the
-mayor's kid; he offered her a seat in the Syndicate and she didn't say no. Seeds are
-moments where the story's potential energy changed. Most die quietly. That's fine —
-nature is wasteful.
+**Thread.** Play creates potential without announcing it: she used flight in front of the
+mayor's kid; he offered her a seat in the Syndicate and she didn't say no. Threads are
+moments where the story's potential energy changed. Most are never resolved and quietly
+lapse. That's fine.
 
-**Noticed.** The assistive layer's real work: making ripening seeds *visible* to the
-gardener. Not verdicts — weather and growth notes. "This one has been denied three
-scenes now." "The Syndicate offer is still open in the story's memory."
+**Surfaced.** The scan's real work: making ripening threads *visible* to the DM. Not
+verdicts — observations. "This one has been denied for three scenes now." "The Syndicate
+offer is still open in the story's memory."
 
-**Chosen.** The gardener calls it: when, whether, or never. Ripen, prune, let it stand.
+**Ratified.** The DM calls it: when, whether, or never. Resolve now, hold, let it lapse.
 Every fork in the story is theirs; we hold no opinion and offer none.
 
-**Bloomed.** The turn resolves into a new truth, voiced narratively: "she took the mask
-off," "she said yes." A bloom is a height event — escalation, revelation,
-transformation, or price — and every bloom plants fresh seeds.
+**Turn.** The ratified thread resolves into a new truth, voiced narratively: "she took
+the mask off," "she said yes." A turn is a height event — escalation, revelation,
+transformation, or price — and every turn creates fresh threads.
 
-**Legacy.** The residue: exposure, favors owed, lines the city drew, people who saw.
-Legacy is quiet until it isn't. Three arcs on, the villain reads her exposure and finds
-the crack. The garden exists to keep legacy alive until its season.
+**Residue.** What a turn leaves: exposure, favors owed, lines the city drew, people who
+saw. Residue is quiet until it isn't. Three arcs on, the villain reads her exposure and
+finds the crack. The ledger exists to keep residue alive until it pays off.
 
-Provenance, one layer down: a bloom's pedigree is *which seeds fed it*. The gardener can
-always ask "why is this true now?" and the garden answers with its own history.
+Provenance, one layer down: a turn's pedigree is *which threads fed it*. The DM can
+always ask "why is this true now?" and the ledger answers with its own history.
 
 ## 6. The appetite register
 
@@ -103,7 +142,7 @@ measure; the register tracks hunger, never permission.
   being the reason they need her).
 
 The engine is conflict, and it is appetite colliding with appetite, or appetite colliding
-with a price. That is drama. Incident is only weather.
+with a price. That is drama. Incident is only noise.
 
 ## 7. Shame decides visibility
 
@@ -130,9 +169,9 @@ The two clocks this creates:
   pathway to reckoning, and it arrives uninvited.
 
 Two consequences worth keeping: a hidden appetite that gets exposed lands harder than one
-that was never hidden — the reveal is its own bloom — and a shamed character's most
-consequential external acts are the ones that maintain the disguise, not the ones that feed
-the want.
+that was never hidden — the reveal is its own turn — and a shamed character's most
+consequential external acts are the ones that maintain the disguise, not the ones that
+feed the want.
 
 ## 8. The taste lifecycle
 
@@ -140,7 +179,9 @@ How an appetite is born and what becomes of it. Campaigns begin at or just after
 first taste, so appetites start young, pliable, with a known origin scene.
 
 **Taste.** First contact with the hunger: an admiration, a wound, a win that tasted
-better than expected. "I want to be like them" is the moment it is born.
+better than expected. "I want to be like them" is the moment it is born. Tastes do not
+occur spontaneously: the character acquires one because the DM wrote it, or because the
+scan surfaced a candidate and the DM ratified it where growth is permitted (§3).
 
 **Naming.** The want takes shape and picks its valence: sayable or unsayable. Shame is
 either born with the want or acquired later — an appetite that was fine to admit becomes
@@ -154,16 +195,16 @@ not when a new issue wanders in. Thrash-proof by construction.
 **Reckoning.** The appetite breaks into action, and there are three honest ends:
 **sated** (she gets it, and it tastes expected — or wrong), **starved** (she goes
 without; the appetite hardens, reroutes, or curdles into a grudge), or **transformed**
-(she discovers mid-stride that she wants something else now). Every reckoning is a
-bloom, and every bloom plants the next taste.
+(she discovers mid-stride that she wants something else now). Every reckoning is a turn,
+and every reckoning can plant the origin of the next taste.
 
-**Residue.** What a reckoning leaves: new tastes seeded from what just happened, habits
-of appetite (the pattern of how she gets fed), and inherited shame — wants passing
+**Residue.** What a reckoning leaves: new tastes originating from what just happened,
+habits of appetite (the pattern of how she gets fed), and inherited shame — wants passing
 downward through events she didn't choose.
 
-## 9. Impulses — the rendering to the seed
+## 9. Impulses — the rendering to the character
 
-An **impulse** is appetite rendered to the LLM as a lean, not a label: a pull it acts
+An **impulse** is appetite rendered to the model as a lean, not a label: a pull it acts
 through, not a fact it acknowledges.
 
 The counter-current mechanic: models smooth friction — pause, defer, tidy, negotiate the
@@ -177,36 +218,36 @@ are the same act, viewed from two distances.
 The shamed impulse and the unashamed impulse differ in texture, never in force: the
 unashamed reach is open ("she goes to them"), the shamed reach acts first and names
 itself later ("she finds herself moving; afterwards she'll call it protocol"). The
-conditions don't care which; the seed moves either way.
+conditions don't care which; the character moves either way.
 
 ## 10. The renderings
 
 One engine, two costumes. The DM sees the fork; the model feels the lean.
 
-**To the gardener.** No guide. The garden itself, made *visible* and *remembered*: what
-is sprouting, what is ripening, what is in bloom, what has withered or gone to seed,
-across the whole plot, for the entire campaign. Legibility and memory are the entire
-gift. Every tending decision — pruning, watering, transplanting, where things go — is
-theirs alone, always. The assistive layer speaks as weather and growth notes: questions
-and observations, never arrangements. The forms it thinks in:
+**To the DM.** No guide. The ledger itself, made *visible* and *remembered*: what is
+open, what is under pressure, what has been resolved, what has lapsed or been retired,
+across the whole campaign, for the entire history. Legibility and memory are the entire
+gift. Every decision — writing, editing, retiring, deciding what happens next — is
+theirs alone, always. The scan speaks as observations: questions and remarks, never
+arrangements. Its question-forms:
 
-- *Taste-notices:* "She's never been looked at like that before." — helping the gardener
+- *Taste-notices:* "She's never been looked at like that before." — helping the DM
   recognize a birth.
 - *Shame-questions:* "Could she say this out loud? If not — how does she get it anyway?"
   — pointing at the proxy route without naming it.
 - *Pressure-checkpoints:* "This want has been denied for three scenes now. What is it
   becoming?" — the clock, made audible.
-- *Lean-observations:* "The branch bends toward the kid — reaching means the press
-  line." — where the plant already grows, and what the growing costs. Observation of
-  consequence, never a recommendation.
+- *Lean-observations:* "She bends toward the kid — reaching means the press line." — where
+  the character already leans, and what the leaning costs. Observation of consequence,
+  never a recommendation.
 
-**To the seed.** Conditions only. Light, season, weather — never instruction. The
-impulse *is* the light; the bending is the seed's own doing, and we never mention that
-we are the reason.
+**To the character.** Conditions only. Light, season, the pull — never instruction, never
+a directive. The impulse is delivered as a lean; the movement is the model's own doing,
+and we never mention that we are the reason.
 
-**The board.** The gardener's thinking space, where the garden is examined and turned
-over. It too speaks only through observation. The board is where the gardener hears
-their own plot read back to them, complete and remembered, so they can tend it better.
+**The Board.** The DM's thinking space, where the ledger is examined and turned over. It
+too speaks only through observation. The Board is where the DM hears their own campaign
+read back to them, complete and remembered, so they can rule it better.
 
 ## 11. Decisions carried forward
 
@@ -219,16 +260,15 @@ Architecture-level decisions from the first round of this design. Not schema.
 - **Single hero.** Parties are a later problem with a different shape.
 - **No mechanics.** No dice, no resolution, no stat arbitration. The LLM remains the
   sole arbiter of outcomes; narrative is the only currency.
-- **The loop is assisted, never autonomous.** The extension notices; the gardener
-  writes. Nothing enters the garden's state without an explicit tending act.
+- **The loop is assisted, never autonomous.** The scan observes; the DM writes. Nothing
+  enters the ledger without an explicit ratifying act.
 
 ## 12. Open threads
 
-- The gardener-facing view: what the garden looks like when observed (shapes, not
-  structure).
-- The evaluator's question-forms in practice: how weather notes are phrased so they
-  stay observations.
-- How appetite renders into the digest's conditions — the exact grammar of a dare is
-  still being grown.
+- The Sheet: what the DM sees when they open it (shapes, not structure).
+- The scan's question-forms in practice: how observations are phrased so they stay
+  observations.
+- How appetites render into the digest's conditions — the exact grammar of an impulse is
+  still open.
 - Only after the concept has been lived with: the data model (still banned), file
   layout, event wiring, the extension skeleton itself.
