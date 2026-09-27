@@ -105,22 +105,34 @@ measure; the register tracks hunger, never permission.
 The engine is conflict, and it is appetite colliding with appetite, or appetite colliding
 with a price. That is drama. Incident is only weather.
 
-## 7. Shame is the friction generator
+## 7. Shame decides visibility
 
-Shame doesn't color a want; it decides where the want meets resistance, before anything
-else does.
+Shame doesn't color a want; it decides whether the want **collides** or **hides**. External
+conflict isn't the reward for being unashamed — it's what any *seen* appetite generates,
+because people react to what they can see: allies object, rivals exploit, the world pushes
+back on an open want. The unashamed appetite shows itself, so it collides immediately and
+legibly.
 
-- The **shamed** find friction within. An appetite that cannot be said must still be
-  fed, so it leaks sideways: proxies, disguises, midnight routes. The struggle isn't the
-  world resisting her — it's her arranging the world so she never has to see it plainly.
-  Internal friction wearing external events as a costume.
-- The **unshamed** find friction without. "She wants to be kind, she gets to be kind" —
-  and the world refuses to make it easy. Here the appetite is never the conflict; it is
-  the fuel that carries her *through* conflict. Kindness isn't the problem; a world
-  without easy kindness is the problem, and the kindness is why she keeps reaching
-  anyway.
+The shamed appetite would generate the same collision — and suppresses it by hiding. But
+hiding is an action, not an absence: the midnight route, the proxy, the arrangement of
+situations so nobody looks. The internal struggle is only half of it; the other half is a
+continuous external campaign of concealment. Internal friction wearing external events as a
+costume — and now we know why the costume exists.
 
-Two different jobs for appetite in a story. The register holds both without judgment.
+The two clocks this creates:
+
+- The **unashamed** appetite is kept honest by immediate collision; its reckoning comes
+  due when the world's pushback passes tolerance.
+- The **shamed** appetite hides from the clock. Nothing external forces the issue, so
+  pressure does not decay — it accrues quietly and waits for exposure. When the want
+  surfaces (and it surfaces, three arcs later), the collision is worse than it would have
+  been, because concealment has turned a conflict into a betrayal. Exposure is the shamed
+  pathway to reckoning, and it arrives uninvited.
+
+Two consequences worth keeping: a hidden appetite that gets exposed lands harder than one
+that was never hidden — the reveal is its own bloom — and a shamed character's most
+consequential external acts are the ones that maintain the disguise, not the ones that feed
+the want.
 
 ## 8. The taste lifecycle
 
