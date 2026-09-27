@@ -1,0 +1,17 @@
+# Pi
+.pi/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+.beads*
+
+node_modules/
+npm-debug.log*
+.DS_Store
+*.tmp
+
+# Scratch research notes—never tracked, cross-referencing only.
+.scratch/
