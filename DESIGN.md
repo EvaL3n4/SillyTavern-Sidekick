@@ -11,12 +11,32 @@ DM-ratified state loop. Everything else below is the design as it now stands.
 **No schema in this document, by design.** The data model comes later, after the concept
 has been lived with. Structure before shape.
 
+## The flow
+
+The whole engine in one line:
+
+> Taste becomes appetite. Appetite becomes impulse. Impulse becomes movement. Movement
+> becomes crash.
+
+- A **taste** is first contact with a hunger; it becomes an entry in the **appetite**
+  register (§6, §8).
+- The digest renders the live appetite as an **impulse** the model acts on (§9).
+- The model acts — **movement** — and the world answers. When the world objects, that is
+  the **crash**: the collision of §7, the moment the want meets resistance.
+- Crashes change the register: pressure (the clock, §8), residue, fresh threads (§5), and
+  the DM's next view of the ledger (§10).
+
+The movement is the model's; everything it lands on is the world's — improvised by the
+DM in the moment, forever unscripted by us. Trellis holds the chain together and
+watches where it breaks.
+
 ## Terminology
 
 The document began in a garden metaphor, and the metaphor still carries the philosophy.
-It is now demoted to *voice*: it may appear in how we talk to each other and in the
-product's user-facing copy, never in function names, state, or mechanism sections. The
-mapping is frozen:
+It is now demoted to *voice*: it belongs in prose and in top-level concept explanation,
+never in the product's operational surfaces. Users get plain terminology everywhere — no
+seeds, no gardens, no gardeners in the interface or in copy they must act on. The point
+is a bit of flair, not to be all flair. The mapping is frozen:
 
 | Metaphor | Mechanism |
 | --- | --- |
@@ -84,8 +104,9 @@ it there. We never invent limits, never require them, never enforce them.
 
 Appetite genesis follows the same law: no new want enters the register unbidden. Appetites
 are written by the DM directly, or — only where the DM has granted growth permission —
-surfaced by the scan and ratified before taking root. Editing and retiring entries are
-the DM's tools too. Unbidden want-spawning is the old failure mode by another name
+surfaced by the scan and ratified before it enters the register. Editing and retiring
+entries are the DM's tools too. Unbidden want-spawning is the old failure mode by
+another name
 (escalation ex nihilo, one issue thrashing into the next), and the register stays closed
 to it by default.
 
@@ -196,7 +217,7 @@ not when a new issue wanders in. Thrash-proof by construction.
 **sated** (she gets it, and it tastes expected — or wrong), **starved** (she goes
 without; the appetite hardens, reroutes, or curdles into a grudge), or **transformed**
 (she discovers mid-stride that she wants something else now). Every reckoning is a turn,
-and every reckoning can plant the origin of the next taste.
+and every reckoning can originate the next taste.
 
 **Residue.** What a reckoning leaves: new tastes originating from what just happened,
 habits of appetite (the pattern of how she gets fed), and inherited shame — wants passing
@@ -229,7 +250,8 @@ open, what is under pressure, what has been resolved, what has lapsed or been re
 across the whole campaign, for the entire history. Legibility and memory are the entire
 gift. Every decision — writing, editing, retiring, deciding what happens next — is
 theirs alone, always. The scan speaks as observations: questions and remarks, never
-arrangements. Its question-forms:
+arrangements. Its question-forms — top-level concept labels; the notes themselves stay
+plain language:
 
 - *Taste-notices:* "She's never been looked at like that before." — helping the DM
   recognize a birth.
@@ -241,9 +263,9 @@ arrangements. Its question-forms:
   the character already leans, and what the leaning costs. Observation of consequence,
   never a recommendation.
 
-**To the character.** Conditions only. Light, season, the pull — never instruction, never
-a directive. The impulse is delivered as a lean; the movement is the model's own doing,
-and we never mention that we are the reason.
+**To the character.** Conditions only — never instruction, never a directive. The impulse
+gives the model something to move toward rather than a fact to acknowledge. The
+movement is the model's own doing, and we never mention that we are the reason.
 
 **The Board.** The DM's thinking space, where the ledger is examined and turned over. It
 too speaks only through observation. The Board is where the DM hears their own campaign
