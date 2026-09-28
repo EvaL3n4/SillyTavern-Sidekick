@@ -270,7 +270,7 @@ ever—`extensionSettings` is world-readable to all extensions.
 
 ## 7. Architecture map
 
-```
+```text
 manifest.json      display_name, loading_order, generate_interceptor,
                    minimum_client_version 1.18.0, hooks: { clean: onClean }
 index.js           entry point; activates on APP_READY
