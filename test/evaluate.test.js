@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { isDigestMessage } from '../src/inject.js';
 import { renderDigest } from '../src/grammar.js';
-import { PROPOSAL_SCHEMA, SCENE_WINDOW, buildPrompt, runGeneration, sceneWindow } from '../src/evaluate.js';
+import { PROPOSAL_SCHEMA, SCENE_WINDOW, buildPrompt, runGeneration, sceneWindow, validateProposals } from '../src/evaluate.js';
 
 /** A plain chat message in the shape SillyTavern holds. */
 function mes(name, text = 'a line', isUser = true) {
@@ -313,8 +313,148 @@ describe('runGeneration', () => {
     });
 
     it('refuses to guess the generation function', async () => {
-        // generateRaw is a module export of script.js, not a global, so this
-        // module cannot default it and index.js must pass it in
+        // generateRaw lives on SillyTavern.getContext(), never on this module's
+        // globals, so it has to be handed in--by index.js in the browser, by a stub
+        // under node --test
         await assert.rejects(() => runGeneration(prompt, PROPOSAL_SCHEMA, {}), /generation function/);
+    });
+});
+
+describe('validateProposals', () => {
+    /** A proposal that satisfies every rule the schema and the code express. */
+    function good(changes = [{ path: 'hero.status_quo', to: 'moved' }], evidence = [4]) {
+        return { summary: 'record the move', changes, evidence };
+    }
+
+    /** Wraps proposals in the response shape a pass returns. */
+    function pass(proposals) {
+        return { proposals };
+    }
+    /**
+     * A copy of a proposal with keys dropped, which is what a model forgets to
+     * send. Copying first matters: the fixture is reused by later assertions.
+     */
+    function withoutKeys(proposal, ...keys) {
+        const copy = { ...proposal };
+        for (const key of keys) {
+            delete copy[key];
+        }
+        return copy;
+    }
+
+    it('returns the proposals from a conforming pass', () => {
+        assert.deepEqual(validateProposals(pass([good()])), [good()]);
+    });
+
+    it('returns [] for an empty pass, which is a pass that found nothing', () => {
+        // the prompt asks for {"proposals": []} when nothing qualifies, and that
+        // is a legitimate answer rather than a failure
+        assert.deepEqual(validateProposals(pass([])), []);
+    });
+
+    it('never throws, whatever it is handed', () => {
+        const junk = ['plain prose from a backend', null, undefined, 0, '', [], true,
+            {}, { proposals: undefined }, { proposals: null },
+            { proposals: 'nope' }, { proposals: {} }, { proposals: [null] },
+            { proposals: [{}] }, { proposals: [42] }, { proposals: [[1]] }];
+
+        for (const value of junk) {
+            assert.deepEqual(validateProposals(value), [], `accepted ${JSON.stringify(value)}`);
+        }
+    });
+
+    it('rejects a pass with no proposals key at all', () => {
+        // the shape a failed pass arrives in: extractJsonFromData stringifies a {}
+        // result, so an absent proposals key is the common failure
+        assert.deepEqual(validateProposals({}), []);
+    });
+
+    it('rejects a proposal with no summary', () => {
+        assert.deepEqual(validateProposals(pass([withoutKeys(good(), 'summary')])), []);
+    });
+
+    it('rejects a proposal with no changes', () => {
+        assert.deepEqual(validateProposals(pass([withoutKeys(good(), 'changes')])), []);
+    });
+
+    it('rejects a summary that is not a string', () => {
+        assert.deepEqual(validateProposals(pass([{ ...good(), summary: 7 }])), []);
+    });
+
+    it('rejects a change with no path', () => {
+        const change = { to: 'moved' };
+        assert.deepEqual(validateProposals(pass([good([change])])), []);
+    });
+
+    it('rejects a change with no to', () => {
+        const change = { path: 'hero.status_quo' };
+        assert.deepEqual(validateProposals(pass([good([change])])), []);
+    });
+
+    it('rejects a change whose path or to is not a string', () => {
+        assert.deepEqual(validateProposals(pass([good([{ path: 0, to: 'x' }])])), []);
+        assert.deepEqual(validateProposals(pass([good([{ path: 'a', to: 1 }])])), []);
+    });
+
+    it('rejects a change whose from is not a string', () => {
+        assert.deepEqual(validateProposals(pass([good([{ path: 'a', from: 2, to: 'x' }])])), []);
+    });
+
+    it('accepts a change that carries no from at all', () => {
+        // §6 marks from optional: an insert into an empty array has no prior
+        assert.deepEqual(validateProposals(pass([good([{ path: 'a', to: 'x' }])])),
+            [good([{ path: 'a', to: 'x' }])]);
+    });
+
+    it('rejects evidence that is not an array of integers', () => {
+        for (const evidence of ['4', [4.5], [{}], [null], 4, {}]) {
+            assert.deepEqual(validateProposals(pass([good(undefined, evidence)])), [],
+                `accepted evidence ${JSON.stringify(evidence)}`);
+        }
+    });
+
+    it('rejects a summary that is blank rather than merely short', () => {
+        for (const summary of ['', '   ', '\t\n']) {
+            const proposal = { ...good(), summary };
+            assert.deepEqual(validateProposals(pass([proposal])), [], `accepted ${JSON.stringify(summary)}`);
+        }
+    });
+
+    it('rejects an empty changes array, which is schema-conforming and useless', () => {
+        assert.deepEqual(validateProposals(pass([good([])])), []);
+    });
+
+    it('rejects a proposal with no evidence, because it cites no message', () => {
+        assert.deepEqual(validateProposals(pass([withoutKeys(good(), 'evidence')])), []);
+    });
+
+    it('voids the whole pass when a single proposal is malformed', () => {
+        // one malformed entry never reaches the per-item rules: the schema walk
+        // rejects the array through .items first, so the good ones go with it
+        const broken = { summary: 'no changes here' };
+        assert.deepEqual(validateProposals(pass([good(), broken, good()])), []);
+    });
+
+    it('voids the whole pass when a single proposal is unusable', () => {
+        // the rules the schema cannot express behave the same way: a blank
+        // summary is schema-conforming, and still voids the pass
+        const blank = { ...good(), summary: '   ' };
+        const empty = { ...good(), changes: [] };
+        const uncited = { summary: 'a move', changes: [{ path: 'a', to: 'b' }] };
+
+        for (const proposal of [blank, empty, uncited]) {
+            assert.deepEqual(validateProposals(pass([good(), proposal])), [],
+                `kept a pass holding ${JSON.stringify(proposal)}`);
+        }
+    });
+
+    it('reads the schema rather than restating it', () => {
+        // The gate is the schema. A proposal that satisfies everything
+        // PROPOSAL_SCHEMA.value and the code require has nowhere left to fail, so
+        // tightening PROPOSAL_SCHEMA must tighten the gate with it--which is the
+        // property this test holds open by going through the real schema.
+        const item = PROPOSAL_SCHEMA.value.properties.proposals.items;
+        assert.ok(item.required.includes('summary'));
+        assert.ok(item.required.includes('changes'));
     });
 });

@@ -204,6 +204,119 @@ export const PROPOSAL_SCHEMA = {
 };
 
 /**
+ * §3: output is validated on receipt, and a non-conforming pass is a silent
+ * no-op.
+ *
+ * The gate reads PROPOSAL_SCHEMA rather than restating it, so the schema that
+ * constrains generation is also the schema that gates receipt. Adding a field to
+ * PROPOSAL_SCHEMA tightens this with it instead of quietly drifting from it.
+ *
+ * Only the draft-04 keywords PROPOSAL_SCHEMA actually uses are implemented:
+ * type, properties, required, items. Anything unsupported (a $ref, say) reads as
+ * a mismatch, because refusing a proposal is recoverable and half-checking one
+ * is not.
+ *
+ * Silence means silence. A rejection returns [] and logs nothing, so a flaky
+ * backend does not fill the console mid-session. There is no prose to detect
+ * either: a failed pass arrives as the string '{}' from extractJsonFromData.
+ *
+ * Path validity is deliberately not this validator's job. applyProposal owns the
+ * provenance gate and is the only thing positioned to call a path stale; a path
+ * check here would reject proposals the DM could still resolve by hand.
+ */
+function isObject(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Walks one node of a schema. True means conforming.
+ * @param {*} value the model's data at this node
+ * @param {object} schema a schema node in the supported draft-04 subset
+ * @returns {boolean}
+ */
+function matchesSchema(value, schema) {
+    if (!isObject(schema)) {
+        return true; // nothing declared at this node, nothing to enforce
+    }
+
+    if (schema.$ref !== undefined || schema.anyOf !== undefined || schema.oneOf !== undefined) {
+        return false; // unsupported keyword; reject rather than half-check
+    }
+
+    const declared = schema.type;
+    if (declared !== undefined) {
+        const actual = Array.isArray(value) ? 'array'
+            : value === null ? 'null'
+                : typeof value === 'number' ? (Number.isInteger(value) ? 'integer' : 'number')
+                    : typeof value;
+        if (actual !== declared) {
+            return false;
+        }
+    }
+
+    if (declared === 'object') {
+        for (const key of schema.required ?? []) {
+            if (!Object.hasOwn(value, key)) {
+                return false;
+            }
+        }
+        for (const [key, child] of Object.entries(schema.properties ?? {})) {
+            if (Object.hasOwn(value, key) && !matchesSchema(value[key], child)) {
+                return false;
+            }
+        }
+    }
+
+    if (declared === 'array') {
+        const items = schema.items;
+        if (isObject(items) && !value.every((item) => matchesSchema(item, items))) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Rules PROPOSAL_SCHEMA cannot express, each of which makes a proposal unusable
+ * rather than merely unexpected. An empty summary or an empty changes array is
+ * schema-conforming and still nothing the DM can act on, and evidence is what
+ * the review queue jumps on, so a proposal without it cites nothing. The
+ * integer-ness of each evidence index is PROPOSAL_SCHEMA's job, not a second
+ * copy of it here.
+ *
+ * @param {object} proposal already known to conform to PROPOSAL_SCHEMA
+ * @returns {boolean}
+ */
+function isActionable(proposal) {
+    return (
+        typeof proposal.summary === 'string' &&
+        proposal.summary.trim().length > 0 &&
+        proposal.changes.length > 0 &&
+        Array.isArray(proposal.evidence)
+    );
+}
+
+/**
+ * @param {*} response whatever runGeneration parsed out of the pass
+ * @returns {object[]} the well-formed proposals, or [] for anything else
+ */
+export function validateProposals(response) {
+    if (!matchesSchema(response, PROPOSAL_SCHEMA.value)) {
+        return [];
+    }
+
+    // The schema walk already enforced every item through .items, so a proposal
+    // array holding one malformed entry never reaches here--it is rejected one line
+    // above. The same governs the rules the schema cannot express: one unusable
+    // proposal voids the pass rather than being quietly dropped.
+    //
+    // §3 calls this a silent no-op, and that is the stricter reading by design.
+    // A pass is one generation, so partial output is that generation's judgement
+    // being unreliable, not half of a verdict worth keeping.
+    return response.proposals.every(isActionable) ? response.proposals : [];
+}
+/**
  * §3: one quiet pass. One API call, nothing written, nothing rendered.
  *
  * `generateRaw`, not `generateQuietPrompt`. Both take jsonSchema and both
