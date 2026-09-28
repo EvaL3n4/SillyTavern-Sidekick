@@ -1,8 +1,8 @@
 # Sidekick — Design
 
 Status: concept phase, restarted 2026-09-28. Target: SillyTavern 1.18.0+ (client-only
-extension, no server plugin, no Extras). One audience: the campaigns this tool was built
-to serve. Every example in this document is drawn from real campaigns.
+extension, no server plugin, no Extras). Every example in this document is drawn from
+real campaigns.
 
 This document supersedes the "Trellis" draft. What survives from it: the appetite
 rendering layer, the pressure clock, shame-as-concealment, and residue—rebuilt here as
@@ -16,27 +16,30 @@ they were always meant to pass.
 A dosage instrument against LLM flatness.
 
 Models smooth friction. They pause, defer, tidy, and negotiate wants away—and under
-pressure they insure. The failure has a recognizable shape: give a
-model a hero mid-lunge to catch a falling friend and a hedgy model reroutes the sentence
-into safety procedure—because a body described as a rigging problem never
-has to risk itself. Run the same card, same settings, different model, and the behavior
-flips: one instance tethers, one springs. That is the flatness Sidekick treats. Not bad
-grammar, not stat drift, but the main character's survival being quietly promoted above their want.
+pressure they insure. The failure has a recognizable shape: give a model a hero mid-lunge
+to catch a falling friend and a hedgy model reroutes the sentence into safety procedure—
+because a body described as a rigging problem never has to risk itself. Run the same
+card, same settings, different model, and the behavior flips: one instance tethers, one
+springs. That is the flatness Sidekick treats. Not bad grammar, not stat drift, but the
+main character's survival being quietly promoted above their want.
 
 Sidekick doses the counterweight. It keeps durable campaign state—what the hero can do,
 what it costs, what they have crossed, what is unresolved and under pressure—and renders
 a lean prose digest of *who the hero is right now* into every generation. The digest is
 the product; everything else is calibration machinery for setting its dose.
 
-The pitch, unchanged from the first draft because it was always right: **an LLM player
-character that has powers, capability, and potential and an arc—and still recognizes all three ten
-thousand messages later.**
+The pitch from the first draft, kept because it was always right: **an LLM player
+character that has powers with limits and costs, and an arc—and still recognizes both,
+ten thousand messages later.**
+
+Every paragraph holds itself to one test: it earns its place against a real surface,
+or it is cut.
 
 ## 2. The state model
 
 Three registers of state. Everything in the extension serves these.
 
-**Powers are capability + limits + cost, one indivisible entry.** Every tracked power carries
+**Powers are capability + limits + cost, one indivisible entry.** Every tracked power
 all three parts: what it does in the hero's own vocabulary, what it can't do or is
 getting wrong, and what using it takes. A capability-only entry degenerates into a wish
 list and the model stops respecting limits within ten messages. Powers also carry a
@@ -44,27 +47,29 @@ list and the model stops respecting limits within ten messages. Powers also carr
 
 **Arc is where the hero is in their story.** `phase` from the setting's own phases;
 `threads[]` unresolved; active stresses in `pressures[]`; boundaries (good or bad)
-crossed in `linesCrossed[]` with what each provides. Lines crossed are never deleted—the ledger's memory of
-their weight is the feature.
+crossed in `linesCrossed[]` with what each provides. Lines crossed are never deleted—the
+ledger's memory of their weight is the feature.
 
 **Cosmology is the setting's own words.** Where powers come from, what the stages are
-called, what the costs are called, what the world forbids. The model assumes these defaults; the DM edits them like anything else in the ledger.
+called, what the costs are called, what the world forbids. Empty until the DM writes
+them—the ledger never invents a vocabulary.
 
 **Deltas and provenance.** State changes are events, not field edits. Every accepted
 change records its narrative summary ("stopped holding back after the bridge"), its
 evidence (which scenes justified it), and its origin—`evaluation` (the scan proposed
-it), `discussion` (the board), or `manual` (the DM wrote it). Provenance hopes to answer "why
-does it think that now?" without archaeology, and makes refusal honest: reject a
+it), `discussion` (the board), or `manual` (the DM wrote it). Provenance hopes to answer
+"why does it think that now?" without archaeology, and makes refusal honest: reject a
 proposed delta and the history vanishes with it.
 
 ## 3. The loop
 
 The loop in full: the DM rules, the ledger holds, the digest renders, the hero acts, the
 world answers, the scan reads what happened, proposals return, the DM rules. The last
-arrow is the one that makes this a loop instead of a notepad.
+arrow is the one that makes this a loop instead of a notepad. Sidekick holds opinions
+and says them plainly; the word that enters the record is always the DM's.
 
 **The scan.** On a cadence (default every 15 messages, configurable, manual trigger
-always available), a quiet generation reads the
+always available), a quiet generation—never rendered in the campaign chat—reads the
 recent scene window and returns structured observations and candidate deltas. Output is
 schema-constrained and validated on receipt; a failed pass is a silent no-op, never a
 state mutation.
@@ -101,7 +106,9 @@ alongside it:
 - **Taste** — first contact with a hunger. In state: a scene that becomes a power's
   origin, or the moment a thread is born. The ledger holds it so the want has a
   birthplace.
-- **Pressure** — a want comes due because `pressures[]` records tolerance, and the DM chose to dig in.
+- **Pressure** — stress carried by the character and by the DM alike; `pressures[]`
+  records the tolerance, and a want comes due when the DM digs in—not when a new
+  issue wanders in.
 - **Reckoning** — the want breaks into action: sated, starved, or transformed. In state:
   a thread resolving into a turn, a power changing stage, a line crossed.
 - **Residue** — what reckoning leaves. In state: `linesCrossed[]`, history entries,
@@ -113,7 +120,7 @@ situation, the concealment that costs. The shamed character's most consequential
 external acts are the ones that maintain the disguise, not the ones that feed the want.
 Pressure on a hidden want accrues quietly and surfaces, however many scenes
 later—and its exposure lands harder than the original conflict would have. In
-state terms: concealment shows up as `costs[]` entries cashed in.
+state terms: concealment shows up as `costs[]` entries paid in full.
 
 **The grammar rules.** These are the spec, derived from the reroll evidence—the same
 beat rerolled until the difference between tether-writing and springboard-writing was
