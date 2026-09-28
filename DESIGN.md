@@ -272,7 +272,7 @@ ever—`extensionSettings` is world-readable to all extensions.
 
 ```text
 manifest.json      display_name "Sidekick", js index.js, css style.css, author,
-                   version 1.0.0, loading_order 1, generate_interceptor,
+                   version, homePage, generate_interceptor,
                    minimum_client_version 1.18.0, hooks: { clean: onClean }
 index.js           entry point; activates on APP_READY
 src/state.js       state load/migrate/save, provenance-gated mutations, ruling log

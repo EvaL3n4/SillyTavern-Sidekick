@@ -1,6 +1,6 @@
 {
     "name": "sillytavern-sidekick",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "private": true,
     "type": "module",
     "description": "Sidekick — a dosage-style hero arc product for single-DM superhero campaigns.",
@@ -15,7 +15,7 @@
         "prepare": "husky",
         "test": "node --test",
         "lint": "eslint .",
-        "lint:md": "markdownlint-cli2",
+        "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
         "lint-staged": "lint-staged"
     },
     "engines": {

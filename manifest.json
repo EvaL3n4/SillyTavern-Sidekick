@@ -1,10 +1,10 @@
 {
     "display_name": "Sidekick",
-    "loading_order": 1,
     "js": "index.js",
     "css": "style.css",
     "author": "Eva",
-    "version": "1.0.0",
+    "version": "0.0.1",
+    "homePage": "https://github.com/EvaL3n4/SillyTavern-Sidekick",
     "generate_interceptor": "sidekickInterceptor",
     "minimum_client_version": "1.18.0",
     "hooks": {
