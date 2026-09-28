@@ -12,6 +12,24 @@ import { renderDigest, shouldSkip } from './grammar.js';
 /** The name the manifest's `generate_interceptor` field points at. */
 export const INTERCEPTOR_NAME = 'sidekickInterceptor';
 
+/** §5: the name the injected digest carries in the chat array. */
+export const DIGEST_AUTHOR = 'Sidekick';
+
+/**
+ * True for a message this extension inserted.
+ *
+ * The check is on an `extra` flag rather than on the name alone: matching
+ * `name` would silently drop a real message from any campaign whose character
+ * happens to be called Sidekick, and the scan would quietly read a shorter
+ * scene than the DM wrote. The name stays for readability; the flag is what
+ * makes identification exact.
+ *
+ * @param {object} message a chat message
+ * @returns {boolean}
+ */
+export function isDigestMessage(message) {
+    return message?.extra?.sidekick === true;
+}
 /**
  * @param {object} options
  * @param {() => object|null} options.getState current SidekickState, or null
@@ -40,6 +58,8 @@ export function createInterceptor({ getState }) {
             name: 'Sidekick',
             send_date: Date.now(),
             mes: text,
+            // so the evaluation scan can tell our render from the DM's scene
+            extra: { sidekick: true },
         });
     };
 }

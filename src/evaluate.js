@@ -8,6 +8,7 @@
  * prose and proposes deltas that merely restate the render.
  */
 import { hasState } from './grammar.js';
+import { isDigestMessage } from './inject.js';
 
 /** §3: fixed, configurable cadence. Matches LocalSettings.evaluationCadence. */
 export const DEFAULT_CADENCE = 15;
@@ -19,6 +20,40 @@ export const DEFAULT_CADENCE = 15;
  */
 export function shouldEvaluate(messagesSince, cadence = DEFAULT_CADENCE) {
     return Number.isFinite(messagesSince) && messagesSince > 0 && messagesSince % cadence === 0;
+}
+
+/**
+ * §3: roughly a scene's worth of messages, as a constant rather than a
+ * LocalSettings field. §6's LocalSettings carries only evaluationCadence and
+ * digestBudgetTokens, so a third setting is a §6 change and needs its own
+ * justification.
+ */
+export const SCENE_WINDOW = 30;
+
+/**
+ * §3: the raw material the scan reads. The trailing `limit` messages of the
+ * chat, with our own digest render excluded.
+ *
+ * The exclusion is defensive, not load-bearing. src/inject.js splices the
+ * digest into `coreChat`--the fresh array SillyTavern hands to
+ * generation--never into the persisted chat, so no digest reaches this
+ * function in normal flow. Keep it anyway: the one-way valve is a property
+ * every read enforces, not one the call path is trusted to preserve.
+ *
+ * @param {object[]} chat the chat array as SillyTavern holds it
+ * @param {object} [options]
+ * @param {number} [options.limit] window size, defaults to SCENE_WINDOW
+ * @returns {object[]} the messages the scan may read
+ */
+export function sceneWindow(chat, { limit = SCENE_WINDOW } = {}) {
+    if (!Array.isArray(chat)) {
+        return [];
+    }
+
+    // a nonsense limit falls back to the default rather than reading nothing
+    const size = Number.isInteger(limit) && limit > 0 ? limit : SCENE_WINDOW;
+    const readable = chat.filter((message) => !isDigestMessage(message));
+    return readable.slice(Math.max(0, readable.length - size));
 }
 
 /**

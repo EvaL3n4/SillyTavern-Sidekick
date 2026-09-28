@@ -15,7 +15,7 @@
         "prepare": "husky",
         "test": "node --test",
         "lint": "eslint .",
-        "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
+        "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#.beads/**\" \"#AGENTS.md\"",
         "lint-staged": "lint-staged"
     },
     "engines": {
