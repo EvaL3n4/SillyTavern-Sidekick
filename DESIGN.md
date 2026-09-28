@@ -52,7 +52,7 @@ ledger's memory of their weight is the feature.
 
 **Cosmology is the setting's own words.** Where powers come from, what the stages are
 called, what the costs are called, what the world forbids. Empty until the DM writes
-them—the ledger never invents a vocabulary.
+them—the ledger never invents a vocabulary. The reference campaign's is in the appendix.
 
 **Deltas and provenance.** State changes are events, not field edits. Every accepted
 change records its narrative summary ("stopped holding back after the bridge"), its
@@ -151,7 +151,7 @@ legible:
 digest from state, and inserts one ephemeral message before the last user message—never
 writing to the real chat array. The digest is prose in DM-brief voice, roughly 200
 tokens, budget-enforced against context size: when over budget, limits and costs
-compress before the arc does, and the arc line is never dropped—it is what makes her
+compress before the arc does, and the arc is never dropped—it is what makes her
 behave differently over time. Quiet generations and sessions with no state are skipped.
 
 **The worked render.** Hailey, freshly manifested, ledger to date: the spark
@@ -173,7 +173,7 @@ That is the dose: power with its limits intact, shame as concealment, pressure a
 and a closing lean that pre-refuses the tether pattern by name.
 
 **The acceptance test.** The campaign's catch beat—the hero mid-lunge for a falling
-friend—rendered from a similar lean must come back as springboard: foot planted to
+friend—rendered from the ledger above must come back as springboard: foot planted to
 launch, not to anchor; decision narrated, not procedure; the world still speaking
 ("Maxine, stay down!"); the outcome unresolved to the last clause. When a model given
 this digest still tethers, the grammar is wrong and the render changes. The test is
@@ -215,6 +215,7 @@ interface Arc {
   pressures: Pressure[];
   linesCrossed: {
     line: string;
+    provides: string;
     cost: string;
     msgId: number;
   }[];
@@ -238,6 +239,7 @@ interface ChangeEvent {
   origin: string;
   evidence: number[];
   at: number;
+  changes?: { path: string; from: string; to: string }[];
 }
 
 interface Ruling {
@@ -273,7 +275,8 @@ style.css          near-mono palette + single warm accent
 
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind),
 `GENERATION_ENDED` (avoid overlapping quiet passes), `APP_READY` (setup). Slash commands
-via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest preview`.
+via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on demand,
+`/hero digest preview` renders the digest without generating.
 
 ## 8. v1 scope / non-goals
 
@@ -289,7 +292,7 @@ via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest pr
 
 **Non-goals for v1**
 
-- Parties/multiple tracked characters (the model allows a hero array later; the UI does
+- Parties/multiple tracked characters (the schema allows a hero array later; the UI does
   not).
 - Any dice or mechanical resolution. Narrative stays the sole arbiter.
 - World Info read/write integration (a "copy digest as World Info entries" export is a
@@ -298,8 +301,8 @@ via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest pr
   hard non-goal, enforced at the schema level: proposals address state, not scenes.
 - **Per-model tuning.** The digest is instance-agnostic by design; no per-branch card
   patching, no model-specific phrasing branches.
-- i18n, preset-field storage, bundlers/frameworks (vanilla JS + Handlebars templates via
-  `renderExtensionTemplateAsync`).
+- No i18n, no preset-field storage, no bundlers or frameworks (vanilla JS + Handlebars
+  templates via `renderExtensionTemplateAsync`).
 
 ## 9. Open questions
 
@@ -312,10 +315,10 @@ via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest pr
 4. Evaluation cadence: 15 messages, or scaled with scene length?
 5. The ruling log's persistence: where it lives in chatMetadata, how long it survives
    branch switching, and how much of a refusal the scan is allowed to remember.
-6. Dose response: the scan reads recent scenes anyway—should flatness signals (tether-
+6. Hero file export semantics—the chat file is the store, so a journal export is a
+   convenience and not a backup. Defer.
+7. Dose response: the scan reads recent scenes anyway—should flatness signals (tether-
    writing in the actual output) strengthen the next render's lean? Candidate for v1.x.
-7. Hero file export/backup semantics—the chat file is the store; expose a journal export
-   in v1 or defer.
 
 ## Appendix — the reference campaign
 
