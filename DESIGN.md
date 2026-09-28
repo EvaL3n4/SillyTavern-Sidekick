@@ -34,18 +34,7 @@ and never scripted by us. Trellis holds the chain together and watches where it 
 The garden metaphor is demoted to *voice*: it belongs in prose and top-level concept
 explanation, never in the product's operational surfaces. Users get plain terminology
 everywhere—no seeds, no gardens, no gardeners in the interface or in copy they must act
-on. A bit of flair, not all flair. The mapping is frozen:
-
-| Metaphor | Mechanism |
-| --- | --- |
-| the garden | the ledger (all durable state) |
-| the gardener | the DM |
-| the seed | the LLM-played character |
-| weather, growth notes | observations (scan output) |
-| a bloom | a recorded turn |
-| legacy | residue |
-| pruning, trimming | editing, retiring appetite entries |
-| tending | ratifying a change |
+on. A bit of flair, not all flair.
 
 The product's functions, plainly named:
 
