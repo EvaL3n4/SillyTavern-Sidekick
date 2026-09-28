@@ -34,6 +34,11 @@ export const SCENE_WINDOW = 30;
  * §3: the raw material the scan reads. The trailing `limit` messages of the
  * chat, with our own digest render excluded.
  *
+ * Each entry carries `index`, its position in the whole chat. §6's
+ * PendingChange.evidence is a list of chat message indices and the review queue
+ * jumps to them, so a window-relative position would send the DM to the wrong
+ * message. The slice keeps the original indices rather than renumbering.
+ *
  * The exclusion is defensive, not load-bearing. src/inject.js splices the
  * digest into `coreChat`--the fresh array SillyTavern hands to
  * generation--never into the persisted chat, so no digest reaches this
@@ -43,7 +48,7 @@ export const SCENE_WINDOW = 30;
  * @param {object[]} chat the chat array as SillyTavern holds it
  * @param {object} [options]
  * @param {number} [options.limit] window size, defaults to SCENE_WINDOW
- * @returns {object[]} the messages the scan may read
+ * @returns {object[]} {index, message} entries
  */
 export function sceneWindow(chat, { limit = SCENE_WINDOW } = {}) {
     if (!Array.isArray(chat)) {
@@ -52,8 +57,109 @@ export function sceneWindow(chat, { limit = SCENE_WINDOW } = {}) {
 
     // a nonsense limit falls back to the default rather than reading nothing
     const size = Number.isInteger(limit) && limit > 0 ? limit : SCENE_WINDOW;
-    const readable = chat.filter((message) => !isDigestMessage(message));
+    const readable = chat
+        .map((message, index) => ({ index, message }))
+        .filter((entry) => !isDigestMessage(entry.message));
     return readable.slice(Math.max(0, readable.length - size));
+}
+
+/**
+ * §3: what the scan may propose, and what it may never propose. The schema
+ * enforces the second half structurally--there is no field for what happens
+ * next--so this has to aim the first half, or the model spends its budget
+ * re-describing the scene instead of reading the ledger.
+ *
+ * §4's no-meta-awareness rule governs the *render*, not this prompt: the
+ * scan's audience is the model, and naming the ledger is the point.
+ */
+const SYSTEM_PROMPT = [
+    'You are the bookkeeping scan for a tabletop campaign ledger.',
+    '',
+    'You read a scene and the ledger it belongs to, and you propose state',
+    'changes only.',
+    '',
+    'You may propose:',
+    '- entries to write: a power, a thread, a pressure, or a line crossed',
+    '- threads to surface: one that has gone quiet, or one coming due',
+    '- pressures coming due: tolerance spent, denials accumulating',
+    '- phrasing for a turn the DM should record',
+    '',
+    'You never propose:',
+    '- story outcomes',
+    '- campaign direction',
+    '- opinions about what should happen next',
+    '- anything the scene did not justify',
+    '',
+    'Cite the chat message indices that justify each proposal. If nothing in the',
+    'scene justifies a change, propose nothing.',
+].join('\n');
+
+/**
+ * @param {object|null} state a SidekickState (§6)
+ * @returns {string}
+ */
+function renderState(state) {
+    if (!state) {
+        return '(no ledger yet)';
+    }
+
+    // Structured state only. `rulings` is the documented seam for §8's "drafts in
+    // the DM's idiom" work and is omitted rather than half-designed here; so are
+    // queue, history and version, which describe the ledger's paperwork rather
+    // than the ledger itself.
+    const seen = {
+        cosmology: state.cosmology,
+        hero: state.hero,
+        powers: state.powers,
+        arc: state.arc,
+    };
+    return JSON.stringify(seen, null, 2);
+}
+
+/**
+ * @param {object[]} scene entries from sceneWindow
+ * @returns {string}
+ */
+function renderScene(scene) {
+    if (!Array.isArray(scene) || scene.length === 0) {
+        return '(no scene yet)';
+    }
+
+    return scene
+        .map(({ index, message }) => `[${index}] ${message?.name ?? 'unknown'}: ${message?.mes ?? ''}`)
+        .join('\n');
+}
+
+/**
+ * §3: the pass, as prompt text.
+ *
+ * The one-way valve in force. Built from state fields and the scene window,
+ * never from renderDigest: our own prose is persuasive by construction, so a
+ * prompt quoting the render would over-persuade the scan and cost the only
+ * reader positioned to notice a render drifting from the DM's rulings.
+ *
+ * @param {object|null} state a SidekickState (§6)
+ * @param {object[]} scene entries from sceneWindow
+ * @returns {{system: string, user: string}}
+ */
+export function buildPrompt(state, scene) {
+    return {
+        system: SYSTEM_PROMPT,
+        user: [
+            '## The ledger',
+            '',
+            renderState(state),
+            '',
+            '## The scene',
+            '',
+            renderScene(scene),
+            '',
+            '## What to return',
+            '',
+            'Proposals as JSON. Only what the scene justifies; when nothing',
+            'qualifies, return {"proposals": []}.',
+        ].join('\n'),
+    };
 }
 
 /**
