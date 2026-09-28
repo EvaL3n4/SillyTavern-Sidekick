@@ -278,9 +278,9 @@ Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind),
 via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on demand,
 `/hero digest preview` renders the digest without generating.
 
-## 8. v1 scope / non-goals
+## 8. 1.0.0 scope / non-goals
 
-**In v1**
+**In 1.0.0**
 
 - Single hero, chatMetadata store, schema versioning + migration hook.
 - Hero sheet UI (powers/arc/cosmology edit forms, inline).
@@ -290,7 +290,7 @@ via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on deman
 - Discussion board with state digest in context, "apply as change" on outputs.
 - `onClean` hook removing stored data on extension deletion/clean request.
 
-**Non-goals for v1**
+**Non-goals for 1.0.0**
 
 - Parties/multiple tracked characters (the schema allows a hero array later; the UI does
   not).
