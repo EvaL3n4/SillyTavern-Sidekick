@@ -2,8 +2,7 @@
 
 Status: concept phase, restarted 2026-09-28. Target: SillyTavern 1.18.0+ (client-only
 extension, no server plugin, no Extras). One audience: the campaigns this tool was built
-to serve. Every example in this document is drawn from that campaign; nothing is invented
-for generality.
+to serve. Every example in this document is drawn from real campaigns.
 
 This document supersedes the "Trellis" draft. What survives from it: the appetite
 rendering layer, the pressure clock, shame-as-concealment, and residue—rebuilt here as
@@ -17,14 +16,12 @@ they were always meant to pass.
 A dosage instrument against LLM flatness.
 
 Models smooth friction. They pause, defer, tidy, and negotiate wants away—and under
-pressure they don't stall, they insure. The failure has a recognizable shape: give a
+pressure they insure. The failure has a recognizable shape: give a
 model a hero mid-lunge to catch a falling friend and a hedgy model reroutes the sentence
-into safety procedure—a foot hooked behind a crossbar "to anchor against the falling
-frame," boots wedged under struts—because a body described as a rigging problem never
+into safety procedure—because a body described as a rigging problem never
 has to risk itself. Run the same card, same settings, different model, and the behavior
 flips: one instance tethers, one springs. That is the flatness Sidekick treats. Not bad
-grammar, not stat drift, but the character's survival being quietly promoted above the
-character's want.
+grammar, not stat drift, but the main character's survival being quietly promoted above their want.
 
 Sidekick doses the counterweight. It keeps durable campaign state—what the hero can do,
 what it costs, what they have crossed, what is unresolved and under pressure—and renders
@@ -32,43 +29,33 @@ a lean prose digest of *who the hero is right now* into every generation. The di
 the product; everything else is calibration machinery for setting its dose.
 
 The pitch, unchanged from the first draft because it was always right: **an LLM player
-character that has powers, limits, costs, and an arc—and still recognises all three ten
+character that has powers, capability, and potential and an arc—and still recognizes all three ten
 thousand messages later.**
-
-One audience is a design constraint, not a limitation. The document speaks in the
-campaign's own vocabulary, uses its characters as the worked example, and holds every
-paragraph to the use-case rule: earns its place against a real surface, or is cut.
 
 ## 2. The state model
 
 Three registers of state. Everything in the extension serves these.
 
-**Powers—capability + limits + cost, one indivisible entry.** Every tracked power carries
+**Powers are capability + limits + cost, one indivisible entry.** Every tracked power carries
 all three parts: what it does in the hero's own vocabulary, what it can't do or is
 getting wrong, and what using it takes. A capability-only entry degenerates into a wish
 list and the model stops respecting limits within ten messages. Powers also carry a
 `stage` (the setting's progression vocabulary) and a `history[]` of notable shifts.
 
-**Arc—where the hero is in their story.** `phase` from the setting's own phases;
-`threads[]` unresolved; `pressures[]` active stresses; `linesCrossed[]` moral boundaries
-crossed with what each cost. Lines crossed are never deleted—the ledger's memory of
+**Arc is where the hero is in their story.** `phase` from the setting's own phases;
+`threads[]` unresolved; active stresses in `pressures[]`; boundaries (good or bad)
+crossed in `linesCrossed[]` with what each provides. Lines crossed are never deleted—the ledger's memory of
 their weight is the feature.
 
-**Cosmology—the setting's own words.** Where powers come from, what the stages are
-called, what the costs are called, what the world forbids. For the reference campaign:
-powers originate in manifestation; stages run from unmanifested through trainee to
-licensed hero under a national program; costs are paid in strain, exposure, and cover.
-The model assumes these defaults; the DM edits them like anything else in the ledger.
+**Cosmology is the setting's own words.** Where powers come from, what the stages are
+called, what the costs are called, what the world forbids. The model assumes these defaults; the DM edits them like anything else in the ledger.
 
 **Deltas and provenance.** State changes are events, not field edits. Every accepted
 change records its narrative summary ("stopped holding back after the bridge"), its
 evidence (which scenes justified it), and its origin—`evaluation` (the scan proposed
-it), `discussion` (the board), or `manual` (the DM wrote it). Provenance answers "why
+it), `discussion` (the board), or `manual` (the DM wrote it). Provenance hopes to answer "why
 does it think that now?" without archaeology, and makes refusal honest: reject a
 proposed delta and the history vanishes with it.
-
-There is deliberately **no appetite register in state**. Appetites are how state renders,
-not a second vocabulary to maintain—see §4. One hero, one ledger, one language.
 
 ## 3. The loop
 
@@ -77,7 +64,7 @@ world answers, the scan reads what happened, proposals return, the DM rules. The
 arrow is the one that makes this a loop instead of a notepad.
 
 **The scan.** On a cadence (default every 15 messages, configurable, manual trigger
-always available), a quiet generation—never rendered in the campaign chat—reads the
+always available), a quiet generation reads the
 recent scene window and returns structured observations and candidate deltas. Output is
 schema-constrained and validated on receipt; a failed pass is a silent no-op, never a
 state mutation.
@@ -94,7 +81,7 @@ suggests; the board is where the DM thinks.
 **Proposals are bookkeeping, never beats.** What the scan may propose: entries to write,
 threads to surface, pressures coming due, phrasing for a turn it thinks the DM should
 record. What it may never propose: story outcomes, campaign directions, opinions about
-what should happen next. The scan reads the campaign; it does not author it.
+what should happen next. The scan reads the campaign only.
 
 **Rulings are feedback.** The half of the loop a notepad doesn't have. Every ratify,
 refuse, rephrase, and retune is recorded and compounds: what the DM keeps teaches what
@@ -102,12 +89,6 @@ to propose next, what they dismiss teaches what to stop proposing, how they rewo
 teaches the voice proposals should arrive in. Over a campaign the scan should draft in
 the DM's idiom and anticipate their calls. This memory persists across sessions; it is
 the difference between a tool that repeats itself and one that has learned its user.
-
-**Sovereignty.** The DM authors and rules, always. The protection is editorial, not
-muteness: nothing enters the ledger or the chat unbidden, every change is reversible,
-every entry is theirs to edit. Sidekick holds opinions and says them plainly—its value
-is the quality of what it puts in front of you—but the word that enters the record is
-yours.
 
 ## 4. The appetite layer — digest grammar
 
@@ -120,29 +101,26 @@ alongside it:
 - **Taste** — first contact with a hunger. In state: a scene that becomes a power's
   origin, or the moment a thread is born. The ledger holds it so the want has a
   birthplace.
-- **Pressure** — the clock. In state: `pressures[]` and denied threads aging across
-  scenes. A want comes due because pressure passed tolerance, not because a new issue
-  wandered in.
+- **Pressure** — a want comes due because `pressures[]` records tolerance, and the DM chose to dig in.
 - **Reckoning** — the want breaks into action: sated, starved, or transformed. In state:
   a thread resolving into a turn, a power changing stage, a line crossed.
 - **Residue** — what reckoning leaves. In state: `linesCrossed[]`, history entries,
   inherited into the next taste.
 
-**Shame decides visibility, and it is a mechanic, not a mood.** A shamed want doesn't
-collide openly—it hides, and hiding is an action: the proxy route, the arranged
+**Shame decides visibility.** A shamed want doesn't
+collide openly—it hides, and hiding is an action: the side step, the arranged
 situation, the concealment that costs. The shamed character's most consequential
 external acts are the ones that maintain the disguise, not the ones that feed the want.
-Pressure on a hidden want doesn't decay; it accrues quietly and surfaces, three scenes
-later, as exposure—and exposure lands harder than the original conflict would have. In
-state terms: concealment shows up as `costs[]` entries paid in cover and exposure, and
-as pressures the DM can read but the character won't say aloud.
+Pressure on a hidden want accrues quietly and surfaces, however many scenes
+later—and its exposure lands harder than the original conflict would have. In
+state terms: concealment shows up as `costs[]` entries cashed in.
 
 **The grammar rules.** These are the spec, derived from the reroll evidence—the same
 beat rerolled until the difference between tether-writing and springboard-writing was
 legible:
 
 1. **Lean, not label.** Render a pull the model acts through, never a fact it
-   acknowledges. "She finds herself moving; afterwards she'll call it protocol," not
+   acknowledges. "She finds herself moving and the fall registers later," not
    "she is conflicted about her power."
 2. **Decision-first.** Never render deliberation the character is standing in. The
    digest should make committing the cheaper sentence than anchoring—the want stated
