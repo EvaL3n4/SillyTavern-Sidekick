@@ -1,0 +1,6 @@
+{
+  // House style: bold lead-ins stand in for headings; numbered sections carry the outline.
+  "MD036": false,
+  // DESIGN.md is hand-wrapped at 88 columns.
+  "MD013": { "line_length": 88 }
+}

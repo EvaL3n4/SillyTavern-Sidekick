@@ -16,12 +16,12 @@ they were always meant to pass.
 A dosage instrument against LLM flatness.
 
 Models smooth friction. They pause, defer, tidy, and negotiate wants away—and under
-pressure they insure. The failure has a recognizable shape: give a model a hero mid-lunge
-to catch a falling friend and a hedgy model reroutes the sentence into safety procedure—
-because a body described as a rigging problem never has to risk itself. Run the same
-card, same settings, different model, and the behavior flips: one instance tethers, one
-springs. That is the flatness Sidekick treats. Not bad grammar, not stat drift, but the
-main character's survival being quietly promoted above their want.
+pressure they insure. The failure has a recognizable shape: give a model a hero
+mid-lunge to catch a falling friend and a hedgy model reroutes the sentence into safety
+procedure—because a body described as a rigging problem never has to risk itself. Run
+the same card, same settings, different model, and the behavior flips: one instance
+tethers, one springs. That is the flatness Sidekick treats. Not bad grammar, not stat
+drift, but the main character's survival being quietly promoted above their want.
 
 Sidekick doses the counterweight. It keeps durable campaign state—what the hero can do,
 what it costs, what they have crossed, what is unresolved and under pressure—and renders
@@ -154,12 +154,12 @@ tokens, budget-enforced against context size: when over budget, limits and costs
 compress before the arc does, and the arc line is never dropped—it is what makes her
 behave differently over time. Quiet generations and sessions with no state are skipped.
 
-**The worked render.** Hailey, freshly manifested, ledger to date: the spark (capability:
-a blue-black force that wraps what she protects; limits: no control, unfocused it takes
-everything from the waist down, it answers before she asks; costs: cracked asphalt and
-witnesses), threads (what fired the projectile), pressures (her family must not learn;
-forces beyond the city may have seen), one line crossed (public breakage, in front of a
-stranger meta). The render:
+**The worked render.** Hailey, freshly manifested, ledger to date: the spark
+(capability: a blue-black force that wraps what she protects; limits: no control,
+unfocused it takes everything from the waist down, it answers before she asks; costs:
+cracked asphalt and witnesses), threads (what fired the projectile), pressures (her
+family must not learn; forces beyond the city may have seen), one line crossed (public
+breakage, in front of a stranger meta). The render:
 
 > She can do one thing so far, and it arrives before she calls it: a blue-black force
 > that wraps whatever she is holding when it comes, or everything if she is frightened.
@@ -187,7 +187,7 @@ interface SidekickState {
   cosmology: {
     sources: string[];                   // where powers come from in this setting
     stageVocabulary: string[];           // the setting's own progression stages
-    costVocabulary: string[];            // the setting's cost language (strain, exposure...)
+    costVocabulary: string[];             // cost language (strain, exposure...)
     taboos: string;                      // what this world forbids/never does
   };
   hero: { name: string; codename: string; statusQuo: string };
@@ -213,7 +213,11 @@ interface Arc {
   phase: string;
   threads: Thread[];
   pressures: Pressure[];
-  linesCrossed: { line: string; cost: string; msgId: number }[];
+  linesCrossed: {
+    line: string;
+    cost: string;
+    msgId: number;
+  }[];
 }
 
 interface Thread { id: string; text: string; bornAt: number; lastTouched: number; }
@@ -229,7 +233,12 @@ interface PendingChange {
   createdAt: number;
 }
 
-interface ChangeEvent { summary: string; origin: string; evidence: number[]; at: number; }
+interface ChangeEvent {
+  summary: string;
+  origin: string;
+  evidence: number[];
+  at: number;
+}
 
 interface Ruling {
   proposalId: string;                    // what was proposed
@@ -250,8 +259,8 @@ ever—`extensionSettings` is world-readable to all extensions.
 ## 7. Architecture map
 
 ```
-manifest.json      display_name, loading_order, generate_interceptor, minimum_client_version 1.18.0,
-                   hooks: { clean: onClean }
+manifest.json      display_name, loading_order, generate_interceptor,
+                   minimum_client_version 1.18.0, hooks: { clean: onClean }
 index.js           entry point; activates on APP_READY
 src/state.js       state load/migrate/save, provenance-gated mutations, ruling log
 src/inject.js      generate_interceptor, digest renderer, budget policy
@@ -310,9 +319,9 @@ via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest pr
 
 ## Appendix — the reference campaign
 
-The worked example throughout this document is one campaign—the campaign this tool exists
-for. Its chat export lives in `.scratch/` (untracked; it may not be present, and nothing
-here depends on it). What a reader needs without it:
+The worked example throughout this document is one campaign—the campaign this tool
+exists for. Its chat export lives in `.scratch/` (untracked; it may not be present, and
+nothing here depends on it). What a reader needs without it:
 
 - **The hero.** Hailey Kogami Green—adopted younger daughter of two legacy heroes,
   assumed unmanifested, until a projectile tore through a Ferris wheel and her power
