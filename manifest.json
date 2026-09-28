@@ -1,0 +1,13 @@
+{
+    "display_name": "Sidekick",
+    "loading_order": 1,
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Eva",
+    "version": "1.0.0",
+    "generate_interceptor": "sidekickInterceptor",
+    "minimum_client_version": "1.18.0",
+    "hooks": {
+        "clean": "onClean"
+    }
+}

@@ -1,0 +1,25 @@
+<div class="sidekick-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Sidekick</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <p class="text_muted">
+                Settings live here. Hero sheet, review queue and board sit behind the FAB.
+            </p>
+            <label class="checkbox_label" for="sidekick_enabled">
+                <input type="checkbox" id="sidekick_enabled" />
+                <span>Track this chat's hero</span>
+            </label>
+            <label for="sidekick_cadence">
+                <span>Evaluation cadence (messages)</span>
+                <input type="number" id="sidekick_cadence" class="text_pole" min="1" max="200" value="15" />
+            </label>
+            <label for="sidekick_budget">
+                <span>Digest budget (tokens)</span>
+                <input type="number" id="sidekick_budget" class="text_pole" min="50" max="2000" value="200" />
+            </label>
+        </div>
+    </div>
+</div>

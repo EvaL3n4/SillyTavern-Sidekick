@@ -1,0 +1,122 @@
+/**
+ * Sidekick UI.
+ *
+ * Near-mono base with a single warm accent. The accent is deliberately the only
+ * saturated colour in the document: it marks the surfaces the DM touches during
+ * play, so a warm element always means "this needs you."
+ */
+
+:root {
+    --sidekick-accent: #c2703d;
+    --sidekick-accent-dim: #8d4f2b;
+    --sidekick-bg: #1a1a1a;
+    --sidekick-fg: #d8d4cf;
+    --sidekick-muted: #8a8580;
+    --sidekick-line: #2e2c2a;
+    --sidekick-radius: 4px;
+}
+
+.sidekick-settings {
+    margin: 10px 0;
+}
+
+.sidekick-settings .inline-drawer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+}
+
+.sidekick-settings label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidekick-settings input[type="number"] {
+    width: 6em;
+}
+
+/* The FAB and everything behind it. */
+.sidekick-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 3000;
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: var(--sidekick-accent);
+    color: var(--sidekick-bg);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.sidekick-fab:hover {
+    background: var(--sidekick-accent-dim);
+}
+
+.sidekick-fab:focus-visible {
+    outline: 2px solid var(--sidekick-fg);
+    outline-offset: 2px;
+}
+
+.sidekick-fab-menu {
+    position: fixed;
+    right: 20px;
+    bottom: 76px;
+    z-index: 2999;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+    background: var(--sidekick-bg);
+}
+
+.sidekick-fab-menu[hidden] {
+    display: none;
+}
+
+.sidekick-fab-menu button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--sidekick-radius);
+    background: transparent;
+    color: var(--sidekick-fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sidekick-fab-menu button:hover {
+    background: var(--sidekick-line);
+}
+
+/* Review queue: one accent per proposal awaiting a ruling. */
+.sidekick-proposal {
+    border-left: 2px solid var(--sidekick-accent);
+    padding-left: 10px;
+    margin: 8px 0;
+}
+
+.sidekick-proposal summary {
+    color: var(--sidekick-fg);
+    cursor: pointer;
+}
+
+.sidekick-evidence {
+    color: var(--sidekick-muted);
+    font-size: 0.9em;
+}
+
+.sidekick-diff {
+    margin: 4px 0;
+    color: var(--sidekick-muted);
+    font-family: monospace;
+    white-space: pre-wrap;
+}
