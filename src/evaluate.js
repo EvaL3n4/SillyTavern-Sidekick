@@ -204,6 +204,62 @@ export const PROPOSAL_SCHEMA = {
 };
 
 /**
+ * §3: one quiet pass. One API call, nothing written, nothing rendered.
+ *
+ * `generateRaw`, not `generateQuietPrompt`. Both take jsonSchema and both
+ * return the extracted JSON, so the choice falls on the prompt: buildPrompt
+ * returns a {system, user} pair, and only generateRaw takes `systemPrompt`
+ * beside `prompt`--createRawPrompt prepends it as a real system message. The
+ * quiet path has no systemPrompt at all and would pound both halves into one
+ * instruction, then runs reasoning-string post-processing over JSON.
+ *
+ * SillyTavern's own extensions call it this way (expressions, memory, vectors
+ * all import it from script.js). It is a module export, not a global, so
+ * index.js imports it and passes it in--this module stays DOM-free and
+ * importable under node --test.
+ *
+ * Quiet by construction, not by a flag: generateRawData hardcodes
+ * sendOpenAIRequest('quiet', ...), which also switches streaming off.
+ *
+ * The one-way valve again. The prompt arrives as text buildPrompt built from
+ * state fields and the scene window; nothing here reads the render, and a quiet
+ * pass is an API call that returns a string, so nothing here writes to the
+ * campaign chat either.
+ *
+ * @param {{system: string, user: string}} prompt from buildPrompt
+ * @param {object} schema a SillyTavern JsonSchema: name, value, strict
+ * @param {object} options
+ * @param {Function} options.generate generateRaw, or an equivalent for tests
+ * @returns {Promise<object>} the parsed response, shape unvalidated
+ * @throws {Error} when no generator is injected, or the pass fails
+ */
+export async function runGeneration(prompt, schema, { generate } = {}) {
+    if (typeof generate !== 'function') {
+        throw new Error('Sidekick: runGeneration needs a generation function');
+    }
+
+    const response = await generate({
+        prompt: prompt.user,
+        systemPrompt: prompt.system,
+        jsonSchema: schema,
+    });
+
+    // generateRaw hands back `JSON.stringify(...)` when jsonSchema is set. It is
+    // a string even on success, so it has to be decoded before anyone can read
+    // a proposal out of it.
+    if (typeof response !== 'string') {
+        throw new Error(`Sidekick: expected a JSON string from the scan, got ${typeof response}`);
+    }
+
+    // Parsing is decoding the transport, not judging the content. What the
+    // model actually proposed is sk-gu5.4's job.
+    try {
+        return JSON.parse(response);
+    } catch {
+        throw new Error('Sidekick: the scan returned something that is not JSON');
+    }
+}
+/**
  * Runs one evaluation pass. Not implemented yet—the prompt and validation
  * against PROPOSAL_SCHEMA are the next build.
  *

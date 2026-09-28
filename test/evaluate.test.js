@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { isDigestMessage } from '../src/inject.js';
 import { renderDigest } from '../src/grammar.js';
-import { SCENE_WINDOW, buildPrompt, sceneWindow } from '../src/evaluate.js';
+import { PROPOSAL_SCHEMA, SCENE_WINDOW, buildPrompt, runGeneration, sceneWindow } from '../src/evaluate.js';
 
 /** A plain chat message in the shape SillyTavern holds. */
 function mes(name, text = 'a line', isUser = true) {
@@ -223,5 +223,98 @@ describe('buildPrompt', () => {
 
         assert.ok(!user.includes('stopped holding back'));
         assert.ok(!user.includes('rulings'));
+    });
+});
+
+describe('runGeneration', () => {
+    const prompt = buildPrompt(null, sceneWindow([]));
+    /** Records every call and answers with whatever it is handed. */
+    function stub(response = '{"proposals": []}') {
+        const calls = [];
+        const generate = async (args) => {
+            calls.push(args);
+            return typeof response === 'function' ? response() : response;
+        };
+        generate.calls = calls;
+        return generate;
+    }
+
+    it('passes PROPOSAL_SCHEMA as the jsonSchema object', () => {
+        // the whole point: SillyTavern only honours jsonSchema on the Chat
+        // Completion path, and it arrives as a per-request parameter of this
+        // exact shape
+        const generate = stub();
+
+        return runGeneration(prompt, PROPOSAL_SCHEMA, { generate }).then(() => {
+            assert.equal(generate.calls.length, 1);
+            assert.equal(generate.calls[0].jsonSchema, PROPOSAL_SCHEMA);
+        });
+    });
+
+    it('sends the system half as systemPrompt and the user half as prompt', () => {
+        // createRawPrompt prepends systemPrompt as a {role: 'system'} message,
+        // which is the only reason buildPrompt can return two halves
+        const generate = stub();
+
+        return runGeneration(prompt, PROPOSAL_SCHEMA, { generate }).then(() => {
+            assert.equal(generate.calls[0].systemPrompt, prompt.system);
+            assert.equal(generate.calls[0].prompt, prompt.user);
+        });
+    });
+
+    it('makes exactly one pass', async () => {
+        // §3: one scan per trigger. A second call would double the queue and
+        // the DM would be asked about the same scene twice
+        const generate = stub();
+        await runGeneration(prompt, PROPOSAL_SCHEMA, { generate });
+        assert.equal(generate.calls.length, 1);
+    });
+
+    it('decodes the JSON string SillyTavern returns', async () => {
+        // generateRaw hands back JSON.stringify when jsonSchema is set, so the
+        // response is a string even on success
+        const generate = stub('{"proposals": [{"summary": "s"}]}');
+        const result = await runGeneration(prompt, PROPOSAL_SCHEMA, { generate });
+        assert.deepEqual(result, { proposals: [{ summary: 's' }] });
+    });
+
+    it('returns the shape unvalidated', async () => {
+        // decoding is not judging. A bogus proposals value is sk-gu5.4's
+        // problem, not this function's
+        const generate = stub('{"proposals": "not an array"}');
+        const result = await runGeneration(prompt, PROPOSAL_SCHEMA, { generate });
+        assert.deepEqual(result, { proposals: 'not an array' });
+    });
+
+    it('hands back the empty object a failed extraction produces', async () => {
+        // extractJsonFromData returns '{}' when it cannot parse the response,
+        // and that is also what a non-Chat-Completion backend yields because
+        // jsonSchema never reaches the API there at all
+        const generate = stub('{}');
+        const result = await runGeneration(prompt, PROPOSAL_SCHEMA, { generate });
+        assert.deepEqual(result, {});
+    });
+
+    it('propagates a rejected generation rather than swallowing it', async () => {
+        const generate = stub(() => Promise.reject(new Error('API Error')));
+        await assert.rejects(() => runGeneration(prompt, PROPOSAL_SCHEMA, { generate }), /API Error/);
+    });
+
+    it('turns a non-JSON response into a named failure', async () => {
+        // the model answered in prose. That is a failed pass, and the caller
+        // should be able to turn it into a no-op
+        const generate = stub('She considers the ledger.');
+        await assert.rejects(() => runGeneration(prompt, PROPOSAL_SCHEMA, { generate }), /not JSON/);
+    });
+
+    it('turns a non-string response into a named failure', async () => {
+        const generate = stub({ proposals: [] });
+        await assert.rejects(() => runGeneration(prompt, PROPOSAL_SCHEMA, { generate }), /JSON string/);
+    });
+
+    it('refuses to guess the generation function', async () => {
+        // generateRaw is a module export of script.js, not a global, so this
+        // module cannot default it and index.js must pass it in
+        await assert.rejects(() => runGeneration(prompt, PROPOSAL_SCHEMA, {}), /generation function/);
     });
 });
