@@ -213,10 +213,11 @@ export const PROPOSAL_SCHEMA = {
  * quiet path has no systemPrompt at all and would pound both halves into one
  * instruction, then runs reasoning-string post-processing over JSON.
  *
- * SillyTavern's own extensions call it this way (expressions, memory, vectors
- * all import it from script.js). It is a module export, not a global, so
- * index.js imports it and passes it in--this module stays DOM-free and
- * importable under node --test.
+ * It hangs off the global: SillyTavern.getContext().generateRaw. The docs warn
+ * that importing from ST's modules is unreliable and that getContext is the stable
+ * API, so nothing here reaches into script.js--index.js resolves it from getContext
+ * and passes it in, which also keeps this module DOM-free and importable under
+ * node --test.
  *
  * Quiet by construction, not by a flag: generateRawData hardcodes
  * sendOpenAIRequest('quiet', ...), which also switches streaming off.
