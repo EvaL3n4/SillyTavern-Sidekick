@@ -2,7 +2,7 @@
 
 Status: concept phase, restarted 2026-09-28. Target: SillyTavern 1.18.0+ (client-only
 extension, no server plugin, no Extras). Every example in this document is drawn from
-real campaigns.
+real campaigns; the reference campaign is oriented in the appendix.
 
 This document supersedes the "Trellis" draft. What survives from it: the appetite
 rendering layer, the pressure clock, shame-as-concealment, and residue—rebuilt here as
@@ -307,3 +307,20 @@ via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest pr
    writing in the actual output) strengthen the next render's lean? Candidate for v1.x.
 7. Hero file export/backup semantics—the chat file is the store; expose a journal export
    in v1 or defer.
+
+## Appendix — the reference campaign
+
+The worked example throughout this document is one campaign—the campaign this tool exists
+for. Its chat export lives in `.scratch/` (untracked; it may not be present, and nothing
+here depends on it). What a reader needs without it:
+
+- **The hero.** Hailey Kogami Green—adopted younger daughter of two legacy heroes,
+  assumed unmanifested, until a projectile tore through a Ferris wheel and her power
+  arrived mid-fall while she was shielding her best friend. Her family does not know.
+- **The setting.** Redgate, where powers originate in manifestation and are licensed
+  through a national hero program; costs are paid in strain, exposure, and cover.
+- **The spark.** Her one power so far: a blue-black force that wraps what she is
+  protecting. No control—unfocused it takes everything from the waist down—and it
+  answers before she calls it.
+- **The acceptance beat.** A hero mid-lunge to catch a falling friend: §5's test, drawn
+  from rerolls of the scene where the spark first arrived.
