@@ -318,7 +318,7 @@ via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on deman
 6. Hero file export semantics—the chat file is the store, so a journal export is a
    convenience and not a backup. Defer.
 7. Dose response: the scan reads recent scenes anyway—should flatness signals (tether-
-   writing in the actual output) strengthen the next render's lean? Candidate for v1.x.
+   writing in the actual output) strengthen the next render's lean? Candidate for >1.0.0.
 
 ## Appendix — the reference campaign
 
