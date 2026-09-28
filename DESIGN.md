@@ -73,8 +73,14 @@ always available), a quiet generation—never rendered in the campaign chat—re
 recent scene window and returns structured observations and candidate deltas. Output is
 schema-constrained and validated on receipt; a failed pass is a silent no-op, never a
 state mutation.
+**The digest is a one-way valve.** The scan reads raw scenes and structured state, never
+the digest render. State renders into the digest, the digest enters generation, and
+nothing downstream of it writes back upstream. Our own prose is persuasive by
+construction—that is the product—so feeding it back would make the scan
+over-persuaded, and would cost us the only reader positioned to notice a render drifting
+from the DM's rulings.
 
-**The queue.** Proposals land in a queue attached to the extension panel. Each shows
+**The queue.** Proposals land in a queue behind the FAB. Each shows
 summary, changes (old → new), and evidence with jump-to-message. DM actions: apply,
 edit-then-apply, dismiss. Nothing touches state without an explicit DM action.
 
@@ -93,7 +99,10 @@ refuse, rephrase, and retune is recorded and compounds: what the DM keeps teache
 to propose next, what they dismiss teaches what to stop proposing, how they reword
 teaches the voice proposals should arrive in. Over a campaign the scan should draft in
 the DM's idiom and anticipate their calls. This memory persists across sessions; it is
-the difference between a tool that repeats itself and one that has learned its user.
+the difference between a tool that repeats itself and one that has learned its user. It
+lives in chatMetadata, survives branch switching by carrying no message indices, and
+stays bounded—a rolling window of the most recent 50 rulings, pruned oldest-first, so
+stale feedback never outvotes the call the DM is making now.
 
 ## 4. The appetite layer — digest grammar
 
@@ -244,6 +253,7 @@ interface ChangeEvent {
 
 interface Ruling {
   proposalId: string;                    // what was proposed
+  summary: string;                       // frozen at ruling time; survives pruning
   action: 'applied' | 'edited' | 'dismissed';
   edit?: string;                         // how the DM reworded it, if they did
   at: number;
@@ -269,9 +279,13 @@ src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence ticker
 src/board.js       discussion board UI (separate generateRaw chat, own system prompt)
-src/ui.js          extensions-panel drawer: hero sheet, review queue, board
+src/ui.js          FAB menu: hero sheet, review queue, board; drawer = settings
 style.css          near-mono palette + single warm accent
 ```
+
+The extensions drawer holds settings only. Everything the DM touches during play—hero
+sheet, review queue, board—sits behind a FAB; a surface that waits for a click is a
+surface that gets opened late.
 
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind),
 `GENERATION_ENDED` (avoid overlapping quiet passes), `APP_READY` (setup). Slash commands
@@ -303,22 +317,6 @@ via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on deman
   patching, no model-specific phrasing branches.
 - No i18n, no preset-field storage, no bundlers or frameworks (vanilla JS + Handlebars
   templates via `renderExtensionTemplateAsync`).
-
-## 9. Open questions
-
-1. Should the evaluation pass see the Expression digest itself (meta-awareness: "the
-   hero is *supposed* to be holding back") or only raw scenes? Seeing it risks the
-   evaluator rubber-stamping injected fiction as fact.
-2. Digest insertion point: before the final user message (current plan) vs a pinned
-   depth from the end via chat slicing.
-3. Discussion board location: own drawer inside the Extensions panel vs a popup.
-4. Evaluation cadence: 15 messages, or scaled with scene length?
-5. The ruling log's persistence: where it lives in chatMetadata, how long it survives
-   branch switching, and how much of a refusal the scan is allowed to remember.
-6. Hero file export semantics—the chat file is the store, so a journal export is a
-   convenience and not a backup. Defer.
-7. Dose response: the scan reads recent scenes anyway—should flatness signals (tether-
-   writing in the actual output) strengthen the next render's lean? Candidate for >1.0.0.
 
 ## Appendix — the reference campaign
 
