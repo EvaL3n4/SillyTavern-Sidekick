@@ -1,273 +1,324 @@
-# Trellis—Abstract Foundations
-
-Status: concept phase, agreed 2026-09-27. Target: SillyTavern 1.18.0+ (client-only
-extension, no server plugin, no Extras).
-
-This document supersedes the earlier "Sidekick" draft wholesale. That draft made limits
-and consistency enforcement the spine of the product; it was wrong in voice and wrong in
-loyalty. What survives from it: chatMetadata storage, single hero, no mechanics, and a
-DM-ratified state loop. Everything else below is the design as it now stands.
-
-**No schema in this document, by design.** The data model comes later, after the concept
-has been lived with. Structure before shape.
-
-## The flow
-
-The whole engine in one line:
-
-> Taste becomes appetite. Appetite becomes impulse. Impulse becomes movement. Movement
-> becomes crash.
-
-- A **taste** is first contact with a hunger; it becomes an entry in the **appetite**
-  register (§6, §8).
-- The digest renders the live appetite as an **impulse** the model acts on (§9).
-- The model acts—**movement**—and the world answers. When the world objects, that is the
-  **crash**: the collision of §7, the moment the want meets resistance.
-- Crashes change the register: pressure (the clock, §8), residue, fresh threads (§5), and
-  the DM's next view of the ledger (§10).
-
-The movement is the model's; everything it lands on is the world's, improvised by the DM
-and never scripted by us. Trellis holds the chain together and watches where it breaks.
-
-## Terminology
-
-The garden metaphor is demoted to *voice*: it belongs in prose and top-level concept
-explanation, never in the product's operational surfaces. Users get plain terminology
-everywhere—no seeds, no gardens, no gardeners in the interface or in copy they must act
-on. A bit of flair, not all flair.
-
-The product's functions, plainly named:
-
-- **The Ledger**—durable state: the appetite register, threads, turns, residue, history.
-- **The Digest**—the per-generation conditions block handed to the character model.
-- **The Scan**—the periodic observation pass over recent scenes.
-- **The Queue**—observations awaiting the DM's decision.
-- **The Board**—the DM's discussion surface. Observes only.
-- **The Sheet**—the DM-facing full view of the ledger.
-
-No new metaphors from here; the existing ones are already spoken for.
-
-## 1. The three roles
-
-- **The DM authors and rules.** They write the character's appetites and limits, decide
-  where and how things go, and own every arrangement in the campaign.
-- **The LLM plays the character.** It acts on the appetites it has been given, under the
-  conditions Trellis renders. It is never told what to want.
-- **Trellis renders the conditions.** It holds the ledger, observes the campaign, and
-  hands the character its impulses. It authors nothing.
-
-The founding image, kept as voice: *the LLM is the seed, Trellis is the trellis it grows
-through, the DM is the gardener who owns the plot.*
-
-## 2. Purpose
-
-Modern models are consistent because training rewards consistency, and consistency in a
-protagonist reads as machinery. They meet friction by *smoothing*: pausing, deferring,
-tidying, negotiating the want away. Trellis exists to make that harder—a counter-current
-instrument that keeps one changing character alive, hungry, and legible across a campaign,
-long past where human memory would have quietly dropped half the story.
-
-Two readers, one engine: the DM sees a complete, remembered ledger; the character acts on
-impulse. Neither is told what to want.
-
-## 3. Sovereignty
-
-The DM determines limitations and chooses where and how things go. Our purpose is to make
-that choosing *informed by a living, complete, remembered ledger*—never to choose,
-suggest, or arrange.
-
-Silence beats suggestion: a DM offered arrangements starts approving the tool's taste
-instead of ruling their own campaign; a model told where to lean performs the lean instead
-of feeling it. Suggestion corrupts both sides. And explaining ourselves makes us just
-another voice—the table already has the two voices that matter.
-
-Constraints are the DM's instrument. A limit enters the ledger only because the DM wrote
-it there. We never invent limits, never require them, never enforce them.
-
-Appetite genesis follows the same law: no new want enters the register unbidden. Appetites
-are written by the DM directly, or—only where the DM has granted growth
-permission—surfaced by the scan and ratified before they enter the register. Editing and
-retiring entries are the DM's tools too. Unbidden want-spawning is escalation ex nihilo
-(one issue thrashing into the next) by another name, and the register stays closed to it
-by default.
-
-## 4. The unit: the turn
-
-All change in the ledger is a **turn**—a narrative event, never a stat adjustment.
-
-> "She stopped holding back after the bridge."
-
-A turn is voiced in the register of the story, not of a spreadsheet. If a proposed change
-cannot be phrased as something that *happened* or *became true*, it is not a turn yet.
-
-## 5. The turn lifecycle
-
-**Thread.** Play creates potential without announcing it: she used flight in front of the
-mayor's kid; he offered her a Syndicate seat she didn't refuse. Threads are moments where
-the story's potential energy changed. Most are never resolved and quietly lapse; that's
-fine.
-
-**Surfaced.** The scan's real work: making ripening threads *visible* to the DM as
-observations, not verdicts, held in the Queue until the DM decides—"this one has been
-denied for three scenes now," "the Syndicate offer is still open."
-
-**Ratified.** The DM calls it: when, whether, or never. Resolve now, hold, let it lapse.
-Every fork in the story is theirs; we hold no opinion and offer none.
-
-**Turn.** The ratified thread resolves into a new truth, voiced narratively: "she took the
-mask off." A turn is a height event—escalation, revelation, transformation, or price—and
-every turn creates fresh threads.
-
-**Residue.** What a turn leaves: exposure, favors owed, lines the city drew, people who
-saw. Residue is quiet until it isn't—three arcs on, the villain reads her exposure and
-finds the crack. The ledger exists to keep residue alive until it pays off.
-
-Provenance, one layer down: a turn's pedigree is *which threads fed it*. The DM can ask
-"why is this true now?" and the ledger answers with its own history.
-
-## 6. The appetite register
-
-What the character is made of, morally neutral. Hero and villain hold these in equal
-measure; the register tracks hunger, never permission.
-
-- **Wants**—what she's chasing right now (the city's love; to matter before the diagnosis
-  lands).
-- **Fears**—what she runs from (being ordinary; being *seen* ordinary).
-- **Enjoyments**—what she likes that maybe she shouldn't (the winning; flight itself at
-  3am).
-- **Debts and grudges**—what she owes and is owed (the waterfront; a partner's patience).
-- **Shames**—appetites she'd deny if anyone named them out loud.
-- **Contradictions**—the pairings that cannot both hold (wants to save them; loves being
-  the reason they need her).
-
-The engine is conflict: appetite colliding with appetite, or appetite colliding with a
-price. That is drama. Incident is only noise.
-
-## 7. Shame decides visibility
-
-Shame doesn't color a want; it decides whether the want **collides** or **hides**.
-
-Conflict is not the reward for being unashamed—it is what any *seen* appetite generates,
-because people react to what they can see: allies object, rivals exploit, the world pushes
-back on an open want. The unashamed appetite shows itself, so it collides immediately and
-legibly.
-
-The shamed appetite would generate the same collision, and suppresses it by hiding. But
-hiding is an action, not an absence: the midnight route, the proxy, the arrangement of
-situations so nobody looks. The internal struggle is half of it; the other half is a
-continuous external campaign of concealment—internal friction wearing external events as a
-costume. The two clocks this creates:
-
-- The **unashamed** appetite is kept honest by immediate collision; its reckoning comes
-  due when the world's pushback passes tolerance.
-- The **shamed** appetite hides from the clock. Nothing external forces the issue, so
-  pressure does not decay—it accrues quietly and waits for exposure. When the want
-  surfaces (and it surfaces, three arcs later), the collision is worse, because
-  concealment has turned a conflict into a betrayal. Exposure is the shamed pathway to
-  reckoning, and it arrives uninvited.
-
-Two consequences: a hidden appetite that gets exposed lands harder than one never
-hidden—the reveal is its own turn—and a shamed character's most consequential external
-acts are the ones that maintain the disguise, not the ones that feed the want.
-
-## 8. The taste lifecycle
-
-How an appetite is born and what becomes of it. Campaigns begin at or just after the first
-taste, so appetites start young and pliable, with a known origin scene.
-
-**Taste.** First contact with the hunger: an admiration, a wound, a win that tasted better
-than expected. "I want to be like them" is the moment it is born. Tastes do not occur
-spontaneously: the DM wrote it, or the scan surfaced a candidate and the DM ratified it
-where growth is permitted (§3).
-
-**Naming.** The want takes shape and picks its valence: sayable or unsayable. Shame is
-born with the want or acquired later—an appetite that was fine to admit becomes unsayable
-after some scene marks it. A corrupted appetite is a recurring wound, not a one-time
-event.
-
-**Pressure.** The want is fed, denied, or tempted, repeatedly, over time. Pressure is the
-clock: a turn comes due when an appetite has been under pressure past tolerance, not when
-a new issue wanders in. Thrash-proof by construction.
-
-**Reckoning.** The appetite breaks into action, and there are three honest ends:
-**sated** (she gets it, and it tastes expected—or wrong), **starved** (she goes without;
-the appetite hardens, reroutes, or curdles into a grudge), or **transformed** (she
-discovers mid-stride she wants something else now). Every reckoning is a turn, and every
-reckoning can originate the next taste.
-
-**Residue.** What a reckoning leaves in the appetite itself: new tastes originating from
-what just happened, habits of appetite (the pattern of how she gets fed), and inherited
-shame—wants passing downward through events she didn't choose. The world-side residue of
-§5 still applies.
-
-## 9. Impulses—the rendering to the character
-
-An **impulse** is appetite rendered to the model as a lean, not a label: a pull it acts
-through, not a fact it acknowledges.
-
-The counter-current mechanic: models smooth friction—pause, defer, tidy, negotiate the
-want away. A model carrying an impulse acts *through* the friction instead of dissolving
-it, and acting through friction generates more of it. That single behavior answers both
-perils at once. Blandness: a character with an urge is never mechanical. Thrash:
-urge-driven escalation compounds consequences instead of resetting them—each push into a
-resisting world produces the next
-legitimate turn. The wildness and the loyalty are the same act, viewed from two distances,
-the loyalty being the character's to itself.
-
-The shamed and unashamed impulses differ in texture, never in force. The unashamed reach
-is open ("she goes to them"); the shamed reach acts first and names itself later ("she
-finds herself moving; afterwards she'll call it protocol"). The conditions don't care
-which; the character moves either way.
-
-## 10. The renderings
-
-One engine, two costumes. The DM sees the fork; the model feels the lean.
-
-**To the DM.** No guide—the ledger itself, made *visible* and *remembered*: what is open,
-what is under pressure, what has been resolved, what has lapsed or been retired, across
-the whole campaign and its entire history. Legibility and memory are the entire gift.
-Every decision—writing, editing, retiring, deciding what happens next—is theirs alone,
-always. The scan speaks as observations: questions and remarks, never arrangements. The
-question-forms carry top-level concept labels; the notes themselves stay plain language:
-
-- *Taste-notices:* "She's never been looked at like that before."—helping the DM recognize
-  a birth.
-- *Shame-questions:* "Could she say this out loud? If not—how does she get it
-  anyway?"—pointing at the proxy route without naming it.
-- *Pressure-checkpoints:* "This want has been denied for three scenes now. What is it
-  becoming?"—the clock, made audible.
-- *Lean-observations:* "She bends toward the kid—reaching means the press line."—where the
-  character already leans, and what the leaning costs. Consequence observed, never
-  recommended.
-
-**To the character.** Conditions only—never instruction, never a directive. The impulse
-gives the model something to move toward rather than a fact to acknowledge. The movement
-is the model's own doing, and we never mention that we are the reason.
-
-**The Board.** The DM's thinking space, where the ledger is examined and turned over. It
-too speaks only through observation: the DM hears their own campaign read back to them,
-complete and remembered, so they can rule it better.
-
-## 11. Decisions carried forward
-
-Architecture-level decisions from the first round of this design. Not schema.
-
-- **State lives in chat metadata**—per-campaign, private, survives branches and
-  continues, works in group chats.
-- **Configuration lives in extension settings**—never secrets (settings are readable by
-  all extensions).
-- **Single hero.** Parties are a later problem with a different shape.
-- **No mechanics.** No dice, no resolution, no stat arbitration. The LLM remains the sole
-  arbiter of outcomes; narrative is the only currency.
-- **The loop is assisted, never autonomous.** The scan observes; the DM writes. Nothing
-  enters the ledger without an explicit ratifying act.
-
-## 12. Open threads
-
-- The Sheet: what the DM sees when they open it (shapes, not structure).
-- The scan's question-forms in practice: how observations are phrased so they stay
-  observations.
-- How appetites render into the digest's conditions—the exact grammar of an impulse is
-  still open.
-- Only after the concept has been lived with: the data model (still banned), file layout,
-  event wiring, the extension skeleton itself.
+# Sidekick — Design
+
+Status: concept phase, restarted 2026-09-28. Target: SillyTavern 1.18.0+ (client-only
+extension, no server plugin, no Extras). One audience: the campaigns this tool was built
+to serve. Every example in this document is drawn from that campaign; nothing is invented
+for generality.
+
+This document supersedes the "Trellis" draft. What survives from it: the appetite
+rendering layer, the pressure clock, shame-as-concealment, and residue—rebuilt here as
+digest grammar over the original state model. The 2026-09-27 Sidekick foundations draft
+(git history, `9df7b5a`) supplies the state model, the assisted loop, and the
+architecture; this document re-unions them under one purpose and the acceptance test
+they were always meant to pass.
+
+## 1. What this is
+
+A dosage instrument against LLM flatness.
+
+Models smooth friction. They pause, defer, tidy, and negotiate wants away—and under
+pressure they don't stall, they insure. The failure has a recognizable shape: give a
+model a hero mid-lunge to catch a falling friend and a hedgy model reroutes the sentence
+into safety procedure—a foot hooked behind a crossbar "to anchor against the falling
+frame," boots wedged under struts—because a body described as a rigging problem never
+has to risk itself. Run the same card, same settings, different model, and the behavior
+flips: one instance tethers, one springs. That is the flatness Sidekick treats. Not bad
+grammar, not stat drift, but the character's survival being quietly promoted above the
+character's want.
+
+Sidekick doses the counterweight. It keeps durable campaign state—what the hero can do,
+what it costs, what they have crossed, what is unresolved and under pressure—and renders
+a lean prose digest of *who the hero is right now* into every generation. The digest is
+the product; everything else is calibration machinery for setting its dose.
+
+The pitch, unchanged from the first draft because it was always right: **an LLM player
+character that has powers, limits, costs, and an arc—and still recognises all three ten
+thousand messages later.**
+
+One audience is a design constraint, not a limitation. The document speaks in the
+campaign's own vocabulary, uses its characters as the worked example, and holds every
+paragraph to the use-case rule: earns its place against a real surface, or is cut.
+
+## 2. The state model
+
+Three registers of state. Everything in the extension serves these.
+
+**Powers—capability + limits + cost, one indivisible entry.** Every tracked power carries
+all three parts: what it does in the hero's own vocabulary, what it can't do or is
+getting wrong, and what using it takes. A capability-only entry degenerates into a wish
+list and the model stops respecting limits within ten messages. Powers also carry a
+`stage` (the setting's progression vocabulary) and a `history[]` of notable shifts.
+
+**Arc—where the hero is in their story.** `phase` from the setting's own phases;
+`threads[]` unresolved; `pressures[]` active stresses; `linesCrossed[]` moral boundaries
+crossed with what each cost. Lines crossed are never deleted—the ledger's memory of
+their weight is the feature.
+
+**Cosmology—the setting's own words.** Where powers come from, what the stages are
+called, what the costs are called, what the world forbids. For the reference campaign:
+powers originate in manifestation; stages run from unmanifested through trainee to
+licensed hero under a national program; costs are paid in strain, exposure, and cover.
+The model assumes these defaults; the DM edits them like anything else in the ledger.
+
+**Deltas and provenance.** State changes are events, not field edits. Every accepted
+change records its narrative summary ("stopped holding back after the bridge"), its
+evidence (which scenes justified it), and its origin—`evaluation` (the scan proposed
+it), `discussion` (the board), or `manual` (the DM wrote it). Provenance answers "why
+does it think that now?" without archaeology, and makes refusal honest: reject a
+proposed delta and the history vanishes with it.
+
+There is deliberately **no appetite register in state**. Appetites are how state renders,
+not a second vocabulary to maintain—see §4. One hero, one ledger, one language.
+
+## 3. The loop
+
+The loop in full: the DM rules, the ledger holds, the digest renders, the hero acts, the
+world answers, the scan reads what happened, proposals return, the DM rules. The last
+arrow is the one that makes this a loop instead of a notepad.
+
+**The scan.** On a cadence (default every 15 messages, configurable, manual trigger
+always available), a quiet generation—never rendered in the campaign chat—reads the
+recent scene window and returns structured observations and candidate deltas. Output is
+schema-constrained and validated on receipt; a failed pass is a silent no-op, never a
+state mutation.
+
+**The queue.** Proposals land in a queue attached to the extension panel. Each shows
+summary, changes (old → new), and evidence with jump-to-message. DM actions: apply,
+edit-then-apply, dismiss. Nothing touches state without an explicit DM action.
+
+**The board.** The DM's thinking space: a discussion surface with its own chat, its own
+system prompt, and a digest of current state in context. Board outputs convert to state
+changes one click at a time, tagged `origin: discussion`. The queue is where Sidekick
+suggests; the board is where the DM thinks.
+
+**Proposals are bookkeeping, never beats.** What the scan may propose: entries to write,
+threads to surface, pressures coming due, phrasing for a turn it thinks the DM should
+record. What it may never propose: story outcomes, campaign directions, opinions about
+what should happen next. The scan reads the campaign; it does not author it.
+
+**Rulings are feedback.** The half of the loop a notepad doesn't have. Every ratify,
+refuse, rephrase, and retune is recorded and compounds: what the DM keeps teaches what
+to propose next, what they dismiss teaches what to stop proposing, how they reword
+teaches the voice proposals should arrive in. Over a campaign the scan should draft in
+the DM's idiom and anticipate their calls. This memory persists across sessions; it is
+the difference between a tool that repeats itself and one that has learned its user.
+
+**Sovereignty.** The DM authors and rules, always. The protection is editorial, not
+muteness: nothing enters the ledger or the chat unbidden, every change is reversible,
+every entry is theirs to edit. Sidekick holds opinions and says them plainly—its value
+is the quality of what it puts in front of you—but the word that enters the record is
+yours.
+
+## 4. The appetite layer — digest grammar
+
+The rendering layer. It turns state into leans the model acts through, and it is where
+the anti-flatness dosage is actually delivered.
+
+The lifecycle from the Trellis era survives, mapped onto state rather than stored
+alongside it:
+
+- **Taste** — first contact with a hunger. In state: a scene that becomes a power's
+  origin, or the moment a thread is born. The ledger holds it so the want has a
+  birthplace.
+- **Pressure** — the clock. In state: `pressures[]` and denied threads aging across
+  scenes. A want comes due because pressure passed tolerance, not because a new issue
+  wandered in.
+- **Reckoning** — the want breaks into action: sated, starved, or transformed. In state:
+  a thread resolving into a turn, a power changing stage, a line crossed.
+- **Residue** — what reckoning leaves. In state: `linesCrossed[]`, history entries,
+  inherited into the next taste.
+
+**Shame decides visibility, and it is a mechanic, not a mood.** A shamed want doesn't
+collide openly—it hides, and hiding is an action: the proxy route, the arranged
+situation, the concealment that costs. The shamed character's most consequential
+external acts are the ones that maintain the disguise, not the ones that feed the want.
+Pressure on a hidden want doesn't decay; it accrues quietly and surfaces, three scenes
+later, as exposure—and exposure lands harder than the original conflict would have. In
+state terms: concealment shows up as `costs[]` entries paid in cover and exposure, and
+as pressures the DM can read but the character won't say aloud.
+
+**The grammar rules.** These are the spec, derived from the reroll evidence—the same
+beat rerolled until the difference between tether-writing and springboard-writing was
+legible:
+
+1. **Lean, not label.** Render a pull the model acts through, never a fact it
+   acknowledges. "She finds herself moving; afterwards she'll call it protocol," not
+   "she is conflicted about her power."
+2. **Decision-first.** Never render deliberation the character is standing in. The
+   digest should make committing the cheaper sentence than anchoring—the want stated
+   so plainly that safety-procedure reads as the harder path.
+3. **The want is the objective.** Never let the character's own survival sit in the
+   constraint set next to the want. Tether-writing is what a model produces when it is
+   asked to keep everyone alive *and* reach; the render must make the reach the only
+   goal.
+4. **The outcome stays open.** The digest never pre-resolves the scene. It ends at
+   "before the wind pulls her completely out of reach," not at the catch. Resolution is
+   the model's and the world's, never the ledger's.
+5. **The world stays alive around her.** Attention outward—the other person, the
+   witness, the sirens—never spent on furniture. A render that burns its budget
+   re-describing the environment invites the model to do the same.
+6. **No meta-awareness.** The digest never acknowledges itself. The hero never knows
+   why she moves; we never mention that we are the reason.
+
+## 5. The render
+
+**Mechanism.** A `generate_interceptor` runs on every non-dry-run generation, builds the
+digest from state, and inserts one ephemeral message before the last user message—never
+writing to the real chat array. The digest is prose in DM-brief voice, roughly 200
+tokens, budget-enforced against context size: when over budget, limits and costs
+compress before the arc does, and the arc line is never dropped—it is what makes her
+behave differently over time. Quiet generations and sessions with no state are skipped.
+
+**The worked render.** Hailey, freshly manifested, ledger to date: the spark (capability:
+a blue-black force that wraps what she protects; limits: no control, unfocused it takes
+everything from the waist down, it answers before she asks; costs: cracked asphalt and
+witnesses), threads (what fired the projectile), pressures (her family must not learn;
+forces beyond the city may have seen), one line crossed (public breakage, in front of a
+stranger meta). The render:
+
+> She can do one thing so far, and it arrives before she calls it: a blue-black force
+> that wraps whatever she is holding when it comes, or everything if she is frightened.
+> Two people and a stranger in a white shirt have seen it. Her parents' careful hopes
+> and Alyssa's mockery both hang on a question she hasn't told them is live, so the
+> spark stays her own business, and the lying is its own cost. Allie is alive because
+> of what came out of her, and something was fired at a Ferris wheel to make that
+> happen. She is finished watching people fall from safe ground.
+
+That is the dose: power with its limits intact, shame as concealment, pressure audible,
+and a closing lean that pre-refuses the tether pattern by name.
+
+**The acceptance test.** The campaign's catch beat—the hero mid-lunge for a falling
+friend—rendered from a similar lean must come back as springboard: foot planted to
+launch, not to anchor; decision narrated, not procedure; the world still speaking
+("Maxine, stay down!"); the outcome unresolved to the last clause. When a model given
+this digest still tethers, the grammar is wrong and the render changes. The test is
+model-agnostic by construction—the digest carries the dose, not the card.
+
+## 6. Data model
+
+```ts
+interface SidekickState {
+  version: number;                       // schema version for migrations
+  cosmology: {
+    sources: string[];                   // where powers come from in this setting
+    stageVocabulary: string[];           // the setting's own progression stages
+    costVocabulary: string[];            // the setting's cost language (strain, exposure...)
+    taboos: string;                      // what this world forbids/never does
+  };
+  hero: { name: string; codename: string; statusQuo: string };
+  powers: Power[];
+  arc: Arc;
+  queue: PendingChange[];                // proposals awaiting DM action
+  history: ChangeEvent[];                // applied changes with provenance
+  rulings: Ruling[];                     // DM feedback that trains the scan (§3)
+  settings: LocalSettings;               // per-chat overrides (cadence, digest budget)
+}
+
+interface Power {
+  id: string;                            // stable, human-slug ("the-spark")
+  name: string;
+  capability: string;
+  limits: string[];
+  costs: string[];
+  stage: string;                         // from cosmology.stageVocabulary
+  history: ChangeEvent[];
+}
+
+interface Arc {
+  phase: string;
+  threads: Thread[];
+  pressures: Pressure[];
+  linesCrossed: { line: string; cost: string; msgId: number }[];
+}
+
+interface Thread { id: string; text: string; bornAt: number; lastTouched: number; }
+interface Pressure { text: string; since: number; denialCount: number; }
+
+interface PendingChange {
+  id: string;
+  origin: 'evaluation' | 'discussion' | 'manual';
+  summary: string;
+  changes: { path: string; from: string; to: string }[];
+  evidence: number[];                    // chat message indices
+  status: 'pending' | 'applied' | 'dismissed';
+  createdAt: number;
+}
+
+interface ChangeEvent { summary: string; origin: string; evidence: number[]; at: number; }
+
+interface Ruling {
+  proposalId: string;                    // what was proposed
+  action: 'applied' | 'edited' | 'dismissed';
+  edit?: string;                         // how the DM reworded it, if they did
+  at: number;
+}
+
+interface LocalSettings { evaluationCadence: number; digestBudgetTokens: number; }
+```
+
+Hygiene: never hold a long-lived reference to `chatMetadata` (the reference changes on
+`CHAT_CHANGED`); fetch via `SillyTavern.getContext().chatMetadata`, persist with
+`saveMetadata()`. Configuration that is not campaign-specific lives in
+`extensionSettings.sidekick` and persists with `saveSettingsDebounced()`. No secrets
+ever—`extensionSettings` is world-readable to all extensions.
+
+## 7. Architecture map
+
+```
+manifest.json      display_name, loading_order, generate_interceptor, minimum_client_version 1.18.0,
+                   hooks: { clean: onClean }
+index.js           entry point; activates on APP_READY
+src/state.js       state load/migrate/save, provenance-gated mutations, ruling log
+src/inject.js      generate_interceptor, digest renderer, budget policy
+src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
+src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence ticker
+src/board.js       discussion board UI (separate generateRaw chat, own system prompt)
+src/ui.js          extensions-panel drawer: hero sheet, review queue, board
+style.css          near-mono palette + single warm accent
+```
+
+Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind),
+`GENERATION_ENDED` (avoid overlapping quiet passes), `APP_READY` (setup). Slash commands
+via `SlashCommandParser.addCommandObject` for `/hero evaluate`, `/hero digest preview`.
+
+## 8. v1 scope / non-goals
+
+**In v1**
+
+- Single hero, chatMetadata store, schema versioning + migration hook.
+- Hero sheet UI (powers/arc/cosmology edit forms, inline).
+- Digest injection via interceptor with budget policy and the §4 grammar.
+- Evaluation pass with cadence + manual trigger; review queue with apply/edit/dismiss.
+- Ruling log feeding proposal ranking; the scan drafts in the DM's idiom over time.
+- Discussion board with state digest in context, "apply as change" on outputs.
+- `onClean` hook removing stored data on extension deletion/clean request.
+
+**Non-goals for v1**
+
+- Parties/multiple tracked characters (the model allows a hero array later; the UI does
+  not).
+- Any dice or mechanical resolution. Narrative stays the sole arbiter.
+- World Info read/write integration (a "copy digest as World Info entries" export is a
+  cheap stretch goal, not a dependency).
+- **Story proposals of any kind.** The scan never proposes what happens next. This is a
+  hard non-goal, enforced at the schema level: proposals address state, not scenes.
+- **Per-model tuning.** The digest is instance-agnostic by design; no per-branch card
+  patching, no model-specific phrasing branches.
+- i18n, preset-field storage, bundlers/frameworks (vanilla JS + Handlebars templates via
+  `renderExtensionTemplateAsync`).
+
+## 9. Open questions
+
+1. Should the evaluation pass see the Expression digest itself (meta-awareness: "the
+   hero is *supposed* to be holding back") or only raw scenes? Seeing it risks the
+   evaluator rubber-stamping injected fiction as fact.
+2. Digest insertion point: before the final user message (current plan) vs a pinned
+   depth from the end via chat slicing.
+3. Discussion board location: own drawer inside the Extensions panel vs a popup.
+4. Evaluation cadence: 15 messages, or scaled with scene length?
+5. The ruling log's persistence: where it lives in chatMetadata, how long it survives
+   branch switching, and how much of a refusal the scan is allowed to remember.
+6. Dose response: the scan reads recent scenes anyway—should flatness signals (tether-
+   writing in the actual output) strengthen the next render's lean? Candidate for v1.x.
+7. Hero file export/backup semantics—the chat file is the store; expose a journal export
+   in v1 or defer.
