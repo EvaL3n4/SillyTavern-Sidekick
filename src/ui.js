@@ -7,6 +7,7 @@
  */
 
 import { applyProposal, recordRuling } from './state.js';
+import { resolveCitation } from './citations.js';
 /**
  * The FAB's surfaces, in menu order (§7).
  * @type {{id: string, label: string}[]}
@@ -200,14 +201,15 @@ function proposalBody(entry, deps) {
 
     const evidence = $('<div>', { class: 'sidekick-evidence' });
     evidence.append($('<span>').text('evidence: '));
-    for (const index of entry.evidence ?? []) {
-        evidence.append($('<button>', {
-            type: 'button',
-            class: 'sidekick-jump',
-            'aria-label': `Jump to message ${index}`,
-        }).text(String(index)).on('click', () => {
-            jumpToMessage(index);
-        }));
+    for (const citation of entry.evidence ?? []) {
+        // §6's locator, resolved where it is used: the index that was filed
+        // may have moved since, and the chat is read live rather than trusted.
+        const chip = resolveChip(citation);
+        if (chip?.dead) {
+            evidence.append(goneChip(chip.dead));
+        } else if (chip) {
+            evidence.append(jumpChip(String(chip.index), chip.index));
+        }
     }
     root.append(evidence);
 
@@ -311,9 +313,9 @@ async function rule(kind, entry, editor, root, deps) {
  * Scrolls a cited message into view. SillyTavern renders each chat message as
  * `.mes[mesid="N"]` with N the message's index in the chat array
  * (script.js's own message lookups use exactly this), which is what §6's
- * evidence stores, so no translation is needed.
- * @param {number} index chat-array index from a proposal's evidence
- * @returns {void}
+ * citations resolve to, so no translation is needed.
+ * @param {number} index chat-array index, resolved through resolveCitation by the
+ *     caller, so a healed index is what gets jumped rather than the stored one
  */
 function jumpToMessage(index) {
     const target = document.querySelector(`#chat .mes[mesid="${index}"]`);
@@ -326,6 +328,54 @@ function jumpToMessage(index) {
     }
     target.classList.add('sidekick-flash');
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+/** §6 hygiene: the chat is read at use time, never held across a turn. */
+const liveChat = () => SillyTavern.getContext().chat ?? [];
+
+/**
+ * Where a citation lands now, or the honest answer that it lands nowhere.
+ *
+ * Resolved when a surface renders, because the two events that break a
+ * locator—a deletion shifting every later index, a swipe rewriting a message's
+ * date—are not things the surfaces can watch for. The DM meets the answer
+ * where the claim is, not in a log she never reads.
+ *
+ * @param {number|{index: number, send_date?: number}} citation
+ * @returns {{index: number}|{dead: string}|null} null when there is no
+ *     citation to show at all; `dead` is the wording the chip carries
+ */
+function resolveChip(citation) {
+    if (citation === undefined || citation === null) {
+        return null;
+    }
+
+    const { status, index, reason } = resolveCitation(liveChat(), citation);
+    if (status === 'stale') {
+        return { dead: reason === 'rerolled' ? 're-rolled' : 'message gone' };
+    }
+    return { index };
+}
+
+/** A chip that jumps. The label is the caller's; the index is the resolved one. */
+function jumpChip(text, index) {
+    return $('<button>', {
+        type: 'button',
+        class: 'sidekick-jump',
+        'aria-label': `Jump to message ${index}`,
+    }).text(text).on('click', () => {
+        jumpToMessage(index);
+    });
+}
+
+/** A chip that cannot jump, and says which way it failed. */
+function goneChip(reason) {
+    return $('<button>', {
+        type: 'button',
+        class: 'sidekick-jump sidekick-gone',
+        disabled: true,
+        'aria-label': `cited ${reason}`,
+    }).text(reason);
 }
 
 /**
@@ -519,14 +569,11 @@ function arcSection(arc) {
     for (const crossing of crossings) {
         const row = $('<div>', { class: 'sidekick-field' });
         row.append($('<span>').text(`${crossing.line} → ${crossing.provides}, at ${crossing.cost}`));
-        if (Number.isInteger(crossing.msgId) && crossing.msgId >= 0) {
-            row.append($('<button>', {
-                type: 'button',
-                class: 'sidekick-jump',
-                'aria-label': `Jump to message ${crossing.msgId}`,
-            }).text(`#${crossing.msgId}`).on('click', () => {
-                jumpToMessage(crossing.msgId);
-            }));
+        const chip = resolveChip(crossing.msgId);
+        if (chip?.dead) {
+            row.append(goneChip(chip.dead));
+        } else if (chip) {
+            row.append(jumpChip(`#${chip.index}`, chip.index));
         }
         section.append(row);
     }

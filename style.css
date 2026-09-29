@@ -192,6 +192,13 @@
     cursor: pointer;
 }
 
+
+/* A citation the chat no longer backs: named, muted, and inert. */
+.sidekick-gone {
+    color: var(--sidekick-muted);
+    text-decoration: line-through;
+    cursor: default;
+}
 .sidekick-flash {
     outline: 1px solid var(--sidekick-accent);
 }
