@@ -523,12 +523,22 @@ function nextQueueCounter(queue) {
  * @param {object} deps
  * @param {object[]} [deps.chat] the chat as SillyTavern holds it
  * @param {Function} [deps.generate] generateRaw, resolved in index.js
+ * @param {object} [deps.log] { debug, info, warn } channels; optional, because
+ *   a pass with no logger must behave exactly like a pass that ran quietly
+ *   under §3. The return value stays silent either way: the log is the only
+ *   place a failure names itself, so a pass that died and a pass that found
+ *   nothing stop looking alike to whoever is reading the console.
  * @returns {Promise<object[]>} the PendingChange entries appended to
  * state.queue, or [] when the pass yielded nothing (§3's silent no-op)
  * @throws {Error} when the caller wired the pass without a generator
  */
-export async function runEvaluation(state, { chat = [], generate } = {}) {
+export async function runEvaluation(state, { chat = [], generate, log } = {}) {
+    const say = (level, message, detail) => {
+        log?.[level]?.(message, detail);
+    };
+
     if (!hasState(state)) {
+        say('debug', 'no hero state yet—nothing to scan');
         return [];
     }
 
@@ -540,20 +550,25 @@ export async function runEvaluation(state, { chat = [], generate } = {}) {
     // scene window, never from the render. The window is computed once and kept:
     // the scene the model saw is the only place a citation may point.
     const scene = sceneWindow(chat);
+    say('debug', 'scan started', { scene: scene.length, chat: chat.length });
     const prompt = buildPrompt(state, scene);
 
     let response;
     try {
         response = await runGeneration(prompt, PROPOSAL_SCHEMA, { generate });
-    } catch {
+    } catch (error) {
         // A failed pass is a scan that yielded nothing: the backend refused,
         // the request aborted, or what came back could not be read as a
-        // proposal. §3 makes that a silent no-op—see validateProposals for
-        // why silence is the strict reading.
+        // proposal. §3 makes that a silent no-op for the DM—see validateProposals
+        // for why silence is the strict reading. The return stays quiet; the log
+        // does not, because a pass that never produced anything and a pass that
+        // failed are otherwise indistinguishable from each other.
+        say('warn', 'scan generation failed', { error: error?.message ?? String(error) });
         return [];
     }
 
     const proposals = validateProposals(response);
+    say('debug', 'scan validated', { proposals: proposals.length });
     if (proposals.length === 0) {
         return [];
     }
@@ -564,6 +579,7 @@ export async function runEvaluation(state, { chat = [], generate } = {}) {
     // unreliable. §3's silence holds; the DM is not told, and will never know.
     const shown = new Set(scene.map((entry) => entry.index));
     if (proposals.some((proposal) => proposal.evidence.some((index) => !shown.has(index)))) {
+        say('warn', 'scan voided—a citation cited a message outside the window', { window: [...shown] });
         return [];
     }
     let counter = nextQueueCounter(state.queue);
@@ -577,6 +593,7 @@ export async function runEvaluation(state, { chat = [], generate } = {}) {
         { counter: counter++ },
     ));
     state.queue.push(...queued);
+    say('info', 'scan queued', { count: queued.length });
     return queued;
 }
 
@@ -600,11 +617,11 @@ let inFlight = null;
  * @param {object} deps as runEvaluation's
  * @returns {Promise<object[]>|null} the queued entries, null when dropped
  */
-export function startEvaluation(state, deps) {
+export function startEvaluation(state, deps = {}) {
     if (inFlight) {
+        deps.log?.debug?.('scan dropped—a pass is already running');
         return null;
     }
-
     inFlight = runEvaluation(state, deps).finally(() => {
         inFlight = null;
     });

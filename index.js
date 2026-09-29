@@ -26,6 +26,40 @@ const context = () => SillyTavern.getContext();
  */
 let readState = () => null;
 
+/**
+ * The scan's diagnostics. A pass never shouts at the DM—§3's silence is a
+ * promise about play, not about the console—but a pass that failed and a pass
+ * that found nothing are indistinguishable from the outside otherwise, which
+ * is how a broken scan goes weeks before anyone can debug it. Every level is
+ * off until DEBUG_KEY is set, then everything is on.
+ *
+ * The channels are optional at the call site, so a test that injects nothing
+ * logs nothing rather than throwing on an undefined channel.
+ */
+const DEBUG_KEY = 'sidekick_debug';
+const debugOn = () => {
+    try {
+        return localStorage.getItem(DEBUG_KEY) === '1';
+    } catch {
+        return false;
+    }
+};
+const log = {
+    debug: (message, detail) => {
+        if (debugOn()) {
+            console.debug(`[Sidekick] ${message}`, detail);
+        }
+    },
+    info: (message, detail) => {
+        if (debugOn()) {
+            console.info(`[Sidekick] ${message}`, detail);
+        }
+    },
+    warn: (message, detail) => {
+        console.warn(`[Sidekick] ${message}`, detail);
+    },
+};
+
 let messagesSince = 0;
 
 function bindState() {
@@ -147,7 +181,7 @@ export async function saveBoardState(board, captured) {
  */
 async function evaluateNow(state) {
     const { chat, generateRaw, chatMetadata } = context();
-    const started = startEvaluation(state, { chat, generate: generateRaw });
+    const started = startEvaluation(state, { chat, generate: generateRaw, log });
     if (!started) {
         return null;
     }

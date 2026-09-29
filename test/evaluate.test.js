@@ -615,6 +615,21 @@ describe('runEvaluation', () => {
         assert.deepEqual(state.queue, queued);
     });
 
+    /** Captures the diagnostics a pass emits, in order. */
+    function spyLog() {
+        const calls = [];
+        const make = (level) => (message, detail) => {
+            calls.push({ level, message, detail });
+        };
+        return {
+            calls,
+            debug: make('debug'),
+            info: make('info'),
+            warn: make('warn'),
+        };
+    }
+
+
     it('generates exactly once, from the scene and the ledger', async () => {
         const state = ledger();
         const generate = stub();
@@ -628,6 +643,89 @@ describe('runEvaluation', () => {
         // the ledger half: the scene lines above prove the chat reached the
         // call, and this proves the ledger did too
         assert.match(generate.calls[0].prompt, /Hailey Kogami Green/);
+    });
+
+    it('names what it did in the log, so a failure and a zero stop looking alike', async () => {
+        // The defect this fixes: a pass whose generation threw returned [] exactly
+        // like a pass that found nothing, so the console showed a broken scan and a
+        // healthy one identically. The queue still counts entries; the log is where
+        // the phases live.
+        const state = ledger();
+        const generate = stub();
+        const log = spyLog();
+
+        await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(log.calls.map((call) => call.message), [
+            'scan started',
+            'scan validated',
+            'scan queued',
+        ]);
+        assert.equal(log.calls[0].detail.scene, 15);
+        assert.equal(log.calls[1].detail.proposals, 1);
+        assert.equal(log.calls[2].detail.count, 1);
+        assert.equal(state.queue.length, 1);
+    });
+
+    it('logs a failed generation as a warning, and still returns quietly', async () => {
+        const state = ledger();
+        const generate = stub(() => {
+            throw new Error('the backend refused');
+        });
+        const log = spyLog();
+
+        const queued = await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(queued, []);
+        assert.equal(state.queue.length, 0);
+        const failure = log.calls.at(-1);
+        assert.equal(failure.level, 'warn');
+        assert.match(failure.message, /generation failed/);
+        assert.match(failure.detail.error, /the backend refused/);
+    });
+
+    it('logs an out-of-window citation as a warning before voiding the pass', async () => {
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal({ evidence: [9999] })])));
+        const log = spyLog();
+
+        const queued = await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(queued, []);
+        const voided = log.calls.at(-1);
+        assert.equal(voided.level, 'warn');
+        assert.match(voided.message, /outside the window/);
+    });
+
+    it('stays silent when no logger is injected', async () => {
+        // The dependency is optional: a pass with nothing to log to behaves like a
+        // pass that ran quietly under §3, rather than throwing on a missing channel.
+        const state = ledger();
+        const generate = stub();
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.equal(queued.length, 1);
+    });
+
+    it('tolerates a logger that only carries some channels', async () => {
+        // index.js supplies all three channels, but a partial logger must not
+        // throw on the level it lacks—the log is never worth failing a pass over.
+        const state = ledger();
+        const generate = stub(() => {
+            throw new Error('no channel for this');
+        });
+        const seen = [];
+
+        const queued = await runEvaluation(state, {
+            chat,
+            generate,
+            log: { warn: (message) => seen.push(message) },
+        });
+
+        assert.deepEqual(queued, []);
+        assert.equal(seen.length, 1);
+        assert.match(seen[0], /generation failed/);
     });
 
     it('never leaks the render into the pass', async () => {
