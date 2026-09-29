@@ -53,7 +53,7 @@ markdown-linted before anything lands.
 
 | File | What it is |
 | --- | --- |
-| `index.js` | Entry point. Wires `APP_READY`, the launcher's scan action, hooks |
+| `index.js` | Entry point. Wires `APP_READY`, the button's scan action, hooks |
 | `manifest.json` | Loader descriptor |
 | `src/state.js` | State load/migrate/save, provenance-gated mutations, ruling log |
 | `src/grammar.js` | The digest renderer: state → lean prose (the dosage rules) |
@@ -61,7 +61,7 @@ markdown-linted before anything lands.
 | `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence policy |
 | `src/board.js` | The board's store, prompt and tool-call protocol |
 | `src/board-prompt.js` | The board's prose, in one file the DM edits herself |
-| `src/ui.js` | The launcher's menu and hero sheet, review queue and board surfaces |
+| `src/ui.js` | The button and menu; the hero sheet, review queue and board surfaces |
 | `style.css` | Near-mono palette with a single warm accent |
 | `settings.html` | Extensions-drawer template: cadence and digest budget, both live |
 
@@ -70,10 +70,10 @@ markdown-linted before anything lands.
 The scaffold is landed. `src/state.js` and `src/grammar.js` are complete and tested.
 The evaluator scan's chain is complete and tested—scene window, prompt,
 generation, validation, queue assembly—and `index.js` wires it to the cadence and
-the launcher's Run a scan entry. The three surfaces are built: the hero sheet, the
+the menu's Run a scan entry. The three surfaces are built: the hero sheet, the
 review queue that rules on a queued proposal, and the discussion board, which turns
 the DM's own thinking into a change through one click. A pass's failures name
-themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase. The launcher's
+themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase. The menu's
 Run a scan entry also tells the truth, in five messages rather than two: a dropped trigger,
 a pass that could not run, a clean zero, proposals filed, and proposals the chat never took.
 Citations survive deletion and re-roll, and the scan's evidence is fingerprinted at intake.

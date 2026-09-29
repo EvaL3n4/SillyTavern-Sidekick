@@ -73,7 +73,7 @@ export function readBoard(raw) {
  *
  * Mutates and returns the board, matching applyProposal's convention. A turn
  * that fails validation is dropped rather than thrown, for the same reason
- * readBoard tolerates junk: one malformed line must not brick the pane.
+ * readBoard tolerates junk: one malformed line must not brick the panel.
  *
  * @param {{turns: object[]}} board
  * @param {object} turn

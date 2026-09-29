@@ -8,7 +8,7 @@
 import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
 import { reanchorCitations } from './src/citations.js';
-import { mountSettings, mountLauncher, mountQueue, mountSheet, mountBoard } from './src/ui.js';
+import { mountSettings, mountChrome, mountQueue, mountSheet, mountBoard } from './src/ui.js';
 import { loadState } from './src/state.js';
 import { BOARD_KEY, readBoard, runBoardTurn } from './src/board.js';
 
@@ -128,7 +128,7 @@ export async function persistState(state) {
  * chatMetadata is rebound on CHAT_CHANGED, so this reads it fresh exactly as
  * readState does. readBoard never throws: a chat that has never opened the board,
  * or one whose board was mangled by hand, reads as an empty conversation rather
- * than something the pane has to defend against.
+ * than something the panel has to defend against.
  *
  * @returns {object} this chat's board
  */
@@ -250,7 +250,7 @@ async function evaluateNow(state) {
 }
 
 /**
- * Runs a scan because the DM asked for one. The launcher's Run a scan entry is the
+ * Runs a scan because the DM asked for one. The button's Run a scan entry is the
  * only manual path now: a typed command is a completion-era affordance, and
  * nobody types to run a pass when the button is already in front of them.
  *
@@ -332,7 +332,7 @@ async function onAppReady() {
         getState: readState,
         persist: persistState,
     });
-    mountLauncher({ onScan: () => void scanOnDemand(), getState: readState });
+    mountChrome({ onScan: () => void scanOnDemand(), getState: readState });
     mountQueue({ getState: readState, persist: persistState });
     mountSheet({ getState: readState });
     mountBoard({

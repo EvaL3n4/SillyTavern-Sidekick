@@ -2,19 +2,19 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-    LAUNCHER_SIZE,
+    BUTTON_SIZE,
     PANEL_DEFAULT,
     PANEL_MIN,
     clampPosition,
     clampRecord,
     clampSize,
     defaultGeometry,
-    launcherKey,
+    chromeKey,
     movePanel,
     readGeometry,
     resizePanel,
     writeGeometry,
-} from '../src/launcher.js';
+} from '../src/chrome.js';
 
 const VIEWPORT = { width: 1280, height: 800 };
 const DEFAULTS = defaultGeometry(VIEWPORT);
@@ -37,16 +37,16 @@ function store(seed = null) {
     };
 }
 
-describe('launcherKey', () => {
+describe('chromeKey', () => {
     it('carries the record shape version in the key', () => {
-        assert.equal(launcherKey(), 'sidekick_chrome_v1');
-        assert.ok(launcherKey().endsWith(`_v${defaultGeometry().v}`));
+        assert.equal(chromeKey(), 'sidekick_chrome_v2');
+        assert.ok(chromeKey().endsWith(`_v${defaultGeometry().v}`));
     });
 });
 
 describe('defaultGeometry', () => {
-    it('sits the launcher above the send form, on the right', () => {
-        assert.deepEqual(defaultGeometry(VIEWPORT).launcher, { x: 1208, y: 728 });
+    it('sits the button above the send form, on the right', () => {
+        assert.deepEqual(defaultGeometry(VIEWPORT).button, { x: 1208, y: 728 });
     });
 
     it('centres the panel and opens it at its default size', () => {
@@ -54,8 +54,8 @@ describe('defaultGeometry', () => {
     });
 
     it('stamps the record with the version the key names', () => {
-        assert.equal(defaultGeometry().v, 1);
-        assert.equal(defaultGeometry({ width: 400, height: 300 }).v, 1);
+        assert.equal(defaultGeometry().v, 2);
+        assert.equal(defaultGeometry({ width: 400, height: 300 }).v, 2);
     });
 
     it('puts the defaults fully inside the viewport it was given', () => {
@@ -63,23 +63,23 @@ describe('defaultGeometry', () => {
         const small = defaultGeometry({ width: 600, height: 500 });
 
         assert.deepEqual(
-            clampPosition(small.launcher.x, small.launcher.y, LAUNCHER_SIZE, { width: 600, height: 500 }),
-            small.launcher,
+            clampPosition(small.button.x, small.button.y, BUTTON_SIZE, { width: 600, height: 500 }),
+            small.button,
         );
     });
 });
 
 describe('clampPosition', () => {
     it('keeps a control dragged past the bottom-right inside', () => {
-        assert.deepEqual(clampPosition(5000, 5000, LAUNCHER_SIZE, VIEWPORT), { x: 1232, y: 752 });
+        assert.deepEqual(clampPosition(5000, 5000, BUTTON_SIZE, VIEWPORT), { x: 1232, y: 752 });
     });
 
     it('pins a control dragged past the top-left at the origin', () => {
-        assert.deepEqual(clampPosition(-100, -100, LAUNCHER_SIZE, VIEWPORT), { x: 0, y: 0 });
+        assert.deepEqual(clampPosition(-100, -100, BUTTON_SIZE, VIEWPORT), { x: 0, y: 0 });
     });
 
     it('leaves a position that already fits alone', () => {
-        assert.deepEqual(clampPosition(300, 200, LAUNCHER_SIZE, VIEWPORT), { x: 300, y: 200 });
+        assert.deepEqual(clampPosition(300, 200, BUTTON_SIZE, VIEWPORT), { x: 300, y: 200 });
     });
 
     it('pins at the origin when the viewport is smaller than the control', () => {
@@ -90,10 +90,10 @@ describe('clampPosition', () => {
     });
 
     it('returns the origin rather than throwing on coordinates that are not numbers', () => {
-        assert.deepEqual(clampPosition(Number.NaN, 10, LAUNCHER_SIZE, VIEWPORT), { x: 0, y: 0 });
-        assert.deepEqual(clampPosition('10', 10, LAUNCHER_SIZE, VIEWPORT), { x: 0, y: 0 });
+        assert.deepEqual(clampPosition(Number.NaN, 10, BUTTON_SIZE, VIEWPORT), { x: 0, y: 0 });
+        assert.deepEqual(clampPosition('10', 10, BUTTON_SIZE, VIEWPORT), { x: 0, y: 0 });
         assert.deepEqual(clampPosition(10, 10, { width: 48 }, VIEWPORT), { x: 0, y: 0 });
-        assert.deepEqual(clampPosition(10, 10, LAUNCHER_SIZE, { width: 1280 }), { x: 0, y: 0 });
+        assert.deepEqual(clampPosition(10, 10, BUTTON_SIZE, { width: 1280 }), { x: 0, y: 0 });
     });
 });
 
@@ -136,7 +136,7 @@ describe('movePanel', () => {
         assert.deepEqual(movePanel(panel, 50, -30, VIEWPORT), { x: 450, y: 170, w: 340, h: 420 });
     });
 
-    it('stops the panel at the viewport edges by its own size, not the launcher\'s', () => {
+    it('stops the panel at the viewport edges by its own size, not the button\'s', () => {
         assert.deepEqual(movePanel(panel, 5000, 5000, VIEWPORT), { x: 940, y: 380, w: 340, h: 420 });
         assert.deepEqual(movePanel(panel, -5000, -5000, VIEWPORT), { x: 0, y: 0, w: 340, h: 420 });
     });
@@ -175,18 +175,18 @@ describe('clampRecord', () => {
         // right edge pin at 120. Clamped position first against the requested 100x100 it would sit
         // at 390x290 and then grow straight off the viewport.
         const record = {
-            v: 1,
-            launcher: { x: 0, y: 0 },
+            v: 2,
+            button: { x: 0, y: 0 },
             panel: { x: 390, y: 290, w: 100, h: 100 },
         };
 
         assert.deepEqual(clampRecord(record, { width: 400, height: 300 }).panel, { w: 280, h: 200, x: 120, y: 100 });
     });
 
-    it('re-clamps a launcher the browser shrank out from under', () => {
-        const record = { v: 1, launcher: { x: 5000, y: 0 }, panel: { x: 0, y: 0, w: 340, h: 420 } };
+    it('re-clamps a button the browser shrank out from under', () => {
+        const record = { v: 2, button: { x: 5000, y: 0 }, panel: { x: 0, y: 0, w: 340, h: 420 } };
 
-        assert.equal(clampRecord(record, { width: 400, height: 300 }).launcher.x, 352);
+        assert.equal(clampRecord(record, { width: 400, height: 300 }).button.x, 352);
     });
 
     it('reads a record with no version as the defaults', () => {
@@ -214,59 +214,59 @@ describe('readGeometry', () => {
     });
 
     it('reads the defaults for a record from another version', () => {
-        const stored = JSON.stringify({ v: 2, launcher: { x: 10, y: 20 }, panel: { x: 30, y: 40, w: 300, h: 400 } });
+        const stored = JSON.stringify({ v: 3, button: { x: 10, y: 20 }, panel: { x: 30, y: 40, w: 300, h: 400 } });
 
         assert.deepEqual(readGeometry({ getStored: () => stored, viewport: VIEWPORT }), DEFAULTS);
     });
 
     it('fills the one field that is missing and keeps the rest', () => {
-        const stored = JSON.stringify({ v: 1, launcher: { x: 10 }, panel: { x: 30, y: 40, w: 300 } });
+        const stored = JSON.stringify({ v: 2, button: { x: 10 }, panel: { x: 30, y: 40, w: 300 } });
 
         assert.deepEqual(readGeometry({ getStored: () => stored, viewport: VIEWPORT }), {
-            v: 1,
-            launcher: { x: 10, y: DEFAULTS.launcher.y },
+            v: 2,
+            button: { x: 10, y: DEFAULTS.button.y },
             panel: { x: 30, y: 40, w: 300, h: DEFAULTS.panel.h },
         });
     });
 
     it('fills a whole half that is not an object at all', () => {
-        const stored = JSON.stringify({ v: 1, launcher: 'junk', panel: { x: 30, y: 40, w: 300, h: 420 } });
+        const stored = JSON.stringify({ v: 2, button: 'junk', panel: { x: 30, y: 40, w: 300, h: 420 } });
 
         assert.deepEqual(readGeometry({ getStored: () => stored, viewport: VIEWPORT }), {
-            v: 1,
-            launcher: DEFAULTS.launcher,
+            v: 2,
+            button: DEFAULTS.button,
             panel: { x: 30, y: 40, w: 300, h: 420 },
         });
     });
 
     it('restores a stored position', () => {
-        const stored = JSON.stringify({ v: 1, launcher: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } });
+        const stored = JSON.stringify({ v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } });
 
         assert.deepEqual(readGeometry({ getStored: () => stored, viewport: VIEWPORT }), {
-            v: 1,
-            launcher: { x: 100, y: 200 },
+            v: 2,
+            button: { x: 100, y: 200 },
             panel: { x: 10, y: 20, w: 500, h: 400 },
         });
     });
 
     it('clamps a stored record that no longer fits the browser', () => {
         const stored = JSON.stringify({
-            v: 1,
-            launcher: { x: 5000, y: 5000 },
+            v: 2,
+            button: { x: 5000, y: 5000 },
             panel: { x: 5000, y: 5000, w: 5000, h: 5000 },
         });
 
         assert.deepEqual(readGeometry({ getStored: () => stored, viewport: VIEWPORT }), {
-            v: 1,
-            launcher: { x: 1232, y: 752 },
+            v: 2,
+            button: { x: 1232, y: 752 },
             panel: { w: 1280, h: 800, x: 0, y: 0 },
         });
     });
 
     it('leaves a stored record unclamped when the caller has no viewport to give', () => {
-        const stored = JSON.stringify({ v: 1, launcher: { x: 5000, y: 5000 }, panel: { x: 0, y: 0, w: 340, h: 420 } });
+        const stored = JSON.stringify({ v: 2, button: { x: 5000, y: 5000 }, panel: { x: 0, y: 0, w: 340, h: 420 } });
 
-        assert.equal(readGeometry({ getStored: () => stored }).launcher.x, 5000);
+        assert.equal(readGeometry({ getStored: () => stored }).button.x, 5000);
     });
 
     it('reads the defaults when storage itself refuses to answer', () => {
@@ -279,13 +279,13 @@ describe('readGeometry', () => {
 });
 
 describe('writeGeometry', () => {
-    const record = { v: 1, launcher: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } };
+    const record = { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } };
 
     it('hands the record over under the versioned key', () => {
         const fake = store();
 
         assert.equal(writeGeometry(record, { setStored: fake.setStored }), true);
-        assert.deepEqual(fake.calls, [[launcherKey(), JSON.stringify(record)]]);
+        assert.deepEqual(fake.calls, [[chromeKey(), JSON.stringify(record)]]);
     });
 
     it('swallows a storage that refuses, because a drag must not break on it', () => {
@@ -314,7 +314,7 @@ describe('writeGeometry', () => {
 
         assert.deepEqual(
             readGeometry({ getStored: fake.getStored, viewport: VIEWPORT }),
-            { v: 1, launcher: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } },
+            { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } },
         );
     });
 });
@@ -327,11 +327,11 @@ describe('the defaults and the constants agree', () => {
         assert.equal(clampSize(0, 0, PANEL_MIN, VIEWPORT).h, PANEL_MIN.height);
     });
 
-    it('knows the launcher by the size it will actually be drawn at', () => {
+    it('knows the button by the size it will actually be drawn at', () => {
         const viewport = { width: 500, height: 500 };
-        const launcher = defaultGeometry(viewport).launcher;
+        const button = defaultGeometry(viewport).button;
 
-        assert.equal(launcher.x, 500 - LAUNCHER_SIZE.width - 24);
-        assert.equal(launcher.y, 500 - LAUNCHER_SIZE.height - 24);
+        assert.equal(button.x, 500 - BUTTON_SIZE.width - 24);
+        assert.equal(button.y, 500 - BUTTON_SIZE.height - 24);
     });
 });

@@ -1,5 +1,5 @@
 /**
- * The chrome's geometry: where the launcher sits, and where the panel sits and
+ * The chrome's geometry: where the button sits, and where the panel sits and
  * how big it is. Pure and DOM-free like the other §6-facing modules, because
  * this is the one part of a draggable, resizable surface that node can reach.
  *
@@ -15,7 +15,7 @@
  */
 
 /** The record's shape version, stored inside the record as well as the key. */
-const VERSION = 1;
+const VERSION = 2;
 
 /**
  * The key the chrome's geometry is stored under. It carries its own version, so
@@ -24,16 +24,16 @@ const VERSION = 1;
  *
  * @returns {string}
  */
-export function launcherKey() {
+export function chromeKey() {
     return `sidekick_chrome_v${VERSION}`;
 }
 
 /**
- * The launcher's footprint, which is what clamps know it by. It has to match
- * `.sidekick-launcher`'s box in style.css: a clamp that believes a smaller
+ * The button's footprint, which is what clamps know it by. It has to match
+ * `.sidekick-button`'s box in style.css: a clamp that believes a smaller
  * control than the one on screen lets its bottom edge hang off the viewport.
  */
-export const LAUNCHER_SIZE = { width: 48, height: 48 };
+export const BUTTON_SIZE = { width: 48, height: 48 };
 
 /** The panel's smallest usable size: the edit panel's from/to pairs need width. */
 export const PANEL_MIN = { width: 280, height: 200 };
@@ -72,20 +72,20 @@ const hasNumbers = (value, fields) => isRect(value) && fields.every((field) => i
 const asSize = (size) => ({ width: size.w, height: size.h });
 
 /**
- * Where the chrome sits before she has ever moved it: the launcher above the
+ * Where the chrome sits before she has ever moved it: the button above the
  * send form's corner, the panel centred. Both are starting points only.
  *
  * @param {{width: number, height: number}} [viewport]
- * @returns {{v: number, launcher: {x: number, y: number}, panel: {x: number, y: number, w: number, h: number}}}
+ * @returns {{v: number, button: {x: number, y: number}, panel: {x: number, y: number, w: number, h: number}}}
  */
 export function defaultGeometry(viewport = DEFAULT_VIEWPORT) {
     const { width, height } = viewport;
 
     return {
         v: VERSION,
-        launcher: {
-            x: width - LAUNCHER_SIZE.width - MARGIN,
-            y: height - LAUNCHER_SIZE.height - MARGIN,
+        button: {
+            x: width - BUTTON_SIZE.width - MARGIN,
+            y: height - BUTTON_SIZE.height - MARGIN,
         },
         panel: {
             x: Math.round((width - PANEL_DEFAULT.width) / 2),
@@ -166,7 +166,7 @@ export function clampRecord(record, viewport = DEFAULT_VIEWPORT) {
 
     return {
         v: VERSION,
-        launcher: clampPosition(base.launcher.x, base.launcher.y, LAUNCHER_SIZE, viewport),
+        button: clampPosition(base.button.x, base.button.y, BUTTON_SIZE, viewport),
         panel: { ...panelSize, ...panelAt },
     };
 }
@@ -226,7 +226,7 @@ function normalize(record, viewport = DEFAULT_VIEWPORT) {
 
     return {
         v: VERSION,
-        launcher: fillRect(record.launcher, fallback.launcher),
+        button: fillRect(record.button, fallback.button),
         panel: fillRect(record.panel, fallback.panel),
     };
 }
@@ -256,7 +256,7 @@ function fillRect(stored, shape) {
  * Reads the chrome's geometry, or the defaults when nothing usable is stored.
  *
  * Nothing here throws: hand-edited storage, an old version and a truncated
- * write all read as defaults, because the launcher is how she reaches every
+ * write all read as defaults, because the button is how she reaches every
  * other surface and a lost position costs one drag, not a working feature.
  *
  * @param {{getStored?: () => unknown, viewport?: {width: number, height: number}}} [seam]
@@ -304,7 +304,7 @@ export function writeGeometry(record, { setStored } = {}) {
 
     try {
         const payload = JSON.stringify(normalize(record) ?? defaultGeometry());
-        setStored(launcherKey(), payload);
+        setStored(chromeKey(), payload);
         return true;
     } catch {
         return false;

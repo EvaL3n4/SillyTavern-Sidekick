@@ -1,10 +1,10 @@
 /**
- * The launcher's menu geometry, which is the one piece of the drag that is pure
+ * The button's menu geometry, which is the one piece of the drag that is pure
  * arithmetic.
  *
  * src/ui.js is browser-only, so this file imports it for menuPlacement rather
  * than driving jQuery. What it pins is the placement rule: the menu reads
- * against wherever the launcher came to rest, never against a corner the
+ * against wherever the button came to rest, never against a corner the
  * scaffold picked, and a viewport that honors neither preference still leaves
  * the menu on screen rather than off it.
  */
@@ -18,27 +18,27 @@ const VIEWPORT = { width: 1280, height: 800 };
 const MENU = { width: 160, height: 120 };
 
 describe('menuPlacement', () => {
-    it('opens above the launcher when there is room, left edges aligned', () => {
+    it('opens above the button when there is room, left edges aligned', () => {
         const at = menuPlacement({ x: 600, y: 700 }, VIEWPORT, MENU);
         assert.deepEqual(at, { x: 600, y: 580 });
     });
 
-    it('opens below when the launcher sits too close to the top', () => {
+    it('opens below when the button sits too close to the top', () => {
         // 40 - 120 is off-screen, so the menu hangs under the button instead.
         const at = menuPlacement({ x: 600, y: 40 }, VIEWPORT, MENU);
         assert.deepEqual(at, { x: 600, y: 88 });
     });
 
-    it('measures the drop from the launcher box, not from nothing', () => {
-        // 40 + LAUNCHER_SIZE.height. A constant that drifts from the CSS box
+    it('measures the drop from the button box, not from nothing', () => {
+        // 40 + BUTTON_SIZE.height. A constant that drifts from the CSS box
         // opens the menu over the button, and this is where that shows.
         const at = menuPlacement({ x: 600, y: 40 }, VIEWPORT, { width: 160, height: 200 });
         assert.deepEqual(at, { x: 600, y: 88 });
     });
 
-    it('flips to the launcher right edge when the menu would run off it', () => {
+    it('flips to the button right edge when the menu would run off it', () => {
         // 1200 + 160 is past 1280, so the menu's right edge meets the
-        // launcher's right edge instead of its left.
+        // button's right edge instead of its left.
         const at = menuPlacement({ x: 1200, y: 700 }, VIEWPORT, MENU);
         assert.deepEqual(at, { x: 1088, y: 580 });
     });
@@ -55,7 +55,7 @@ describe('menuPlacement', () => {
         assert.deepEqual(at, { x: 0, y: 0 });
     });
 
-    it('pulls a launcher resting off-screen back on', () => {
+    it('pulls a button resting off-screen back on', () => {
         const left = menuPlacement({ x: -50, y: 700 }, VIEWPORT, MENU);
         assert.deepEqual(left, { x: 0, y: 580 });
 

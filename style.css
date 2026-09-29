@@ -37,8 +37,8 @@
     width: 6em;
 }
 
-/* The launcher and everything behind it. */
-.sidekick-launcher {
+/* The button and everything behind it. */
+.sidekick-button {
     position: fixed;
     z-index: 3000;
     width: 48px;
@@ -54,17 +54,17 @@
     touch-action: none;
 }
 
-.sidekick-launcher:hover {
+.sidekick-button:hover {
     background: var(--sidekick-accent-dim);
 }
 
-.sidekick-launcher:focus-visible {
+.sidekick-button:focus-visible {
     outline: 2px solid var(--sidekick-fg);
     outline-offset: 2px;
 }
 
 /* Waiting on you, and nothing else: how many proposals hold a ruling. */
-.sidekick-badge {
+.sidekick-marker {
     position: absolute;
     top: -2px;
     right: -2px;
@@ -81,11 +81,11 @@
     text-align: center;
 }
 
-.sidekick-badge[hidden] {
+.sidekick-marker[hidden] {
     display: none;
 }
 
-.sidekick-launcher-menu {
+.sidekick-menu {
     position: fixed;
     z-index: 2999;
     display: flex;
@@ -99,11 +99,11 @@
     background: var(--sidekick-bg);
 }
 
-.sidekick-launcher-menu[hidden] {
+.sidekick-menu[hidden] {
     display: none;
 }
 
-.sidekick-launcher-menu button {
+.sidekick-menu button {
     padding: 8px 12px;
     border: none;
     border-radius: var(--sidekick-radius);
@@ -114,7 +114,7 @@
     cursor: pointer;
 }
 
-.sidekick-launcher-menu button:hover {
+.sidekick-menu button:hover {
     background: var(--sidekick-line);
 }
 
@@ -149,7 +149,7 @@
    the stored geometry; the box here only says how the frame lays out. The band
    stays under SillyTavern's own layers (popups at 10000, streaming at 9000) and
    above the chat form: a window she can leave over ST's dialogs is a bug. */
-.sidekick-launcher-panel {
+.sidekick-panel {
     position: fixed;
     z-index: 2998;
     display: flex;
@@ -165,12 +165,12 @@
     color: var(--sidekick-fg);
 }
 
-.sidekick-launcher-panel[hidden] {
+.sidekick-panel[hidden] {
     display: none;
 }
 
 /* The whole strip is the grab handle, so it is not a scroll region. */
-.sidekick-pane-head {
+.sidekick-panel-strip {
     display: flex;
     flex: none;
     align-items: center;
@@ -186,21 +186,21 @@
 /* The body takes what the head leaves and scrolls inside it. min-height: 0 is
    what lets a flex child shrink below its content instead of stretching the
    frame past the size she chose. */
-.sidekick-pane-body {
+.sidekick-panel-body {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
 }
 
 /* The board's body is a column: the log fills it, the composer stays below. */
-.sidekick-pane-board {
+.sidekick-panel-board {
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 /* One resize grip, bottom-right: two hairline strokes, no accent. */
-.sidekick-pane-grip {
+.sidekick-panel-grip {
     position: absolute;
     right: 0;
     bottom: 0;
@@ -218,7 +218,7 @@
     );
 }
 
-.sidekick-pane-close {
+.sidekick-panel-close {
     border: none;
     background: transparent;
     color: var(--sidekick-muted);
@@ -226,7 +226,7 @@
     cursor: pointer;
 }
 
-.sidekick-pane-empty {
+.sidekick-panel-empty {
     color: var(--sidekick-muted);
 }
 
@@ -250,7 +250,7 @@
 .sidekick-actions button:hover {
     background: var(--sidekick-line);
 }
-/* Evidence is the one accent inside the pane: it is what the DM acts on. */
+/* Evidence is the one accent inside the panel: it is what the DM acts on. */
 .sidekick-jump {
     border: none;
     background: transparent;
@@ -310,8 +310,8 @@
     overflow-y: auto;
 }
 
-.sidekick-pane-board > .sidekick-note,
-.sidekick-pane-board > .sidekick-composer {
+.sidekick-panel-board > .sidekick-note,
+.sidekick-panel-board > .sidekick-composer {
     flex: none;
 }
 
@@ -416,7 +416,7 @@
     color: var(--sidekick-muted);
     font-family: monospace;
     font-size: 0.9em;
-    /* A path is longer than the pane. It is read, not typed, so wrapping it
+    /* A path is longer than the panel. It is read, not typed, so wrapping it
        whole beats truncating a field the edit depends on. */
     overflow-wrap: anywhere;
 }

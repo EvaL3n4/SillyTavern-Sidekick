@@ -2,7 +2,7 @@
  * UI surfaces (§7).
  *
  * The extensions drawer holds settings only. Everything the DM touches during
- * play—hero sheet, review queue, board—sits behind the launcher; a surface that
+ * play—hero sheet, review queue, board—sits behind the button; a surface that
  * for a click is a surface that gets opened late.
  */
 
@@ -10,18 +10,18 @@ import { applyProposal, getPath, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
 import { appendTurn } from './board.js';
 import {
-    LAUNCHER_SIZE,
+    BUTTON_SIZE,
     clampPosition,
     clampRecord,
-    launcherKey,
+    chromeKey,
     movePanel,
     readGeometry,
     resizePanel,
     writeGeometry,
-} from './launcher.js';
+} from './chrome.js';
 
 /**
- * The launcher's surfaces, in menu order (§7).
+ * The button's surfaces, in menu order (§7).
  * @type {{id: string, label: string}[]}
  */
 const SURFACES = [
@@ -32,17 +32,17 @@ const SURFACES = [
 
 /**
  * Renderers the surface modules register as they are built, keyed by surface
- * id. Until one registers, its menu entry opens a pane that says so, because
- * an empty pane and an unbuilt surface read the same from the DM's side.
- * @type {Map<string, (pane: object) => void>}
+ * id. Until one registers, its menu entry opens a panel that says so, because
+ * an empty panel and an unbuilt surface read the same from the DM's side.
+ * @type {Map<string, (panel: object) => void>}
  */
 const surfaceRenderers = new Map();
 
 /**
  * Registers a surface's renderer behind its menu entry. The surface's own
- * module calls this when it exists; the launcher shells the rest.
+ * module calls this when it exists; the chrome shells the rest.
  * @param {string} id a SURFACES id
- * @param {(pane: object) => void} render receives the pane's empty body
+ * @param {(panel: object) => void} render receives the panel's empty body
  * @returns {void}
  */
 export function registerSurface(id, render) {
@@ -211,8 +211,8 @@ export async function mountSettings({ folder, context, getState, persist }) {
 const DRAG_THRESHOLD = 4;
 
 /**
- * Where the menu sits around the launcher: above when there is room, below when
- * there is not, and flipped off the right edge when the launcher sits near it, so
+ * Where the menu sits around the button: above when there is room, below when
+ * there is not, and flipped off the right edge when the button sits near it, so
  * a menu pinned to a corner while its button moved never happens.
  *
  * The menu's size is asked for rather than guessed, because the placement is a
@@ -220,24 +220,24 @@ const DRAG_THRESHOLD = 4;
  * through clampPosition, so a viewport too small for either preference still
  * leaves the menu on screen.
  *
- * @param {{x: number, y: number}} launcher the launcher's top-left corner
+ * @param {{x: number, y: number}} button the button's top-left corner
  * @param {{width: number, height: number}} viewport
  * @param {{width: number, height: number}} size the menu's measured size
  * @returns {{x: number, y: number}} the menu's top-left corner, clamped
  */
-export function menuPlacement(launcher, viewport, size) {
-    const above = launcher.y - size.height >= 0;
-    const top = above ? launcher.y - size.height : launcher.y + LAUNCHER_SIZE.height;
-    const fits = launcher.x + size.width <= viewport.width;
-    const left = fits ? launcher.x : launcher.x + LAUNCHER_SIZE.width - size.width;
+export function menuPlacement(button, viewport, size) {
+    const above = button.y - size.height >= 0;
+    const top = above ? button.y - size.height : button.y + BUTTON_SIZE.height;
+    const fits = button.x + size.width <= viewport.width;
+    const left = fits ? button.x : button.x + BUTTON_SIZE.width - size.width;
     return clampPosition(left, top, size, viewport);
 }
 
 /**
- * Mounts the launcher: the one control that is always in front of the DM, and
- * the surfaces behind it.
+ * Mounts the chrome: the button, the one control that is always in front of the
+ * DM, and the panel behind it.
  *
- * The launcher drags. A press past DRAG_THRESHOLD moves it and takes pointer
+ * The button drags. A press past DRAG_THRESHOLD moves it and takes pointer
  * capture on that first move rather than on the press, so a plain tap never
  * establishes capture and the click path—mouse, touch and the keyboard's Enter
  * and Space—stays exactly what it was. The click a drag ends with is eaten by a
@@ -245,11 +245,11 @@ export function menuPlacement(launcher, viewport, size) {
  * storage write per frame is waste, and a mid-drag persist that gets abandoned
  * leaves the record off the last resting place.
  *
- * The menu opens against the launcher's live position rather than a hardcoded
- * corner (menuPlacement), and the badge counts what is waiting, because a queue
+ * The menu opens against the button's live position rather than a hardcoded
+ * corner (menuPlacement), and the marker counts what is waiting, because a queue
  * she cannot see is a queue she forgets.
  *
- * Idempotent: APP_READY can fire again after a reconnect, and a second launcher
+ * Idempotent: APP_READY can fire again after a reconnect, and a second button
  * would stack on the first. Outside clicks are decided in the capture phase
  * so a synchronous repaint can never detach the event target before this
  * listener sees it.
@@ -257,16 +257,16 @@ export function menuPlacement(launcher, viewport, size) {
  * @param {object} [options]
  * @param {() => void} [options.onScan] runs a scan because the DM asked
  * @param {() => object|null} [options.getState] reads this chat's queue, for the
- *     badge
+ *     marker
  * @returns {void}
  */
-export function mountLauncher({ onScan, getState } = {}) {
-    if ($('.sidekick-launcher').length > 0) {
+export function mountChrome({ onScan, getState } = {}) {
+    if ($('.sidekick-button').length > 0) {
         return;
     }
 
     const button = $('<button>', {
-        class: 'sidekick-launcher',
+        class: 'sidekick-button',
         type: 'button',
         title: 'Sidekick',
         'aria-haspopup': 'true',
@@ -275,24 +275,24 @@ export function mountLauncher({ onScan, getState } = {}) {
 
     // Waiting on you, where she can see it without opening anything: how many
     // proposals hold a ruling, and nothing at all when none do.
-    const badge = $('<span>', { class: 'sidekick-badge', hidden: true });
-    button.append(badge);
+    const marker = $('<span>', { class: 'sidekick-marker', hidden: true });
+    button.append(marker);
 
     const menu = $('<ul>', {
-        class: 'sidekick-launcher-menu',
+        class: 'sidekick-menu',
         role: 'menu',
         hidden: true,
     });
 
-    const pane = $('<div>', {
-        class: 'sidekick-launcher-panel',
+    const panel = $('<div>', {
+        class: 'sidekick-panel',
         role: 'region',
         hidden: true,
     });
 
     const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
     const storage = {
-        getStored: () => localStorage.getItem(launcherKey()),
+        getStored: () => localStorage.getItem(chromeKey()),
         setStored: (key, value) => localStorage.setItem(key, value),
     };
 
@@ -303,10 +303,10 @@ export function mountLauncher({ onScan, getState } = {}) {
     const place = (at) => {
         button.css({ left: `${at.x}px`, top: `${at.y}px`, right: 'auto', bottom: 'auto' });
     };
-    place(geometry.launcher);
+    place(geometry.button);
 
     const placePanel = (rect) => {
-        pane.css({
+        panel.css({
             left: `${rect.x}px`,
             top: `${rect.y}px`,
             width: `${rect.w}px`,
@@ -315,10 +315,10 @@ export function mountLauncher({ onScan, getState } = {}) {
     };
     placePanel(geometry.panel);
 
-    const showBadge = () => {
+    const showMarker = () => {
         const waiting = getState?.()?.queue?.length ?? 0;
-        badge.text(waiting > 0 ? String(waiting) : '');
-        badge.prop('hidden', waiting === 0);
+        marker.text(waiting > 0 ? String(waiting) : '');
+        marker.prop('hidden', waiting === 0);
     };
 
     let menuOpen = false;
@@ -332,8 +332,8 @@ export function mountLauncher({ onScan, getState } = {}) {
 
         // Read in the same synchronous turn the menu is unhidden, so nothing
         // flashes at a corner the measurement disagrees with.
-        showBadge();
-        const at = menuPlacement(geometry.launcher, viewport(), {
+        showMarker();
+        const at = menuPlacement(geometry.button, viewport(), {
             width: menu[0].offsetWidth,
             height: menu[0].offsetHeight,
         });
@@ -342,28 +342,28 @@ export function mountLauncher({ onScan, getState } = {}) {
 
     const openSurface = (surface) => {
         setMenu(false);
-        pane.empty();
+        panel.empty();
 
-        const head = $('<div>', { class: 'sidekick-pane-head' });
-        head.append($('<strong>').text(surface.label));
-        head.append($('<button>', {
+        const strip = $('<div>', { class: 'sidekick-panel-strip' });
+        strip.append($('<strong>').text(surface.label));
+        strip.append($('<button>', {
             type: 'button',
-            class: 'sidekick-pane-close',
+            class: 'sidekick-panel-close',
             'aria-label': 'Close',
-        }).text('×').on('click', () => pane.prop('hidden', true)));
-        pane.append(head);
+        }).text('×').on('click', () => panel.prop('hidden', true)));
+        panel.append(strip);
 
-        const body = $('<div>', { class: 'sidekick-pane-body' });
+        const body = $('<div>', { class: 'sidekick-panel-body' });
         const render = surfaceRenderers.get(surface.id);
         if (render) {
             render(body);
         } else {
-            body.append($('<p>', { class: 'sidekick-pane-empty' })
+            body.append($('<p>', { class: 'sidekick-panel-empty' })
                 .text(`${surface.label} is not built yet.`));
         }
-        pane.append(body);
-        pane.append($('<div>', { class: 'sidekick-pane-grip', 'aria-hidden': 'true' }));
-        pane.prop('hidden', false);
+        panel.append(body);
+        panel.append($('<div>', { class: 'sidekick-panel-grip', 'aria-hidden': 'true' }));
+        panel.prop('hidden', false);
     };
 
     for (const surface of SURFACES) {
@@ -376,7 +376,7 @@ export function mountLauncher({ onScan, getState } = {}) {
         menu.append($('<li>').append(item));
     }
 
-    // The one thing the launcher does rather than shows: a scan on demand.
+    // The one thing the menu does rather than shows: a scan on demand.
     //
     // It used to be a typed command, which is a completion-era affordance—nobody
     // types to run a pass when the button is already in front of them. The cadence
@@ -401,7 +401,7 @@ export function mountLauncher({ onScan, getState } = {}) {
         press = {
             x: event.clientX,
             y: event.clientY,
-            from: geometry.launcher,
+            from: geometry.button,
             dragging: false,
         };
         eatClick = false;
@@ -419,9 +419,9 @@ export function mountLauncher({ onScan, getState } = {}) {
             press.dragging = true;
             button[0].setPointerCapture?.(event.pointerId);
         }
-        const at = clampPosition(press.from.x + dx, press.from.y + dy, LAUNCHER_SIZE, viewport());
+        const at = clampPosition(press.from.x + dx, press.from.y + dy, BUTTON_SIZE, viewport());
         place(at);
-        geometry = { ...geometry, launcher: at };
+        geometry = { ...geometry, button: at };
     });
     const rest = () => {
         if (press?.dragging) {
@@ -435,24 +435,24 @@ export function mountLauncher({ onScan, getState } = {}) {
     button.on('pointerup', rest);
     button.on('pointercancel', rest);
 
-    // The panel's two gestures: the head drags it, the grip resizes it. They are
-    // delegated from the pane because openSurface rebuilds the head and the grip
+    // The panel's two gestures: the strip drags it, the grip resizes it. They are
+    // delegated from the panel because openSurface rebuilds the strip and the grip
     // every time a surface opens, and a handler bound to the old element would
-    // go with it. Same shape as the launcher's—a threshold, one write at rest—
-    // except that capture is taken on the press. The launcher waits for the first
-    // move to keep its click path clean; the head and the grip have no click to
+    // go with it. Same shape as the button's—a threshold, one write at rest—
+    // except that capture is taken on the press. The button waits for the first
+    // move to keep its click path clean; the strip and the grip have no click to
     // protect, and a fast first move can jump clean off a 20px strip, in which
     // case a listener that had not captured yet would never see the drag begin.
-    // The close button sits in the head and is left out, so closing is never the
+    // The close button sits in the strip and is left out, so closing is never the
     // start of a drag.
     const panelGestures = {
-        '.sidekick-pane-head': movePanel,
-        '.sidekick-pane-grip': resizePanel,
+        '.sidekick-panel-strip': movePanel,
+        '.sidekick-panel-grip': resizePanel,
     };
     let panelPress = null;
     for (const [selector, gesture] of Object.entries(panelGestures)) {
-        pane.on('pointerdown', selector, (event) => {
-            if (event.button !== 0 || $(event.target).closest('.sidekick-pane-close').length > 0) {
+        panel.on('pointerdown', selector, (event) => {
+            if (event.button !== 0 || $(event.target).closest('.sidekick-panel-close').length > 0) {
                 return;
             }
             panelPress = {
@@ -465,7 +465,7 @@ export function mountLauncher({ onScan, getState } = {}) {
             event.currentTarget.setPointerCapture?.(event.pointerId);
         });
     }
-    pane.on('pointermove', (event) => {
+    panel.on('pointermove', (event) => {
         if (!panelPress) {
             return;
         }
@@ -487,7 +487,7 @@ export function mountLauncher({ onScan, getState } = {}) {
         }
         panelPress = null;
     };
-    pane.on('pointerup pointercancel', restPanel);
+    panel.on('pointerup pointercancel', restPanel);
 
     button.on('click', () => {
         if (eatClick) {
@@ -504,31 +504,31 @@ export function mountLauncher({ onScan, getState } = {}) {
         setMenu(false);
     }, true);
 
-    // The badge's two reads. A new chat has its own queue, so a count left over
+    // The marker's two reads. A new chat has its own queue, so a count left over
     // from the last one names the wrong number, and the menu opening is the other
     // moment the count is actually looked at. Between them it can be stale—a
     // scan landing while she reads the board does not repaint it—which is the
     // named residual; the fallback, if live testing shows it bothers her, is to
     // move the count onto the menu's Review queue row.
     const { eventSource, event_types } = SillyTavern.getContext();
-    eventSource.on(event_types.CHAT_CHANGED, showBadge);
-    showBadge();
+    eventSource.on(event_types.CHAT_CHANGED, showMarker);
+    showMarker();
 
     window.addEventListener('resize', () => {
         geometry = clampRecord(geometry, viewport());
-        place(geometry.launcher);
+        place(geometry.button);
         placePanel(geometry.panel);
         writeGeometry(geometry, storage);
     });
 
-    $('body').append(button, menu, pane);
+    $('body').append(button, menu, panel);
 }
 
 /**
- * Registers the review queue behind the launcher's Review queue entry.
+ * Registers the review queue behind the button's Review queue entry.
  *
  * Every action re-reads the state and re-finds the entry by id: the store
- * holds the state by reference, so nothing captured when the pane was drawn
+ * holds the state by reference, so nothing captured when the panel was drawn
  * can be assumed to still be the object the ledger refers to. Persisting after
  * a mutation is this module's job for the same reason.
  *
@@ -544,8 +544,8 @@ export function mountQueue({ getState, persist }) {
 }
 
 /**
- * Draws the pending queue into a pane body, or says so when nothing waits.
- * @param {object} body jQuery pane body
+ * Draws the pending queue into a panel body, or says so when nothing waits.
+ * @param {object} body jQuery panel body
  * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
  * @returns {void}
  */
@@ -555,7 +555,7 @@ function drawQueue(body, deps) {
     const state = deps.getState();
     const entries = state?.queue ?? [];
     if (entries.length === 0) {
-        body.append($('<p>', { class: 'sidekick-pane-empty' })
+        body.append($('<p>', { class: 'sidekick-panel-empty' })
             .text('Nothing is waiting for a ruling.'));
         return;
     }
@@ -832,7 +832,7 @@ function proposalBody(entry, deps) {
 /**
  * Carries out one ruling: the change through applyProposal (provenance-gated),
  * the ruling through recordRuling, the entry out of the queue, the state to
- * disk, and the pane redrawn. Every step re-reads the live state.
+ * disk, and the panel redrawn. Every step re-reads the live state.
  * @param {'apply'|'dismiss'} kind
  * @param {object} entry the entry as drawn
  * @param {object|null} editor the edit panel ({panel, read}), when one was opened
@@ -967,7 +967,7 @@ function goneChip(reason) {
 }
 
 /**
- * Registers the hero sheet behind the launcher's Hero sheet entry.
+ * Registers the hero sheet behind the button's Hero sheet entry.
  *
  * Read-only on purpose: §3 lets nothing touch state without an explicit DM
  * action, and the review queue owns every mutation path. This is the ledger as
@@ -984,9 +984,9 @@ export function mountSheet({ getState }) {
 }
 
 /**
- * Draws the hero, the powers and the arc into a pane body. A section with
+ * Draws the hero, the powers and the arc into a panel body. A section with
  * nothing in it says nothing at all, and a sheet with no sections at all says so.
- * @param {object} body jQuery pane body
+ * @param {object} body jQuery panel body
  * @param {object|null} state the live state
  * @returns {void}
  */
@@ -1000,7 +1000,7 @@ function drawSheet(body, state) {
     ].filter(Boolean);
 
     if (sections.length === 0) {
-        body.append($('<p>', { class: 'sidekick-pane-empty' })
+        body.append($('<p>', { class: 'sidekick-panel-empty' })
             .text('The hero sheet is empty until the campaign has a hero.'));
         return;
     }
@@ -1170,7 +1170,7 @@ function arcSection(arc) {
 }
 
 /**
- * Registers the discussion board behind the launcher's Board entry.
+ * Registers the discussion board behind the button's Board entry.
  *
  * Unlike the sheet, the board writes: every change goes through applyProposal
  * on an explicit click, straight to history tagged origin 'discussion', and never
@@ -1196,10 +1196,10 @@ export function mountBoard({ getState, persist, loadBoard, saveBoard, runTurn })
 
 /**
  * Draws this chat's board: the turns that have happened, then a way to say
- * something. The pane redraws when it opens; a turn is appended or replaced in
+ * something. The panel redraws when it opens; a turn is appended or replaced in
  * place afterwards, so the DM keeps her scroll.
  *
- * @param {object} body jQuery pane body
+ * @param {object} body jQuery panel body
  * @param {object} deps
  * @returns {void}
  */
@@ -1212,10 +1212,10 @@ function drawBoard(body, deps) {
 
     // The board is the one surface whose body is a column that fills the panel:
     // the log takes the height she sized and the composer stays at the bottom.
-    body.addClass('sidekick-pane-board');
+    body.addClass('sidekick-panel-board');
 
     if (board.turns.length === 0) {
-        log.append($('<p>', { class: 'sidekick-pane-empty' })
+        log.append($('<p>', { class: 'sidekick-panel-empty' })
             .text('The board is empty—say what you are thinking about.'));
     } else {
         // A snapshot: applying a change replaces the turn element it sits in.
@@ -1374,9 +1374,9 @@ async function applyBoardChange(turn, root, deps) {
 
     let saved = false;
     if (applied !== null && applied.length > 0) {
-        // The board is read again rather than drawn from the pane's copy: the
+        // The board is read again rather than drawn from the panel's copy: the
         // store holds the turns by reference, and a chat switch may have
-        // happened since this pane drew. The turn is the same object when it
+        // happened since this panel drew. The turn is the same object when it
         // is still there.
         const board = deps.loadBoard();
         try {
