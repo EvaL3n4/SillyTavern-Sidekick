@@ -176,12 +176,6 @@
 .sidekick-actions button:hover {
     background: var(--sidekick-line);
 }
-
-.sidekick-edit {
-    width: 100%;
-    margin-top: 6px;
-}
-
 /* Evidence is the one accent inside the pane: it is what the DM acts on. */
 .sidekick-jump {
     border: none;
@@ -314,4 +308,47 @@
 
 .sidekick-note[hidden] {
     display: none;
+}
+
+/* The DM's own edits to a proposal. The path is context and not a target, so the
+   two fields carry the weight and the path rides above them as a label. */
+.sidekick-editor {
+    margin-top: 6px;
+}
+
+.sidekick-editor-label {
+    display: block;
+    color: var(--sidekick-muted);
+    font-size: 0.9em;
+}
+
+.sidekick-edit-change {
+    margin: 6px 0;
+}
+
+.sidekick-edit-path {
+    display: block;
+    color: var(--sidekick-muted);
+    font-family: monospace;
+    font-size: 0.9em;
+    /* A path is longer than the pane. It is read, not typed, so wrapping it
+       whole beats truncating a field the edit depends on. */
+    overflow-wrap: anywhere;
+}
+
+.sidekick-edit-fields {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.sidekick-edit-from,
+.sidekick-edit-to {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.sidekick-editor .sidekick-edit {
+    width: 100%;
+    margin-top: 2px;
 }

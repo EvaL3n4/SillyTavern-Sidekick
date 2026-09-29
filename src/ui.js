@@ -6,7 +6,7 @@
  * for a click is a surface that gets opened late.
  */
 
-import { applyProposal, recordRuling } from './state.js';
+import { applyProposal, getPath, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
 import { appendTurn } from './board.js';
 /**
@@ -199,6 +199,182 @@ function drawQueue(body, deps) {
 }
 
 /**
+ * The queue entry as it stands right now, or null when it is gone. Every action
+ * re-reads rather than trusting the draw: the store holds state by reference, so a
+ * ruling handed down elsewhere can remove the entry underneath one already on
+ * screen.
+ * @param {{getState: () => object|null}} deps
+ * @param {object} entry the entry as drawn
+ * @returns {{state: object|null, live: object|null}}
+ */
+function liveEntry(deps, entry) {
+    const state = deps.getState();
+    const live = (state?.queue ?? []).find((item) => item.id === entry.id) ?? null;
+    return { state, live };
+}
+
+/**
+ * The edit affordance for one proposal: her summary, and one from/to pair per
+ * change, so an edit reaches the content and not only the label. §3 says the word
+ * that enters the record is always the DM's; until now the queue could apply the
+ * scan's phrasing whole or lose the entry, and nothing in between.
+ *
+ * Per change rather than one blob, because the paths are unrelated and a single
+ * field would invite cross-contamination. The path itself is not editable:
+ * applyProposal addresses the ledger by it, and she came to reword a value, not
+ * to move one.
+ *
+ * `read` is the only way out of the panel. It returns strings, and an emptied
+ * `from` is left ambiguous on purpose—`editedProposal` decides what it means,
+ * because the difference between "no catch" and "must equal nothing" is exactly
+ * the provenance gate.
+ *
+ * @param {object} entry a PendingChange
+ * @returns {{panel: object, read: () => {summary: string, changes: Array<{from: string, to: string}>}}}
+ */
+function editPanel(entry) {
+    const panel = $('<div>', { class: 'sidekick-editor', hidden: true });
+
+    panel.append($('<label>', { class: 'sidekick-editor-label' })
+        .text('Summary—how you would say it'));
+
+    const summary = $('<input>', {
+        type: 'text',
+        class: 'sidekick-edit',
+        value: entry.summary || '',
+    });
+    panel.append(summary);
+
+    const fields = [];
+    for (const change of entry.changes ?? []) {
+        const row = $('<div>', { class: 'sidekick-edit-change' });
+
+        row.append($('<span>', { class: 'sidekick-edit-path' }).text(change.path));
+
+        const pair = $('<div>', { class: 'sidekick-edit-fields' });
+        const from = $('<input>', {
+            type: 'text',
+            class: 'sidekick-edit-from',
+            value: change.from || '',
+            placeholder: 'from: what it reads now',
+            // `from` is the provenance catch, so its affordance says what it is
+            // rather than leaving an unexplained box beside the change.
+            title: 'What the current value has to read for this change to be allowed',
+        });
+        const to = $('<input>', {
+            type: 'text',
+            class: 'sidekick-edit-to',
+            value: change.to ?? '',
+            placeholder: 'to: what you want it to say',
+            title: 'What you want it to say instead',
+        });
+        pair.append(from, to);
+        row.append(pair);
+        panel.append(row);
+        fields.push({ from, to });
+    }
+
+    return {
+        panel,
+        read: () => ({
+            summary: String(summary.val()).trim(),
+            changes: fields.map(({ from, to }) => ({
+                from: String(from.val()).trim(),
+                to: String(to.val()).trim(),
+            })),
+        }),
+    };
+}
+
+/**
+ * Her edits as the proposal they become.
+ *
+ * An emptied `from` means no catch: §6 makes the field optional and the read line
+ * already shows an absent one as "(nothing)", so the mapping has to be explicit
+ * rather than inherited from the field, or a cleared box would claim "this must equal
+ * the empty string" and refuse a change she meant to free.
+ *
+ * @param {object} live the queue entry as it stands
+ * @param {{summary: string, changes: Array<{from: string, to: string}>}|null} read
+ * @returns {{proposal: object, edit: string}}
+ */
+export function editedProposal(live, read) {
+    if (!read) {
+        return { proposal: live, edit: '' };
+    }
+    const original = String(live.summary ?? '').trim();
+    const rewrote = [];
+    const changes = (live.changes ?? []).map((change, i) => {
+        const field = read.changes[i];
+        if (!field) {
+            return change;
+        }
+
+        const from = field.from ? field.from : undefined;
+        if (from !== change.from || field.to !== (change.to ?? '')) {
+            rewrote.push(change.path);
+        }
+        return { ...change, from, to: field.to };
+    });
+
+    // §6 records `edit` as a string: how the DM reworded it. Her own words when she
+    // wrote some, and otherwise a naming of the field she rewrote, because a ruling
+    // that says only "edited" teaches §3's feedback loop nothing about what the
+    // scan got wrong.
+    //
+    // The panel pre-fills the summary with the entry's own, so a read's summary is
+    // blank only when she deleted it. Comparing it against what the field was
+    // filled with is what keeps an untouched panel from claiming she reworded a
+    // proposal she merely looked at.
+    const herWords = read.summary && read.summary !== original ? read.summary : '';
+    const edit = herWords || (rewrote.length > 0 ? `reworded ${rewrote.join(', ')}` : '');
+    return {
+        proposal: { ...live, summary: read.summary || live.summary || '', changes },
+        edit,
+    };
+}
+
+/**
+ * Which of her edits will not apply as intended, named before she clicks.
+ *
+ * applyProposal skips a `from` mismatch with a bare `continue`, which is silence a
+ * background pass can afford. She is sitting at the queue, so a change that would be
+ * skipped is a change she believes she made; and a `from` she cleared is a change
+ * that will apply with its catch off. Both are the same getPath comparison the gate
+ * itself makes, run first.
+ *
+ * @param {object} state
+ * @param {object} live
+ * @param {{summary: string, changes: Array<{from: string, to: string}>}} read
+ * @returns {string[]}
+ */
+export function brokenEdits(state, live, read) {
+    const reasons = [];
+
+    (live.changes ?? []).forEach((change, i) => {
+        const field = read.changes[i];
+        if (!field) {
+            return;
+        }
+
+        if (!field.from) {
+            if (change.from !== undefined) {
+                reasons.push(`${change.path} lost its from check`);
+            }
+        } else if (getPath(state, change.path) !== field.from) {
+            reasons.push(`${change.path} no longer reads what from says`);
+        }
+
+        if (!field.to) {
+            // `to` carries no gate at all, and a blank one would write a hole in
+            // her ledger that reads as a decision.
+            reasons.push(`${change.path} would be emptied`);
+        }
+    });
+
+    return reasons;
+}
+/**
  * One proposal: what it says, what it would change, what it cites, and the
  * three rulings the DM can hand down.
  * @param {object} entry a PendingChange
@@ -230,26 +406,51 @@ function proposalBody(entry, deps) {
     }
     root.append(evidence);
 
-    const editor = $('<input>', {
-        type: 'text',
-        class: 'sidekick-edit',
-        hidden: true,
-        value: entry.summary || '',
+    const { panel, read } = editPanel(entry);
+    root.append(panel);
+
+    // Where an edit that will not apply as intended says so, before the click
+    // that would lose it.
+    const note = $('<p>', { class: 'sidekick-note', hidden: true });
+    root.append(note);
+
+    // Set once an Apply has been held back, so the second click is hers to make.
+    let armed = false;
+    const apply = $('<button>', { type: 'button' }).text('Apply');
+    apply.on('click', () => {
+        // One extra click for the changes the provenance gate will refuse, or
+        // admit with its catch off. The background pass can afford silence; she
+        // is sitting at the queue, and a change she believes she made is not.
+        if (!panel.prop('hidden') && !armed) {
+            const { state, live } = liveEntry(deps, entry);
+            if (state && live) {
+                const reasons = brokenEdits(state, live, read());
+                if (reasons.length > 0) {
+                    armed = true;
+                    apply.text('Apply anyway');
+                    note.text(reasons.join('; '));
+                    note.prop('hidden', false);
+                    return;
+                }
+            }
+        }
+        void rule('apply', entry, { panel, read }, root, deps);
     });
-    root.append(editor);
 
     const actions = $('<div>', { class: 'sidekick-actions' });
     actions.append($('<button>', { type: 'button' }).text('Edit').on('click', () => {
-        const show = editor.prop('hidden');
-        editor.prop('hidden', !show);
+        const show = panel.prop('hidden');
+        panel.prop('hidden', !show);
+        // Closing the panel disarms, so the next edit starts from a clean slate
+        // rather than an Apply she half-armed two edits ago.
+        armed = false;
+        apply.text('Apply');
+        note.prop('hidden', true);
         if (show) {
-            editor.trigger('focus');
+            panel.find('input').first().trigger('focus');
         }
     }));
-    actions.append($('<button>', { type: 'button' }).text('Apply')
-        .on('click', () => {
-            void rule('apply', entry, editor, root, deps);
-        }));
+    actions.append(apply);
     actions.append($('<button>', { type: 'button' }).text('Dismiss')
         .on('click', () => {
             void rule('dismiss', entry, null, root, deps);
@@ -265,25 +466,26 @@ function proposalBody(entry, deps) {
  * disk, and the pane redrawn. Every step re-reads the live state.
  * @param {'apply'|'dismiss'} kind
  * @param {object} entry the entry as drawn
- * @param {object|null} editor the edit input, when one was opened
+ * @param {object|null} editor the edit panel ({panel, read}), when one was opened
  * @param {object} root the drawn entry element
  * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
  * @returns {Promise<void>}
  */
 async function rule(kind, entry, editor, root, deps) {
-    const { getState, persist } = deps;
-    const state = getState();
+    const { persist } = deps;
+    const { state, live } = liveEntry(deps, entry);
     if (!state) {
         return;
     }
-
-    const live = (state.queue ?? []).find((item) => item.id === entry.id);
     if (!live) {
         drawQueue(root.parent(), deps);
         return;
     }
 
-    const edit = editor && !editor.prop('hidden') ? String(editor.val()).trim() : '';
+    // Read the panel only while it is open. A closed panel means she ruled on the
+    // proposal as the scan wrote it, and reading fields she is not looking at
+    // would invent edits she never made.
+    const read = editor && !editor.panel.prop('hidden') ? editor.read() : null;
     const at = Date.now();
 
     if (kind === 'dismiss') {
@@ -294,11 +496,11 @@ async function rule(kind, entry, editor, root, deps) {
             at,
         });
     } else {
-        // an edit is applied as the proposal's new summary, so the ChangeEvent
-        // carries the DM's own wording; §6 records the wording on the ruling as
-        // `edit` (a string: how the DM reworded it) with action 'edited'
-        const summary = edit || live.summary || '';
-        const proposal = edit ? { ...live, summary } : live;
+        // §3: the word that enters the record is always the DM's. It now reaches the
+        // content and not only the label—her wording rides into changes[].to, so the
+        // ChangeEvent reads as she wrote it; §6 keeps that wording on the ruling as
+        // `edit` (a string: how the DM reworded it) with action 'edited'.
+        const { proposal, edit } = editedProposal(live, read);
         const applied = applyProposal(state, proposal, { at });
         // 'stale' is a fourth action word beyond §6's union, on purpose: every
         // change was provenance-gated, so 'applied' would train the scan on a

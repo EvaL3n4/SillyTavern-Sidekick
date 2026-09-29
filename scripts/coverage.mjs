@@ -9,7 +9,6 @@
  * It stops a module from quietly falling below the line, and nothing more.
  *
  * A floor of 95% on every src file, 90% on branches. Anything the browser-only
- * modules keep out of reach (index.js, ui.js, board.js) is excluded by
  * modules keep out of reach (index.js, ui.js) is excluded by name rather
  */
 import { spawnSync } from 'node:child_process';
@@ -17,7 +16,12 @@ import { spawnSync } from 'node:child_process';
 const LINE_FLOOR = 95;
 const BRANCH_FLOOR = 90;
 
-/** Browser-only modules that no test file imports. */
+/**
+ * Browser-only modules the suite does not measure. test/ui-edit.test.js does
+ * import ui.js, for the two pure helpers the edit path turns on, but mounting
+ * the surfaces needs a live SillyTavern DOM, so the module stays exempt as a
+ * whole.
+ */
 const UNTESTED_BY_DESIGN = ['index.js', 'ui.js'];
 
 const RUNNER = ['--test', '--experimental-test-coverage', '--test-reporter=tap', 'test/*.test.js'];
