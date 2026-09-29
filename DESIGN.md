@@ -324,6 +324,44 @@ reached the chat.
 `index.js` shapes that by wrapping the pass's `warn` channel into a flag, so the
 pass's own array contract stays the queue's, and no second one is invented for it.
 
+**House UI style.** Today's surfaces still hang off the scaffold's FAB; what they move
+to is already settled, and it comes from the two references Eva named—vercel.com's
+monochrome Geist instrument and giga.ai's dark-first instrument console—combined into
+one system in Modus's `docs/ux-concept.md` §6:
+
+- **Near-mono, dark-native, token-driven.** Surfaces breathe the host's theme rather
+  as a white island—ST's colors come through, never pasted over.
+- **One warm accent, one meaning.** The accent is hand-picked per project and spent on
+  exactly one thing: waiting on you. Confirmed state stays neutral, suppressed is dim
+  mono, and errors ride a separate cool channel that never borrows the accent.
+- **Mono for facts.** Every number, id, turn count and state value in mono with tabular
+  figures; micro-labels 10–11px, uppercase where scannable.
+- **Structure by hairlines, not stacked cards.** A panel is a border plus one
+  background step. Buttons are pills with at most one inverted primary per context;
+  icons thin and small.
+- **Motion 150–300ms, ease-out.** Surfaces slide in and settle; nothing else moves.
+
+The principle underneath: style follows session duration. Long-session heavy-reading
+surfaces get easy-on-eyes palettes; glance-and-away surfaces get high-parseability
+instruments. Her terminals run multi-hue pastel while these run near-mono because the
+two answer different jobs, not because the taste split. Catppuccin is retired and does
+not come back.
+
+**Nothing fixed.** Two rules sit above the visual language, both paid for elsewhere:
+
+- **No fixed UI elements.** A control pinned to a corner fights the host and every
+  other extension—no two SillyTaverns wear the same skin, so nothing Sidekick adds may
+  reserve layout space.
+- **Movable and resizable, or it does not ship.** The launcher drags; the surfaces
+  open in a floating panel that drags and resizes, the one shape that survives every
+  screen size and custom CSS. Position persists per browser under a versioned key,
+  through pure node-tested clamp helpers behind an injected storage seam—the pattern
+  Modus's launcher already uses.
+
+The idiom goes with the shape. `mountFab` becomes `mountLauncher`, `.sidekick-fab`
+becomes `.sidekick-launcher`, and the word FAB leaves the codebase with the rename.
+Material was never asked for and does not come back.
+
 ## 8. 1.0.0 scope / non-goals
 
 **In 1.0.0**
