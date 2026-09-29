@@ -102,7 +102,7 @@ describe('clampPosition', () => {
 
 describe('clampSize', () => {
     it('pins a size below the minimum at the minimum', () => {
-        assert.deepEqual(clampSize(100, 100, PANEL_MIN, VIEWPORT), { w: 280, h: 200 });
+        assert.deepEqual(clampSize(100, 100, PANEL_MIN, VIEWPORT), { w: 280, h: 260 });
     });
 
     it('pins a size above the viewport at the viewport', () => {
@@ -122,13 +122,13 @@ describe('clampSize', () => {
     });
 
     it('falls back to the module minimum on numbers that are not numbers', () => {
-        assert.deepEqual(clampSize(Number.NaN, 300, PANEL_MIN, VIEWPORT), { w: 280, h: 200 });
-        assert.deepEqual(clampSize(400, '300', PANEL_MIN, VIEWPORT), { w: 280, h: 200 });
-        assert.deepEqual(clampSize(400, 300, null, VIEWPORT), { w: 280, h: 200 });
+        assert.deepEqual(clampSize(Number.NaN, 300, PANEL_MIN, VIEWPORT), { w: 280, h: 260 });
+        assert.deepEqual(clampSize(400, '300', PANEL_MIN, VIEWPORT), { w: 280, h: 260 });
+        assert.deepEqual(clampSize(400, 300, null, VIEWPORT), { w: 280, h: 260 });
     });
 
     it('uses the panel minimum and its own viewport when the caller supplies neither', () => {
-        assert.deepEqual(clampSize(100, 100), { w: 280, h: 200 });
+        assert.deepEqual(clampSize(100, 100), { w: 280, h: 260 });
     });
 });
 
@@ -153,7 +153,7 @@ describe('resizePanel', () => {
     });
 
     it('never shrinks below the minimum', () => {
-        assert.deepEqual(resizePanel(panel, -5000, -5000, VIEWPORT), { x: 400, y: 200, w: 280, h: 200 });
+        assert.deepEqual(resizePanel(panel, -5000, -5000, VIEWPORT), { x: 400, y: 200, w: 280, h: 260 });
     });
 
     it('stops at the viewport edge the corner leaves room for, not at the viewport size', () => {
@@ -163,18 +163,18 @@ describe('resizePanel', () => {
     });
 
     it('keeps the panel inside a viewport too small for the minimum', () => {
-        const tight = { x: 0, y: 0, w: 280, h: 200 };
+        const tight = { x: 0, y: 0, w: 280, h: 260 };
         assert.deepEqual(resizePanel(tight, 100, 100, { width: 240, height: 150 }), { x: 0, y: 0, w: 240, h: 150 });
     });
 
     it('reads a viewport it cannot use as the minimum rather than throwing', () => {
-        assert.deepEqual(resizePanel(panel, 60, 60, undefined), { x: 400, y: 200, w: 280, h: 200 });
+        assert.deepEqual(resizePanel(panel, 60, 60, undefined), { x: 400, y: 200, w: 280, h: 260 });
     });
 });
 
 describe('clampRecord', () => {
     it('clamps the panel size before its position, so a shrunken panel stays reachable', () => {
-        // The panel asked for 500x500, so it pins to the minimum 280x200 first; only then does its
+        // The panel asked for 500x500, so it pins to the minimum 280x260 first; only then does its
         // right edge pin at 120. Clamped position first against the requested 100x100 it would sit
         // at 390x290 and then grow straight off the viewport.
         const record = {
@@ -183,7 +183,7 @@ describe('clampRecord', () => {
             panel: { x: 390, y: 290, w: 100, h: 100 },
         };
 
-        assert.deepEqual(clampRecord(record, { width: 400, height: 300 }).panel, { w: 280, h: 200, x: 120, y: 100 });
+        assert.deepEqual(clampRecord(record, { width: 400, height: 300 }).panel, { w: 280, h: 260, x: 120, y: 40 });
     });
 
     it('re-clamps a button the browser shrank out from under', () => {

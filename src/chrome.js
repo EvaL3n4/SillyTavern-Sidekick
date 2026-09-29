@@ -35,8 +35,12 @@ export function chromeKey() {
  */
 export const BUTTON_SIZE = { width: 48, height: 48 };
 
-/** The panel's smallest usable size: the edit panel's from/to pairs need width. */
-export const PANEL_MIN = { width: 280, height: 200 };
+/**
+ * The panel's smallest usable size: the edit panel's from/to pairs need width, and
+ * the strip and tab row take about 93px of height, so 260 leaves a body that can hold
+ * the Board's log and a proposal row.
+ */
+export const PANEL_MIN = { width: 280, height: 260 };
 
 /** The panel's opening size, before she has resized it. */
 export const PANEL_DEFAULT = { width: 340, height: 420 };
