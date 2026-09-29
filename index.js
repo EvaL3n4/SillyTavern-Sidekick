@@ -16,6 +16,7 @@ import {
     mountBoard,
     refreshChrome,
 } from './src/ui.js';
+import { hasState } from './src/grammar.js';
 import { loadState } from './src/state.js';
 import { BOARD_KEY, readBoard, runBoardTurn } from './src/board.js';
 
@@ -232,11 +233,6 @@ async function evaluateNow(state) {
         return { queued, persisted: true, failed };
     }
 
-    // The entries are in the queue now, whatever the save below does, so the
-    // marker and an open Queue tab say so without waiting for it. This is the one
-    // arrival signal: no toast, and nothing switches the tab she is on.
-    refreshChrome();
-
     // sk-06p: a quiet pass runs for seconds to minutes, and CHAT_CHANGED
     // reassigns SillyTavern's chatMetadata pointer when it fires. Persisting
     // after a switch would write this chat's ledger into the new chat's
@@ -258,6 +254,12 @@ async function evaluateNow(state) {
         console.error('[Sidekick] could not persist the scan queue', error);
         return { queued, persisted: false, failed };
     }
+
+    // The markers and an open Queue tab read chatMetadata, and loadState hands
+    // back a copy of it, so they can only show an entry once it is stored: a
+    // refresh before the save above saw the queue as it was. This is the one
+    // arrival signal: no toast, and nothing switches the tab she is on.
+    refreshChrome();
     return { queued, persisted: true, failed };
 }
 
@@ -276,7 +278,21 @@ async function evaluateNow(state) {
  * @returns {Promise<void>}
  */
 async function scanOnDemand() {
-    const outcome = await evaluateNow(readState());
+    const state = readState();
+
+    // A pass on a chat with no ledger returns before it generates anything, and
+    // that is not the same as a scan that read the scene and found nothing: the
+    // old wording told her the second while the first was true.
+    if (!state) {
+        toastr.info('Open a chat first—a scan reads the chat that is open.');
+        return;
+    }
+    if (!hasState(state)) {
+        toastr.info('This chat has no hero ledger yet, so a scan has nothing to check the scene against.');
+        return;
+    }
+
+    const outcome = await evaluateNow(state);
     if (!outcome) {
         toastr.info('A scan is already running—this trigger was dropped. Try again when it finishes.');
         return;
@@ -301,7 +317,7 @@ async function scanOnDemand() {
         // that can say which without another console hop.
         toastr.warning(
             outcome.failed
-                ? 'The scan could not run. Check the console for the phase it failed in.'
+                ? 'The scan could not run. Set localStorage.sidekick_debug = \'1\' and scan again to see where it failed.'
                 : 'Scan complete—no proposals worth writing down right now.',
         );
         return;
