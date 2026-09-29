@@ -53,7 +53,7 @@ markdown-linted before anything lands.
 
 | File | What it is |
 | --- | --- |
-| `index.js` | Entry point. Wires `APP_READY`, slash commands, exported hooks |
+| `index.js` | Entry point. Wires `APP_READY`, the FAB's scan action, exported hooks |
 | `manifest.json` | Loader descriptor |
 | `src/state.js` | State load/migrate/save, provenance-gated mutations, ruling log |
 | `src/grammar.js` | The digest renderer: state → lean prose (the dosage rules) |
@@ -62,7 +62,7 @@ markdown-linted before anything lands.
 | `src/board.js` | The board's store, prompt and tool-call protocol |
 | `src/ui.js` | FAB menu and the hero sheet, review queue and board surfaces |
 | `style.css` | Near-mono palette with a single warm accent |
-| `templates/` | Handlebars templates |
+| `settings.html` | Extensions-drawer template (`renderExtensionTemplateAsync`) |
 
 ## Status
 
