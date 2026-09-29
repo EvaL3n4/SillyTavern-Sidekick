@@ -548,6 +548,9 @@ export function toPendingChange(proposal, meta = {}) {
         ...(proposal.source === 'card' ? { source: 'card' } : {}),
         status: 'pending',
         createdAt: meta.now ?? Date.now(),
+        // The chat's length when it was filed. A proposal ages in messages, never
+        // in days (§7, Shelf life), and a card proposal has no message to age by.
+        ...(Number.isInteger(meta.filedAt) ? { filedAt: meta.filedAt } : {}),
     };
 }
 /**
@@ -744,7 +747,7 @@ export async function runEvaluation(state, { chat = [], generate, log, card = nu
     // already located.
     const queued = proposals.map((proposal) => toPendingChange(
         { ...proposal, evidence: fingerprintCitations(chat, proposal.evidence ?? []) },
-        { counter: counter++ },
+        { counter: counter++, filedAt: chat.length },
     ));
     state.queue.push(...queued);
     say('info', 'scan queued', { count: queued.length });

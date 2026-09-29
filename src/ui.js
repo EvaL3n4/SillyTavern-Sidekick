@@ -10,6 +10,7 @@ import { applyProposal, getPath, recordRuling, removeAt } from './state.js';
 import { fingerprintCitations, resolveCitation } from './citations.js';
 import { labelChange } from './labels.js';
 import { bornWithMessage, createHandLog, entryPath } from './handwriting.js';
+import { clearOld, oldReason, partitionQueue, waitingCount } from './shelf.js';
 import { isEmptyRow, sheetGroups } from './sheet.js';
 import { appendTurn } from './board.js';
 import {
@@ -62,6 +63,9 @@ export function registerSurface(id, render) {
  * amends a ruling from somewhere she has since left.
  */
 const handLog = createHandLog();
+
+/** How many messages the open chat holds: the clock a proposal ages by (§7, Shelf life). */
+const chatLength = () => SillyTavern.getContext().chat?.length ?? 0;
 
 /** The drawer's live controls, and the §6 settings field each one writes. */
 const SETTING_FIELDS = [
@@ -366,7 +370,9 @@ export function mountChrome({ getState } = {}) {
     const tabMarker = $('<span>', { class: 'sidekick-marker sidekick-marker-tab', hidden: true });
 
     const paintMarkers = () => {
-        const waiting = getState?.()?.queue?.length ?? 0;
+        // Only what is not old: the marker means something is waiting on her, and an
+        // old proposal is not urgent (§7, Shelf life).
+        const waiting = waitingCount(getState?.() ?? null, chatLength());
         for (const one of [marker, tabMarker]) {
             one.text(waiting > 0 ? String(waiting) : '');
             one.prop('hidden', waiting === 0);
@@ -602,6 +608,12 @@ export function mountChrome({ getState } = {}) {
     const { eventSource, event_types } = SillyTavern.getContext();
     eventSource.on(event_types.CHAT_CHANGED, paintMarkers);
     eventSource.on(event_types.CHAT_CHANGED, () => handLog.close());
+    // A proposal ages as the chat grows, so the count is read again when it does.
+    for (const name of ['MESSAGE_SENT', 'MESSAGE_RECEIVED', 'MESSAGE_DELETED']) {
+        if (event_types[name]) {
+            eventSource.on(event_types[name], paintMarkers);
+        }
+    }
     paintMarkers();
 
     window.addEventListener('resize', () => {
@@ -685,18 +697,50 @@ function drawQueue(body, deps) {
     }
 
     const state = deps.getState();
-    const entries = state?.queue ?? [];
-    if (entries.length === 0) {
+    const { current, old } = partitionQueue(state?.queue, chatLength());
+    if (current.length === 0) {
         body.append($('<p>', { class: 'sidekick-panel-empty' })
             .text('Nothing is waiting for a ruling.'));
-        return;
     }
 
     // A snapshot: each action redraws the body it sits in, so the loop
     // cannot walk the live array.
-    for (const entry of [...entries]) {
+    for (const entry of [...current]) {
         body.append(proposalBody(entry, deps));
     }
+
+    // Old proposals stay, marked and set below the current ones; nothing leaves the
+    // queue unless she rules on it or clears them (§7, Shelf life).
+    if (old.length > 0) {
+        const head = $('<div>', { class: 'sidekick-old' });
+        head.append($('<span>', { class: 'sidekick-old-label' }).text(`Old · ${old.length}`));
+        const clear = $('<button>', { type: 'button', class: 'sidekick-clear-old' }).text('Clear old');
+        clear.on('click', () => void clearOldByHand(deps, body));
+        head.append(clear);
+        body.append(head);
+        for (const entry of [...old]) {
+            body.append(proposalBody(entry, deps));
+        }
+    }
+}
+
+/**
+ * Clears every old proposal in one action, as `stale` rulings (she decided nothing,
+ * so the scan learns nothing from them), and redraws.
+ * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
+ * @param {object} body the panel body to redraw into
+ * @returns {Promise<void>}
+ */
+async function clearOldByHand(deps, body) {
+    const state = deps.getState();
+    if (state && clearOld(state, chatLength()) > 0) {
+        try {
+            await deps.persist(state);
+        } catch (error) {
+            console.error('[Sidekick] could not persist clearing the old proposals', error);
+        }
+    }
+    drawQueue(body, deps);
 }
 
 /**
@@ -892,6 +936,15 @@ function proposalBody(entry, deps) {
     root.append($('<div>', { class: 'sidekick-summary' })
         .append($('<strong>').text(entry.summary || '(no summary)')));
 
+    // An old proposal is marked, and says why (§7, Shelf life).
+    const reason = oldReason(entry, chatLength());
+    if (reason) {
+        root.addClass('sidekick-proposal-old');
+        root.append($('<div>', { class: 'sidekick-old-note' }).text(reason === 'removed'
+            ? 'Something this names has been removed, so it can no longer apply.'
+            : 'The chat has moved on since this was filed.'));
+    }
+
     // §7, The Queue's words: a field she can read, the value it replaces struck
     // through, then the new one. The path stays in the record and the console.
     const state = deps.getState();
@@ -928,6 +981,16 @@ function proposalBody(entry, deps) {
         }
     }
     root.append(evidence);
+
+    // Applying it would recreate what she removed, nameless (§6 Paths), so the one
+    // thing left to do with it is to put it away.
+    if (reason === 'removed') {
+        root.append($('<div>', { class: 'sidekick-actions' }).append(
+            $('<button>', { type: 'button' }).text('Dismiss')
+                .on('click', () => void rule('dismiss', entry, null, root, deps)),
+        ));
+        return root;
+    }
 
     const { panel, read } = editPanel(entry, state);
     root.append(panel);
@@ -1015,7 +1078,9 @@ async function rule(kind, entry, editor, root, deps) {
         recordRuling(state, {
             proposalId: live.id,
             summary: live.summary || '',
-            action: 'dismissed',
+            // A proposal whose subject she removed was never a judgement of the
+            // scan's work: putting it away decides nothing, so it teaches nothing.
+            action: live.orphaned ? 'stale' : 'dismissed',
             at,
         });
     } else {
@@ -1227,6 +1292,8 @@ async function removeByHand(ctx, path) {
         } catch (error) {
             console.error('[Sidekick] could not persist a removal', error);
         }
+        // A removal can orphan queued proposals, which stop counting as waiting.
+        chromeHooks?.repaintMarkers();
     }
     ctx.redraw();
 }

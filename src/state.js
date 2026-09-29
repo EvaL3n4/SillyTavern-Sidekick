@@ -297,6 +297,37 @@ const REMOVABLE_LISTS = [
     ['cosmology', 'sources'], ['cosmology', 'stageVocabulary'], ['cosmology', 'costVocabulary'],
 ];
 
+/**
+ * Marks the queued proposals that a removal has left without a subject. A change
+ * under a removed entry would recreate it, nameless, because an empty `from` matches
+ * a field that does not exist (§6 Paths); and a change at a position at or past a
+ * removed list item now names a different item than the one it was written about.
+ * Either way the proposal no longer means what it said, so it is orphaned: old, in
+ * §7's words, and nothing she can apply.
+ *
+ * @param {object} state
+ * @param {{prefix: string}|{list: string, from: number}} target an entry by its path,
+ *   or the list a position was removed from and the index it was removed at
+ */
+function orphanQueue(state, target) {
+    const touches = (path) => {
+        const at = String(path);
+        if ('prefix' in target) {
+            return at === target.prefix || at.startsWith(`${target.prefix}.`);
+        }
+        if (!at.startsWith(`${target.list}.`)) {
+            return false;
+        }
+        const index = Number(at.slice(target.list.length + 1).split('.')[0]);
+        return Number.isInteger(index) && index >= target.from;
+    };
+    for (const entry of Array.isArray(state.queue) ? state.queue : []) {
+        if ((entry?.changes ?? []).some((change) => touches(change.path))) {
+            entry.orphaned = true;
+        }
+    }
+}
+
 /** The words that name an entry once it is gone, for the history event. */
 function nameOfEntry(entry) {
     return String(entry?.name || entry?.text || entry?.line || entry?.id || '');
@@ -343,7 +374,12 @@ export function removeAt(state, path, { at = Date.now(), summary } = {}) {
         if (keys.length === entry.length + 1 && entry.every((key, i) => keys[i] === key)) {
             const list = getPath(state, entry.join('.'));
             const index = indexIn(list, keys.at(-1), byId);
-            return index < 0 ? null : finish(nameOfEntry(list[index]), list, index);
+            if (index < 0) {
+                return null;
+            }
+            const removed = finish(nameOfEntry(list[index]), list, index);
+            orphanQueue(state, byId ? { prefix: path } : { list: entry.join('.'), from: index });
+            return removed;
         }
     }
 
@@ -358,6 +394,7 @@ export function removeAt(state, path, { at = Date.now(), summary } = {}) {
             const from = String(list[index]);
             const result = finish(from, list, index);
             powerAt(state, path)?.history.push(state.history.at(-1));
+            orphanQueue(state, { list: keys.slice(0, -1).join('.'), from: index });
             return result;
         }
     }

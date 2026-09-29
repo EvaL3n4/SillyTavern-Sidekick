@@ -592,6 +592,50 @@ body.no-blur {
     outline: 0;
 }
 
+/* Old proposals (§7, Shelf life): still there, set below the current ones and
+   quieter, with a line saying why. */
+.sidekick-old {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 14px 0 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--sidekick-line);
+}
+
+.sidekick-old-label {
+    color: var(--sidekick-muted);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.sidekick-clear-old {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--sidekick-muted);
+    font: inherit;
+    font-size: 0.85em;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.sidekick-clear-old:hover,
+.sidekick-clear-old:focus-visible {
+    color: var(--sidekick-fg);
+}
+
+.sidekick-proposal-old {
+    opacity: 0.65;
+}
+
+.sidekick-old-note {
+    color: var(--sidekick-muted);
+    font-size: 0.85em;
+}
+
 .sidekick-inline {
     display: block;
     box-sizing: border-box;

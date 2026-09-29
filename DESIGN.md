@@ -268,6 +268,8 @@ interface PendingChange {
   createdAt: number;
   filedAt?: number;                      // chat length when filed; ages it (§7). Absent
                                          // on older proposals, which never age
+  orphaned?: true;                       // a removal left a change without its subject;
+                                         // old at once, and not applicable (§7)
 }
 
 interface ChangeEvent {
@@ -328,6 +330,7 @@ src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/labels.js      a change's path as the words the DM would use (the Queue's words)
 src/sheet.js       the Sheet's cards and collapsed slots, as data; ui.js draws them
 src/handwriting.js what she writes by hand: ids for new entries, the ruling log
+src/shelf.js       how long a proposal waits: old by messages or by removal, Clear old
 src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the panel
                     renders it
@@ -520,7 +523,18 @@ Queue, marked and set below the current ones, and the markers count only what is
 old: the marker means something is waiting on her, and an old proposal is not urgent.
 One action, Clear old, records every old proposal as `stale` and removes it; she
 decided nothing, so it teaches the scan nothing. Nothing leaves the queue unless she
-clicks. A proposal filed before `filedAt` existed has no age and is never old.
+clicks. A proposal filed before `filedAt` existed has no age and is never old. The
+markers are read again whenever the chat grows or shrinks, since that is what ages a
+proposal.
+
+A proposal can also be old because of what she did rather than what the chat did.
+Removing something by hand orphans every queued proposal that names it, or names a
+position it shifted (an index at or past a removed list item now means a different
+item), and marks it `orphaned`. Applying one would recreate what she removed, nameless,
+because an empty `from` matches a field that does not exist (§6 Paths), so an orphaned
+proposal has no Apply and no Edit, only Dismiss, and putting it away records `stale`
+like Clear old does. It counts as old whatever its age, and a card proposal is no
+exception.
 
 **Panel size.** The panel opens at up to 440 by 560, not 340 by 420: a panel that
 narrow reads as a column of wrapped fragments. Measured in SillyTavern 1.18: the chat

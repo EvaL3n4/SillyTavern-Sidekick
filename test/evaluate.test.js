@@ -639,6 +639,17 @@ describe('validateProposals', () => {
 describe('toPendingChange', () => {
     const meta = { counter: 3, now: 1700000000000 };
 
+    it('stamps the chat length it was filed at, which is what ages it', () => {
+        assert.equal(toPendingChange(proposal(), { ...meta, filedAt: 42 }).filedAt, 42);
+        assert.equal(toPendingChange(proposal(), { ...meta, filedAt: 0 }).filedAt, 0);
+    });
+
+    it('leaves the stamp off when it was not given one, or given nonsense', () => {
+        for (const filedAt of [undefined, null, '42', 4.5, NaN]) {
+            assert.equal('filedAt' in toPendingChange(proposal(), { ...meta, filedAt }), false, String(filedAt));
+        }
+    });
+
     it('builds the whole §6 shape from a validated proposal', () => {
         assert.deepEqual(toPendingChange(proposal(), meta), {
             id: 'pc-the-spark-has-a-second-limit-3',
@@ -766,6 +777,14 @@ describe('runEvaluation', () => {
         assert.equal(queued.length, 1);
         assert.equal(state.queue.length, 1);
         assert.deepEqual(state.queue, queued);
+    });
+
+    it('stamps each queued entry with the length of the chat it read', async () => {
+        const state = ledger();
+
+        const [entry] = await runEvaluation(state, { chat, generate: stub() });
+
+        assert.equal(entry.filedAt, chat.length);
     });
 
     /** Captures the diagnostics a pass emits, in order. */
