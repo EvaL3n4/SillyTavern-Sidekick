@@ -75,7 +75,7 @@ function previewDigest() {
  * not produce. The queue is persisted only when something was added.
  */
 async function evaluateNow(state) {
-    const { chat, generateRaw } = context();
+    const { chat, generateRaw, chatMetadata } = context();
     const started = startEvaluation(state, { chat, generate: generateRaw });
     if (!started) {
         return null;
@@ -90,12 +90,25 @@ async function evaluateNow(state) {
     }
 
     if (queued.length > 0) {
-        try {
-            await persistState(state);
-        } catch (error) {
-            // The entries are real and in memory; the chat just never learned
-            // them. Naming the phase keeps the next debug pass off the pass.
-            console.error('[Sidekick] could not persist the scan queue', error);
+        // sk-06p: a quiet pass runs for seconds to minutes, and CHAT_CHANGED
+        // reassigns SillyTavern's chatMetadata pointer when it fires. Persisting
+        // after a switch would write this chat's ledger into the new chat's
+        // metadata—wrong data in the wrong chat, silently. This checks
+        // identity, not chat equality: returning to the same chat reloads
+        // metadata from disk, so a round trip also fails here and loses the
+        // entries instead, which is the honest direction to fail in. The
+        // guard and persistState's own read land in one turn, so nothing can
+        // move the pointer between them.
+        if (context().chatMetadata === chatMetadata) {
+            try {
+                await persistState(state);
+            } catch (error) {
+                // The entries are real and in memory; the chat just never learned
+                // them. Naming the phase keeps the next debug pass off the pass.
+                console.error('[Sidekick] could not persist the scan queue', error);
+            }
+        } else {
+            console.error('[Sidekick] the chat changed during the scan—nothing was persisted');
         }
     }
     return queued;
