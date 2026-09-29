@@ -242,13 +242,13 @@ export function refreshChrome() {
  * Mounts the chrome: the button, the one control that is always in front of the
  * DM, and the panel behind it.
  *
- * The button drags. A press past DRAG_THRESHOLD moves it and takes pointer
- * capture on that first move rather than on the press, so a plain tap never
- * establishes capture and the click path—mouse, touch and the keyboard's Enter
- * and Space—stays exactly what it was. The click a drag ends with is eaten by a
- * flag, and the resting position is clamped and written once, on pointerup: a
- * storage write per frame is waste, and a mid-drag persist that gets abandoned
- * leaves the record off the last resting place.
+ * The button drags. It takes pointer capture on the press, since a flick can
+ * leave a 48px disc in one move, and a press then moves it once it passes
+ * DRAG_THRESHOLD, so a plain tap still moves nothing and the click path—mouse,
+ * touch and the keyboard's Enter and Space—stays what it was. The click a drag
+ * ends with is eaten by a flag, and the resting position is clamped and written
+ * once, on pointerup: a storage write per frame is waste, and a mid-drag persist
+ * that gets abandoned leaves the record off the last resting place.
  *
  * A click opens the panel on the tab she used last, and the button steps aside
  * until the panel closes: two pieces of chrome for one job is one too many, and
@@ -270,13 +270,16 @@ export function mountChrome({ getState } = {}) {
         return;
     }
 
+    // No text: the glyph is drawn by style.css, so the name a screen reader gives
+    // the button is the label it carries.
     const button = $('<button>', {
         class: 'sidekick-button',
         type: 'button',
         title: 'Sidekick',
+        'aria-label': 'Sidekick',
         'aria-controls': 'sidekick_panel',
         'aria-expanded': 'false',
-    }).text('S');
+    });
 
     // Waiting on you, where she can see it without opening anything: how many
     // proposals hold a ruling, and nothing at all when none do.
@@ -453,8 +456,10 @@ export function mountChrome({ getState } = {}) {
         },
     };
 
-    // The gesture. Capture is taken on the first move past the threshold rather
-    // than on the press, so a tap never establishes it; the click a drag ends
+    // The gesture. Capture is taken on the press: the disc is 48px, so a quick
+    // flick can carry the pointer off it in a single move, before any
+    // capture-on-first-move would land, and the drag would never start. Capture
+    // on the button itself leaves the click where it was; the click a drag ends
     // with is eaten here rather than opening the panel over the new position.
     let press = null;
     let eatClick = false;
@@ -466,6 +471,7 @@ export function mountChrome({ getState } = {}) {
             dragging: false,
         };
         eatClick = false;
+        button[0].setPointerCapture?.(event.pointerId);
     });
     button.on('pointermove', (event) => {
         if (!press) {
@@ -478,7 +484,6 @@ export function mountChrome({ getState } = {}) {
                 return;
             }
             press.dragging = true;
-            button[0].setPointerCapture?.(event.pointerId);
         }
         const at = clampPosition(press.from.x + dx, press.from.y + dy, BUTTON_SIZE, viewport());
         place(at);
