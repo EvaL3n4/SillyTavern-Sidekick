@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { isDigestMessage } from '../src/inject.js';
 import { estimateTokens, renderDigest } from '../src/grammar.js';
+import { createState } from '../src/state.js';
 import {
     PROPOSAL_SCHEMA,
     RULING_FEEDBACK_BUDGET,
@@ -1109,5 +1110,210 @@ describe('startEvaluation', () => {
 
         next.release();
         assert.equal((await started).length, 1);
+    });
+});
+
+describe('beginning a ledger (§3)', () => {
+    const CARD = {
+        name: 'Hailey',
+        description: 'Hailey Kogami Green can throw light. She cannot aim it.',
+        personality: 'guarded',
+        scenario: 'the first week of having something',
+    };
+    const chat = chatOf(6);
+    const scene = sceneWindow(chat);
+
+    function stub(response) {
+        const calls = [];
+        const generate = async (args) => {
+            calls.push(args);
+            return response;
+        };
+        generate.calls = calls;
+        return generate;
+    }
+
+    const cardProposal = (overrides = {}) => ({
+        summary: 'the card names the Spark',
+        source: 'card',
+        evidence: [],
+        changes: [{ path: 'powers.the-spark.name', from: '', to: 'the Spark' }],
+        ...overrides,
+    });
+
+    it('reads the card and is told to begin while the ledger is empty', () => {
+        const prompt = buildPrompt(createState(), scene, { card: CARD });
+
+        assert.equal(prompt.cardShown, true);
+        assert.match(prompt.user, /## The character card/);
+        assert.match(prompt.user, /Description: Hailey Kogami Green can throw light/);
+        assert.match(prompt.user, /Personality: guarded/);
+        assert.match(prompt.system, /The ledger is empty, so this pass begins it/);
+    });
+
+    it('teaches the path grammar in every pass, empty ledger or not', () => {
+        assert.match(buildPrompt(ledger(), scene).system, /powers\.<id>\.limits\.<n>/);
+        assert.match(buildPrompt(createState(), scene).system, /A new power or/);
+    });
+
+    it('leaves the card and the brief out once the ledger holds anything', () => {
+        const prompt = buildPrompt(ledger(), scene, { card: CARD });
+
+        assert.equal(prompt.cardShown, false);
+        assert.doesNotMatch(prompt.user, /character card/);
+        assert.doesNotMatch(prompt.system, /this pass begins it/);
+    });
+
+    it('skips an empty card field, and reads a card that says nothing as no card', () => {
+        const partial = buildPrompt(createState(), scene, { card: { name: 'Hailey', description: '  ', personality: null } });
+        assert.match(partial.user, /Name: Hailey/);
+        assert.doesNotMatch(partial.user, /Description:/);
+
+        for (const card of [null, undefined, 'a string', {}, { description: '' }]) {
+            assert.equal(buildPrompt(createState(), scene, { card }).cardShown, false);
+        }
+    });
+
+    it('caps the card at its budget, so the cut lands on the scenario and not the powers', () => {
+        const long = { name: 'Hailey', description: 'x'.repeat(20000), scenario: 'THE-SCENARIO' };
+        const prompt = buildPrompt(createState(), scene, { card: long });
+
+        assert.match(prompt.user, /…/);
+        assert.doesNotMatch(prompt.user, /THE-SCENARIO/);
+        assert.ok(prompt.user.length < 20000);
+    });
+
+    it('files a proposal that rests on the card and cites no message', async () => {
+        const state = createState();
+        const generate = stub(JSON.stringify(scanPass([cardProposal()])));
+
+        const queued = await runEvaluation(state, { chat, generate, card: CARD });
+
+        assert.equal(queued.length, 1);
+        assert.equal(queued[0].source, 'card');
+        assert.deepEqual(queued[0].evidence, []);
+        assert.match(generate.calls[0].prompt, /## The character card/);
+        assert.deepEqual(state.queue, queued);
+    });
+
+    it('refuses the reply a strict-schema provider gave with the value in from and to empty', async () => {
+        // Seen from a real provider on the first live scan: every field filled, the
+        // new value written into `from`, `to` left "", and "source" empty. That is not
+        // a change, so it voids the pass rather than filing a hero named "".
+        const swapped = {
+            proposals: [{
+                summary: 'Open the ledger with the hero',
+                changes: [{ path: 'hero.name', from: 'Hailey Kogami Green', to: '' }],
+                evidence: [],
+                source: '',
+            }],
+        };
+        const seen = [];
+
+        const queued = await runEvaluation(createState(), {
+            chat,
+            generate: stub(JSON.stringify(swapped)),
+            card: CARD,
+            log: { warn: (message) => seen.push(message) },
+        });
+
+        assert.deepEqual(queued, []);
+        assert.match(seen.at(-1), /refused by the proposal gate/);
+    });
+
+    it('reads a strict-schema reply that cites nothing as resting on the card it was shown', async () => {
+        const filled = {
+            proposals: [{
+                summary: 'Open the ledger with the hero',
+                changes: [{ path: 'hero.name', from: '', to: 'Hailey Kogami Green' }],
+                evidence: [],
+                source: '',
+            }],
+        };
+        const state = createState();
+
+        const queued = await runEvaluation(state, { chat, generate: stub(JSON.stringify(filled)), card: CARD });
+
+        assert.equal(queued.length, 1);
+        assert.equal(queued[0].source, 'card');
+    });
+
+    it('does not read a reply that cites nothing as the card when no card was shown', async () => {
+        const filled = {
+            proposals: [{ summary: 's', changes: [{ path: 'hero.name', from: '', to: 'x' }], evidence: [], source: '' }],
+        };
+
+        const queued = await runEvaluation(createState(), { chat, generate: stub(JSON.stringify(filled)) });
+
+        assert.deepEqual(queued, []);
+    });
+
+    it('leaves a card-shown reply that is not a proposal set for the gate to refuse', async () => {
+        for (const reply of ['"prose"', '{}', '{"proposals": [1]}', '{"proposals": "none"}']) {
+            const queued = await runEvaluation(createState(), { chat, generate: stub(reply), card: CARD });
+            assert.deepEqual(queued, [], reply);
+        }
+    });
+
+    it('leaves the source off an entry that cites a message', () => {
+        const entry = toPendingChange(proposal(), { counter: 0 });
+        assert.equal('source' in entry, false);
+    });
+
+    it('voids a proposal that cites a card the pass was not shown', async () => {
+        const state = ledger(); // populated: the card is not in the prompt
+        const generate = stub(JSON.stringify(scanPass([cardProposal()])));
+        const seen = [];
+
+        const queued = await runEvaluation(state, {
+            chat,
+            generate,
+            card: CARD,
+            log: { warn: (message) => seen.push(message) },
+        });
+
+        assert.deepEqual(queued, []);
+        assert.match(seen.at(-1), /not shown/);
+    });
+
+    it('still refuses a proposal that cites nothing at all', () => {
+        const nothing = { summary: 's', evidence: [], changes: [{ path: 'hero.name', to: 'x' }] };
+        assert.deepEqual(validateProposals({ proposals: [nothing] }), []);
+        assert.equal(validateProposals({ proposals: [{ ...nothing, source: 'card' }] }).length, 1);
+    });
+
+    it('runs on an empty ledger with only the scene', async () => {
+        const state = createState();
+        const generate = stub(JSON.stringify(scanPass([
+            proposal({ evidence: [1], changes: [{ path: 'hero.name', from: '', to: 'Hailey' }] }),
+        ])));
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.equal(queued.length, 1);
+        assert.equal(generate.calls.length, 1);
+        assert.doesNotMatch(generate.calls[0].prompt, /character card/);
+    });
+
+    it('says there is nothing to read when there is no ledger, card or chat', async () => {
+        const generate = stub('{}');
+        const seen = [];
+
+        const queued = await runEvaluation(createState(), {
+            chat: [],
+            generate,
+            log: { warn: (message) => seen.push(message) },
+        });
+
+        assert.deepEqual(queued, []);
+        assert.equal(generate.calls.length, 0);
+        assert.match(seen[0], /nothing to read/);
+    });
+
+    it('does nothing at all when there is no ledger object', async () => {
+        const generate = stub('{}');
+
+        assert.deepEqual(await runEvaluation(null, { chat, generate }), []);
+        assert.equal(generate.calls.length, 0);
     });
 });

@@ -97,7 +97,62 @@ const SYSTEM_PROMPT = [
     'current word on the ledger as it now stands.',
     'Cite the chat message indices that justify each proposal. If nothing in the',
     'scene justifies a change, propose nothing.',
+    '',
+    'Each change names one field by a dot path from the ledger root:',
+    '- hero.name, hero.codename, hero.statusQuo',
+    '- powers.<id>.name, .capability, .stage; powers.<id>.limits.<n>, .costs.<n>',
+    '- arc.phase; arc.threads.<id>.text; arc.pressures.<n>.text;',
+    '  arc.linesCrossed.<n>.line, .provides, .cost',
+    '<id> is a lowercase slug such as the-spark; <n> counts from 0. A new power or',
+    'thread comes into being when you write its first field under a new id, and',
+    'the next <n> of a list appends. "to" is the new value and is never empty.',
+    '"from" is exactly what the ledger holds at that path now, or "" for a field it',
+    'does not hold yet. For example, to add a limit to a power the ledger already',
+    'holds: {"path": "powers.the-spark.limits.0", "from": "", "to": "cannot aim it"}.',
 ].join('\n');
+
+/**
+ * §3, Beginning a ledger: what the pass is told when the ledger is empty. The
+ * cosmology stays out on purpose: the ledger never invents a vocabulary.
+ */
+const BEGIN_PROMPT = [
+    'The ledger is empty, so this pass begins it. Propose the hero (name, codename',
+    'if the card gives one, statusQuo) and the powers the character card describes:',
+    'each with what it does, what limits it and what it costs, in the card\'s own',
+    'words, whether or not the scene has shown the power yet. If the card names no',
+    'powers, propose none. Set "source": "card" on a proposal that rests on the',
+    'card rather than on a message, and cite message indices for the rest. Do not',
+    'propose a cosmology: the setting\'s vocabulary is hers to write.',
+].join('\n');
+
+/** §3: the card's share of the prompt, in tokens. It is read only while the ledger is empty. */
+export const CARD_PROMPT_BUDGET = 2000;
+
+/**
+ * The character card as prompt text: the fields that describe who the hero is,
+ * description first so that a cut lands on the scenario, not the powers.
+ *
+ * @param {{name?: string, description?: string, personality?: string, scenario?: string}|null} card
+ * @returns {string} empty when the card says nothing
+ */
+function renderCard(card) {
+    if (!card || typeof card !== 'object') {
+        return '';
+    }
+
+    const parts = [
+        ['Name', card.name],
+        ['Description', card.description],
+        ['Personality', card.personality],
+        ['Scenario', card.scenario],
+    ]
+        .map(([label, value]) => [label, String(value ?? '').trim()])
+        .filter(([, value]) => value.length > 0)
+        .map(([label, value]) => `${label}: ${value}`);
+    const text = parts.join('\n\n');
+    const room = CARD_PROMPT_BUDGET * 4; // estimateTokens is 1 token per 4 characters
+    return text.length > room ? `${text.slice(0, room)}…` : text;
+}
 
 /**
  * @param {object|null} state a SidekickState (§6)
@@ -253,16 +308,27 @@ export const SCENE_PROMPT_BUDGET = 4000;
  * errors the call exactly as it did before.
  *
  * @param {object|null} state a SidekickState (§6)
+ * §3, Beginning a ledger: while the ledger is empty the pass also reads the
+ * character card and is told to begin the ledger from it. Once the ledger holds
+ * anything the card is left out, and so is the brief. Like the ledger and her
+ * rulings the card is never trimmed by the scene loop below; it has its own cap.
+ *
  * @param {object[]} scene entries from sceneWindow
  * @param {object} [options]
  * @param {number} [options.budget] token cap, defaults to SCENE_PROMPT_BUDGET
- * @returns {{system: string, user: string}}
+ * @param {object|null} [options.card] {name, description, personality, scenario}
+ * @returns {{system: string, user: string, cardShown: boolean}} `cardShown` is
+ *   whether the card is in the user prompt, which is what lets a proposal cite it
  */
-export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET } = {}) {
+export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET, card = null } = {}) {
     const entries = Array.isArray(scene) ? scene : [];
     const ledger = renderState(state);
     const feedback = renderRulings(state);
     const ruled = feedback ? ['## What she has been ruling', '', feedback, ''] : [];
+    const beginning = !hasState(state);
+    const cardText = beginning ? renderCard(card) : '';
+    const carded = cardText ? ['## The character card', '', cardText, ''] : [];
+    const system = beginning ? `${SYSTEM_PROMPT}\n\n${BEGIN_PROMPT}` : SYSTEM_PROMPT;
     const userFor = (window) => [
         '## The ledger',
         '',
@@ -270,6 +336,7 @@ export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET } = {})
         '',
         ...ruled,
         '',
+        ...carded,
         '## The scene',
         '',
         renderScene(window),
@@ -280,13 +347,13 @@ export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET } = {})
         'qualifies, return {"proposals": []}.',
     ].join('\n');
 
-    const systemTokens = estimateTokens(SYSTEM_PROMPT);
+    const systemTokens = estimateTokens(system);
     let kept = entries;
     while (kept.length > 1 && systemTokens + estimateTokens(userFor(kept)) > budget) {
         kept = kept.slice(1);
     }
 
-    return { system: SYSTEM_PROMPT, user: userFor(kept) };
+    return { system, user: userFor(kept), cardShown: cardText.length > 0 };
 }
 
 /**
@@ -306,21 +373,31 @@ export const PROPOSAL_SCHEMA = {
                 type: 'array',
                 items: {
                     type: 'object',
+                    // The descriptions are for the model: a provider that fills every
+                    // field of a strict schema has only these to tell it what each
+                    // one means. The gate below ignores them.
                     properties: {
-                        summary: { type: 'string' },
+                        summary: { type: 'string', description: 'One line the DM reads: what this changes and why.' },
                         changes: {
                             type: 'array',
                             items: {
                                 type: 'object',
                                 properties: {
-                                    path: { type: 'string' },
-                                    from: { type: 'string' },
-                                    to: { type: 'string' },
+                                    path: { type: 'string', description: 'Dot path from the ledger root, such as powers.the-spark.limits.0' },
+                                    from: { type: 'string', description: 'What the ledger holds at that path now; "" when the field is new.' },
+                                    to: { type: 'string', description: 'The new value. Never empty.' },
                                 },
                                 required: ['path', 'to'],
                             },
                         },
-                        evidence: { type: 'array', items: { type: 'integer' } },
+                        evidence: {
+                            type: 'array',
+                            items: { type: 'integer' },
+                            description: 'Chat message indices that justify this proposal; [] when it rests on the character card.',
+                        },
+                        // "card" when the proposal rests on the character card and
+                        // cites no message (§3, Beginning a ledger).
+                        source: { type: 'string', description: '"card" when the proposal rests on the character card, otherwise "".' },
                     },
                     required: ['summary', 'changes'],
                 },
@@ -423,7 +500,11 @@ function isActionable(proposal) {
         typeof proposal.summary === 'string' &&
         proposal.summary.trim().length > 0 &&
         proposal.changes.length > 0 &&
-        Array.isArray(proposal.evidence) && proposal.evidence.length > 0
+        // A change that writes nothing is not a change: it is what a model sends
+        // when it has put the new value in `from`.
+        proposal.changes.every((change) => String(change.to).trim().length > 0) &&
+        // A card proposal cites no message; it says where it came from instead.
+        (proposal.source === 'card' || (Array.isArray(proposal.evidence) && proposal.evidence.length > 0))
     );
 }
 
@@ -516,7 +597,10 @@ export function toPendingChange(proposal, meta = {}) {
             from: change.from ?? '',
             to: change.to,
         })),
-        evidence: [...proposal.evidence],
+        evidence: [...(proposal.evidence ?? [])],
+        // Set only for a proposal that rests on the character card, which cites no
+        // message: the queue says so where the evidence would be.
+        ...(proposal.source === 'card' ? { source: 'card' } : {}),
         status: 'pending',
         createdAt: meta.now ?? Date.now(),
     };
@@ -630,13 +714,15 @@ function nextQueueCounter(queue) {
  * state.queue, or [] when the pass yielded nothing (§3's silent no-op)
  * @throws {Error} when the caller wired the pass without a generator
  */
-export async function runEvaluation(state, { chat = [], generate, log } = {}) {
+export async function runEvaluation(state, { chat = [], generate, log, card = null } = {}) {
     const say = (level, message, detail) => {
         log?.[level]?.(message, detail);
     };
 
-    if (!hasState(state)) {
-        say('debug', 'no hero state yet—nothing to scan');
+    // An empty ledger is a scan that begins one (§3), so it is no longer a reason
+    // to stand down. Only the absence of a ledger object at all is.
+    if (!state || typeof state !== 'object') {
+        say('debug', 'no ledger object—nothing to scan');
         return [];
     }
 
@@ -649,7 +735,14 @@ export async function runEvaluation(state, { chat = [], generate, log } = {}) {
     // the scene the model saw is the only place a citation may point.
     const scene = sceneWindow(chat);
     say('debug', 'scan started', { scene: scene.length, chat: chat.length });
-    const prompt = buildPrompt(state, scene);
+    const prompt = buildPrompt(state, scene, { card });
+
+    // No ledger, no card and no chat: there is nothing to read, and saying so is
+    // not the same as a scan that read something and found nothing.
+    if (!hasState(state) && scene.length === 0 && !prompt.cardShown) {
+        say('warn', 'nothing to read—no ledger, no character card and no chat');
+        return [];
+    }
 
     let response;
     try {
@@ -665,7 +758,7 @@ export async function runEvaluation(state, { chat = [], generate, log } = {}) {
         return [];
     }
 
-    const proposals = validateProposals(response);
+    const proposals = validateProposals(prompt.cardShown ? readCardSources(response) : response);
     say('debug', 'scan validated', { proposals: proposals.length });
     if (proposals.length === 0) {
         // Only one empty answer is a scan that found nothing: the model said so
@@ -687,8 +780,15 @@ export async function runEvaluation(state, { chat = [], generate, log } = {}) {
     // generation, and part of it hallucinating is that generation being
     // unreliable. §3's silence holds; the DM is not told, and will never know.
     const shown = new Set(scene.map((entry) => entry.index));
-    if (proposals.some((proposal) => proposal.evidence.some((index) => !shown.has(index)))) {
+    if (proposals.some((proposal) => (proposal.evidence ?? []).some((index) => !shown.has(index)))) {
         say('warn', 'scan voided—a citation cited a message outside the window', { window: [...shown] });
+        return [];
+    }
+
+    // The same rule for the card: a proposal may rest on it only if the pass was
+    // shown it. Otherwise "card" is a way to cite nothing.
+    if (!prompt.cardShown && proposals.some((proposal) => proposal.source === 'card')) {
+        say('warn', 'scan voided—a proposal cited a character card the pass was not shown');
         return [];
     }
     let counter = nextQueueCounter(state.queue);
@@ -698,12 +798,32 @@ export async function runEvaluation(state, { chat = [], generate, log } = {}) {
     // toPendingChange stays proposal-shaped; the evidence handed to it is
     // already located.
     const queued = proposals.map((proposal) => toPendingChange(
-        { ...proposal, evidence: fingerprintCitations(chat, proposal.evidence) },
+        { ...proposal, evidence: fingerprintCitations(chat, proposal.evidence ?? []) },
         { counter: counter++ },
     ));
     state.queue.push(...queued);
     say('info', 'scan queued', { count: queued.length });
     return queued;
+}
+
+/**
+ * A pass that was shown the card and cites no message rests on the card: there is
+ * nothing else left for it to rest on. A provider that fills every field of a
+ * strict schema sends "source": "" for such a proposal, so the label is read from
+ * what the proposal cites and not from whether the model remembered to write it.
+ *
+ * @param {*} response whatever runGeneration parsed
+ * @returns {*} the response, with card proposals marked; anything else unchanged
+ */
+function readCardSources(response) {
+    if (!isObject(response) || !Array.isArray(response.proposals)) {
+        return response;
+    }
+    const proposals = response.proposals.map((proposal) => {
+        const cited = isObject(proposal) && Array.isArray(proposal.evidence) && proposal.evidence.length > 0;
+        return isObject(proposal) && !cited ? { ...proposal, source: 'card' } : proposal;
+    });
+    return { ...response, proposals };
 }
 
 let inFlight = null;

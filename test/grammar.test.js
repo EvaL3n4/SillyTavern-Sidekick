@@ -191,8 +191,10 @@ describe('shouldEvaluate', () => {
 describe('PROPOSAL_SCHEMA', () => {
     it('has nowhere to put a story proposal', () => {
         // The non-goal is enforced structurally: the only fields are bookkeeping.
+        // `source` is provenance (where a proposal rests, "card" or a message), not a
+        // place to put what happens next.
         const item = PROPOSAL_SCHEMA.value.properties.proposals.items;
-        assert.deepEqual(Object.keys(item.properties), ['summary', 'changes', 'evidence']);
+        assert.deepEqual(Object.keys(item.properties), ['summary', 'changes', 'evidence', 'source']);
         assert.deepEqual(item.required, ['summary', 'changes']);
     });
 
