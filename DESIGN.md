@@ -218,6 +218,11 @@ interface Power {
   history: ChangeEvent[];
 }
 
+interface Citation {
+  index: number;                       // where the message sat in the chat
+  send_date: number;                   // which message that was, when it sat there
+}
+
 interface Arc {
   phase: string;
   threads: Thread[];
@@ -226,7 +231,7 @@ interface Arc {
     line: string;
     provides: string;
     cost: string;
-    msgId: number;
+    msgId: Citation;
   }[];
 }
 
@@ -238,7 +243,7 @@ interface PendingChange {
   origin: 'evaluation' | 'discussion' | 'manual';
   summary: string;
   changes: { path: string; from: string; to: string }[];
-  evidence: number[];                    // chat message indices
+  evidence: Citation[];                  // which scenes justified the change
   status: 'pending' | 'applied' | 'dismissed';
   createdAt: number;
 }
@@ -246,7 +251,7 @@ interface PendingChange {
 interface ChangeEvent {
   summary: string;
   origin: string;
-  evidence: number[];
+  evidence: Citation[];
   at: number;
   changes?: { path: string; from: string; to: string }[];
 }
@@ -266,7 +271,10 @@ Hygiene: never hold a long-lived reference to `chatMetadata` (the reference chan
 `CHAT_CHANGED`); fetch via `SillyTavern.getContext().chatMetadata`, persist with
 `saveMetadata()`. Configuration that is not campaign-specific lives in
 `extensionSettings.sidekick` and persists with `saveSettingsDebounced()`. No secrets
-ever—`extensionSettings` is world-readable to all extensions.
+ever—`extensionSettings` is world-readable to all extensions. Message identity is
+`(index, send_date)`, never a bare index: ST re-indexes the chat when a message is
+deleted and rewrites `send_date` when a swipe is picked, so a locator that stores
+only an index points at the wrong scene as soon as either happens.
 
 ## 7. Architecture map
 
