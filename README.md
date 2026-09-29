@@ -75,6 +75,8 @@ review queue that rules on a queued proposal, and the discussion board, which tu
 the DM's own thinking into a change through one click. A pass's failures name
 themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase.
 Citations survive deletion and re-roll, and the scan's evidence is fingerprinted at intake.
+Her rulings now render into the scan's prompt—the feedback half of §3—though
+ranking proposals by them is still §8.
 
 ## License
 

@@ -91,6 +91,10 @@ const SYSTEM_PROMPT = [
     '- opinions about what should happen next',
     '- anything the scene did not justify',
     '',
+    'Her recent rulings appear beside the scene. What she has kept tells you what',
+    'to propose again; what she has refused tells you what to stop offering; what',
+    'she has reworded tells you how to phrase it. The newest ruling is the most',
+    'current word on the ledger as it now stands.',
     'Cite the chat message indices that justify each proposal. If nothing in the',
     'scene justifies a change, propose nothing.',
 ].join('\n');
@@ -104,10 +108,13 @@ function renderState(state) {
         return '(no ledger yet)';
     }
 
-    // Structured state only. `rulings` is the documented seam for §8's "drafts in
-    // the DM's idiom" work and is omitted rather than half-designed here; so are
-    // queue, history and version, which describe the ledger's paperwork rather
-    // than the ledger itself.
+    // Structured state only. `queue`, `history` and `version` describe the
+    // ledger's paperwork rather than the ledger itself, so they stay out.
+    //
+    // `rulings` is no longer omitted. It renders as its own section below,
+    // because a pass that cannot see what she has been ruling proposes as
+    // blindly on pass twenty as on pass two. Ranking proposals *by* that history
+    // is still §8, and that is where this seam ends.
     const seen = {
         cosmology: state.cosmology,
         hero: state.hero,
@@ -115,6 +122,91 @@ function renderState(state) {
         arc: state.arc,
     };
     return JSON.stringify(seen, null, 2);
+}
+
+/**
+ * §3's feedback half, rendered rather than scored: how many of her recent
+ * rulings a pass reads, and how much of them it may spend.
+ *
+ * A count and a budget, because they bound different failures: the count stops a
+ * long run of terse rulings crowding the prompt, the budget stops one enormous
+ * ruling doing it. Neither is a LocalSettings field—§6 carries only cadence and
+ * digest budget, so a third is a §6 change.
+ *
+ * Both are deliberately not decisions about what to propose. That is §8.
+ */
+export const RULING_FEEDBACK_LIMIT = 10;
+export const RULING_FEEDBACK_BUDGET = 600;
+
+/**
+ * Her three verbs as the model should read them. §6's action words are the
+ * record's; these are the prompt's, and they are not the same list.
+ */
+const RULING_VERB = {
+    applied: 'kept',
+    edited: 'reworded',
+    dismissed: 'refused',
+};
+
+/**
+ * Her recent rulings, one line each, oldest first.
+ *
+ * `stale` is excluded on purpose: it is a proposal whose every change was
+ * provenance-gated, so she decided nothing and it taught nothing. A ruling with
+ * an action outside §6's union is skipped the same way—a hand-mangled record
+ * degrades to a missing line rather than failing the pass.
+ *
+ * @param {object|null} state a SidekickState (§6)
+ * @returns {string[]} empty when there is nothing to show
+ */
+function rulingLines(state) {
+    const rulings = Array.isArray(state?.rulings) ? state.rulings : [];
+    return rulings
+        .filter((ruling) => Object.prototype.hasOwnProperty.call(RULING_VERB, ruling?.action))
+        .slice(-RULING_FEEDBACK_LIMIT)
+        .map((ruling) => {
+            const verb = RULING_VERB[ruling.action];
+            const summary = String(ruling.summary ?? '').trim() || '(no summary)';
+            if (ruling.action !== 'edited') {
+                return `- ${verb}: ${summary}`;
+            }
+            // §6 keeps her wording as `edit` beside the proposal's own frozen
+            // summary, so the pair shows both what was offered and what she
+            // made of it. An empty string is a ruling that rewrote nothing.
+            const edit = String(ruling.edit ?? '').trim();
+            return edit ? `- ${verb}: ${summary} — she wrote: ${edit}` : `- ${verb}: ${summary}`;
+        });
+}
+
+/**
+ * Drops the oldest lines until the section fits, never past the last one: the
+ * newest ruling is the one that describes the ledger as it stands, so it is the
+ * one that has to survive.
+ *
+ * @param {string[]} lines from rulingLines
+ * @returns {string[]}
+ */
+function capRulings(lines) {
+    let kept = lines;
+    while (
+        kept.length > 1
+        && kept.reduce((sum, line) => sum + estimateTokens(line), 0) > RULING_FEEDBACK_BUDGET
+    ) {
+        kept = kept.slice(1);
+    }
+    return kept;
+}
+
+/**
+ * §3's feedback half as the section a pass reads. An empty string when she has
+ * ruled nothing worth showing, so such a prompt is byte-identical to the one
+ * this issue found.
+ *
+ * @param {object|null} state a SidekickState (§6)
+ * @returns {string}
+ */
+function renderRulings(state) {
+    return capRulings(rulingLines(state)).join('\n');
 }
 
 /**
@@ -155,9 +247,10 @@ export const SCENE_PROMPT_BUDGET = 4000;
  * §3's scene window bounds the prompt by message count; the budget bounds it
  * by size, because a window of long IC posts overruns on its own. Trimming
  * is oldest-first and never past the last entry—an empty scene reads as
- * '(no scene yet)' and the pass is worthless without one. The ledger half is
- * never trimmed: it is what the scan reads, and a ledger that alone exceeds
- * the budget errors the call exactly as it did before.
+ * '(no scene yet)' and the pass is worthless without one. The ledger half and
+ * her rulings are never touched by this loop: they are what the scan reads. The
+ * rulings carry their own cap instead, and a ledger that alone exceeds the budget
+ * errors the call exactly as it did before.
  *
  * @param {object|null} state a SidekickState (§6)
  * @param {object[]} scene entries from sceneWindow
@@ -168,10 +261,14 @@ export const SCENE_PROMPT_BUDGET = 4000;
 export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET } = {}) {
     const entries = Array.isArray(scene) ? scene : [];
     const ledger = renderState(state);
+    const feedback = renderRulings(state);
+    const ruled = feedback ? ['## What she has been ruling', '', feedback, ''] : [];
     const userFor = (window) => [
         '## The ledger',
         '',
         ledger,
+        '',
+        ...ruled,
         '',
         '## The scene',
         '',

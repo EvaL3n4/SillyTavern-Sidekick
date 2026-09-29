@@ -5,6 +5,8 @@ import { isDigestMessage } from '../src/inject.js';
 import { estimateTokens, renderDigest } from '../src/grammar.js';
 import {
     PROPOSAL_SCHEMA,
+    RULING_FEEDBACK_BUDGET,
+    RULING_FEEDBACK_LIMIT,
     SCENE_PROMPT_BUDGET,
     SCENE_WINDOW,
     buildPrompt,
@@ -17,7 +19,7 @@ import {
     validateProposals,
 } from '../src/evaluate.js';
 
-import { chatOf, ledger, mes, proposal, scanPass } from './fixtures.js';
+import { chatOf, ledger, mes, proposal, ruling, scanPass } from './fixtures.js';
 
 describe('isDigestMessage', () => {
     it('is true only for messages this extension inserted', () => {
@@ -191,17 +193,31 @@ describe('buildPrompt', () => {
         assert.ok(!system.includes(text));
     });
 
-    it('keeps the ruling log out of the prompt', () => {
-        // §8's "drafts in the DM's idiom" is deferred; passing rulings in now
-        // would half-design it. Documented as the seam for that work.
+    it('carries her rulings into the prompt', () => {
+        // §3's feedback half. They are not state, so renderState still keeps them
+        // out of the structured half; they arrive as their own section instead.
+        // The assertion that used to stand here was that they stayed out of the
+        // prompt entirely, which was the seam sk-b7d closed.
         const withRulings = {
             ...ledger(),
             rulings: [{ proposalId: 'p1', summary: 'stopped holding back', action: 'applied', at: 1 }],
         };
         const { user } = buildPrompt(withRulings, scene);
 
-        assert.ok(!user.includes('stopped holding back'));
-        assert.ok(!user.includes('rulings'));
+        assert.match(user, /What she has been ruling/);
+        assert.match(user, /kept: stopped holding back/);
+    });
+
+    it('tells the model how to read her rulings', () => {
+        // The section is worthless if the model is not told what it is for, so
+        // this asserts the instruction, not just the render.
+        const { system } = buildPrompt(ledger(), scene);
+
+        assert.match(system, /recent rulings appear beside the scene/);
+        assert.match(system, /to propose again/);
+        assert.match(system, /what to stop offering/);
+        assert.match(system, /how to phrase it/);
+        assert.match(system, /newest ruling is the most/);
     });
 
     it('trims the scene oldest-first when the prompt overruns the budget', () => {
@@ -239,6 +255,132 @@ describe('buildPrompt', () => {
             estimateTokens(base.system + base.user) <= SCENE_PROMPT_BUDGET,
             'the fixture scene must fit the default budget for this to mean anything',
         );
+    });
+});
+
+describe('the rulings feedback', () => {
+    const scene = sceneWindow([mes('Hailey', 'a line')]);
+
+    it('is absent when she has ruled nothing', () => {
+        // The section has to be free, or it spends prompt tokens teaching the
+        // model about a log that does not exist yet.
+        const bare = buildPrompt(ledger(), scene);
+        const emptied = buildPrompt(ledger({ rulings: [] }), scene);
+
+        assert.equal(emptied.user, bare.user);
+        assert.ok(!bare.user.includes('What she has been ruling'));
+    });
+
+    it('is absent when there is no state at all', () => {
+        const { user } = buildPrompt(null, scene);
+
+        assert.ok(!user.includes('What she has been ruling'));
+        assert.match(user, /no ledger yet/);
+    });
+
+    it('names §3\'s three calls in the verbs she would use', () => {
+        const state = ledger({
+            rulings: [
+                ruling(1, { summary: 'wrote the spark down', action: 'applied' }),
+                ruling(2, { summary: 'called it the spark', action: 'edited', edit: 'named it the ember' }),
+                ruling(3, { summary: 'put the council in as a pressure', action: 'dismissed' }),
+            ],
+        });
+        const { user } = buildPrompt(state, scene);
+
+        assert.match(user, /kept: wrote the spark down/);
+        assert.match(user, /reworded: called it the spark — she wrote: named it the ember/);
+        assert.match(user, /refused: put the council in as a pressure/);
+    });
+
+    it('carries her wording beside the summary she was shown', () => {
+        // §6 records both: the proposal's own frozen summary, and `edit` as the
+        // string she replaced it with. Showing one without the other teaches
+        // the model either half of the lesson.
+        const state = ledger({
+            rulings: [ruling(1, { summary: 'a power', action: 'edited', edit: 'the ember' })],
+        });
+        const { user } = buildPrompt(state, scene);
+
+        assert.match(user, /reworded: a power/);
+        assert.match(user, /she wrote: the ember/);
+    });
+
+    it('reads an edit that rewrote nothing as a plain ruling', () => {
+        const state = ledger({
+            rulings: [ruling(1, { summary: 'a power', action: 'edited', edit: '   ' })],
+        });
+        const { user } = buildPrompt(state, scene);
+
+        assert.match(user, /reworded: a power/);
+        assert.ok(!user.includes('she wrote'));
+    });
+
+    it('leaves `stale` out', () => {
+        // A stale ruling is one whose every change was provenance-gated. She
+        // decided nothing, so it has nothing to teach.
+        const state = ledger({ rulings: [ruling(1, { action: 'stale' })] });
+        const { user } = buildPrompt(state, scene);
+
+        assert.ok(!user.includes('proposal 1'));
+        assert.ok(!user.includes('What she has been ruling'));
+    });
+
+    it('skips an action outside §6\'s union', () => {
+        // Hand-mangled record: a missing line, not a failed pass.
+        const state = ledger({ rulings: [ruling(1, { action: 'deleted' })] });
+        const { user } = buildPrompt(state, scene);
+
+        assert.ok(!user.includes('proposal 1'));
+    });
+
+    it('skips a ruling that is not a ruling', () => {
+        const state = ledger({ rulings: [null, ruling(1)] });
+        const { user } = buildPrompt(state, scene);
+
+        assert.match(user, /kept: proposal 1/);
+        assert.equal(user.match(/kept:/g).length, 1);
+    });
+
+    it('names a ruling whose summary is missing', () => {
+        const state = ledger({ rulings: [ruling(1, { summary: '' })] });
+        const { user } = buildPrompt(state, scene);
+
+        assert.match(user, /kept: \(no summary\)/);
+    });
+
+    it('shows the most recent rulings when there are more than the limit', () => {
+        const rulings = Array.from({ length: RULING_FEEDBACK_LIMIT + 2 }, (_, i) => ruling(i));
+        const { user } = buildPrompt(ledger({ rulings }), scene);
+
+        assert.ok(!user.includes('kept: proposal 0'));
+        assert.equal(user.match(/kept:/g).length, RULING_FEEDBACK_LIMIT);
+        assert.match(user, /kept: proposal 2/);
+        assert.match(user, /kept: proposal 11\b/);
+    });
+
+    it('drops the oldest rulings when the section outgrows its budget', () => {
+        // The newest ruling describes the ledger as it now stands, so it is the
+        // one that has to survive the cap.
+        const fat = 'x'.repeat(1600);
+        const state = ledger({
+            rulings: [ruling(1, { summary: fat }), ruling(2, { summary: fat })],
+        });
+        const { user } = buildPrompt(state, scene);
+
+        // The oldest line goes, the newest survives whole.
+        assert.equal(user.match(/kept: x+/g).length, 1);
+        assert.match(user, /kept: x{1600}/);
+        assert.equal(estimateTokens(user) > 0, true);
+    });
+
+    it('keeps at least one ruling even when it alone busts the budget', () => {
+        // An empty section would read as "she has no rulings", which is false.
+        const enormous = 'y'.repeat(RULING_FEEDBACK_BUDGET * 8);
+        const state = ledger({ rulings: [ruling(1, { summary: enormous })] });
+        const { user } = buildPrompt(state, scene);
+
+        assert.match(user, /kept: y+/);
     });
 });
 

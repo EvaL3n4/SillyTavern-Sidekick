@@ -103,6 +103,11 @@ lives in chatMetadata, survives branch switching by carrying no message indices,
 stays bounded—a rolling window of the most recent 50 rulings, pruned oldest-first, so
 stale feedback never outvotes the call the DM is making now.
 
+What is built: the most recent rulings render into the scan's prompt as their own
+section, so a pass sees what she has been keeping, what she has reworded and what
+she refuses. What is not, yet: acting on it—ranking proposals from that history is
+§8, and until it exists the feedback is context rather than policy.
+
 ## 4. The appetite layer — digest grammar
 
 The rendering layer. It turns state into leans the model acts through, and it is where
