@@ -9,6 +9,7 @@
 import { applyProposal, getPath, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
 import { labelChange } from './labels.js';
+import { isEmptyRow, sheetGroups } from './sheet.js';
 import { appendTurn } from './board.js';
 import {
     BUTTON_SIZE,
@@ -1123,8 +1124,9 @@ export function mountSheet({ getState }) {
 }
 
 /**
- * Draws the hero, the powers and the arc into a panel body. A section with
- * nothing in it says nothing at all, and a sheet with no sections at all says so.
+ * Draws the Sheet into a panel body: the groups src/sheet.js makes of the ledger,
+ * as cards (§7). A ledger with nothing in it is still drawn, as collapsed slots;
+ * only a chat with no ledger at all has nothing to show.
  * @param {object} body jQuery panel body
  * @param {object|null} state the live state
  * @returns {void}
@@ -1132,21 +1134,115 @@ export function mountSheet({ getState }) {
 function drawSheet(body, state) {
     body.empty();
 
-    const sections = [
-        heroSection(state?.hero),
-        powersSection(state?.powers),
-        arcSection(state?.arc),
-    ].filter(Boolean);
-
-    if (sections.length === 0) {
+    const groups = sheetGroups(state);
+    if (groups === null) {
         body.append($('<p>', { class: 'sidekick-panel-empty' })
-            .text('The hero sheet is empty until the campaign has a hero.'));
+            .text('Open a chat to see its sheet.'));
         return;
     }
 
-    for (const section of sections) {
+    for (const group of groups) {
+        const section = sectionOf(group.title);
+        for (const card of group.cards) {
+            section.append(cardOf(card));
+        }
+        if (group.adds) {
+            section.append(slotsOf(group.adds.map((add) => ({ noun: add.noun, path: add.path, add: true }))));
+        }
         body.append(section);
     }
+}
+
+/**
+ * One card: a hairline group of rows. Consecutive empty rows are not drawn as rows
+ * at all but flow onto one line of collapsed slots, so an empty card costs a line
+ * and not a screen (§7, Empty fields collapse).
+ * @param {object} card a Card from src/sheet.js
+ * @returns {object} the card element
+ */
+function cardOf(card) {
+    const root = $('<div>', { class: 'sidekick-card', 'data-card': card.id });
+    // A card with nothing in it is named by its own slot ("+ phase"), so a caption
+    // over it would only say the same word twice.
+    if (card.caption && !card.rows.every(isEmptyRow)) {
+        root.append($('<div>', { class: 'sidekick-card-caption' }).text(card.caption));
+    }
+
+    let slots = [];
+    const flush = () => {
+        if (slots.length > 0) {
+            root.append(slotsOf(slots));
+            slots = [];
+        }
+    };
+
+    for (const row of card.rows) {
+        if (isEmptyRow(row)) {
+            slots.push({ noun: row.noun, path: row.style === 'list' ? row.addPath : row.path });
+            continue;
+        }
+        flush();
+        root.append(rowOf(row));
+        if (row.style === 'list') {
+            // Something is written, so the way to add another is one faint slot
+            // under it, and it flows onto the same line as any empty slots after.
+            slots.push({ noun: row.noun, path: row.addPath });
+        }
+    }
+    flush();
+
+    const chip = card.cite ? resolveChip(card.cite.citation) : null;
+    if (chip?.dead) {
+        root.append(goneChip(chip.dead));
+    } else if (chip) {
+        root.append(jumpChip(`#${chip.index}`, chip.index));
+    }
+    return root;
+}
+
+/**
+ * One row that has something written in it.
+ * @param {object} row a Row or ListRow from src/sheet.js
+ * @returns {object} the row element
+ */
+function rowOf(row) {
+    if (row.style === 'list') {
+        const list = $('<div>', { class: 'sidekick-card-list' });
+        list.append($('<div>', { class: 'sidekick-card-label' }).text(row.label));
+        for (const item of row.items) {
+            list.append($('<div>', { class: 'sidekick-card-item', 'data-path': item.path }).text(item.value));
+        }
+        return list;
+    }
+
+    const element = $('<div>', { class: `sidekick-card-${row.style}` });
+    if (row.path) {
+        element.attr('data-path', row.path);
+    }
+    if (row.label) {
+        element.append($('<span>', { class: 'sidekick-card-label' }).text(row.label));
+    }
+    return element.append($('<span>').text(row.value));
+}
+
+/**
+ * A line of collapsed slots: each an empty field, drawn as a faint "+ noun". A slot
+ * is a real, addressable place (its path is on the element), which is what lets
+ * writing by hand reach it; until that is wired it only says what could be added.
+ * @param {{noun: string, path: string, add?: boolean}[]} slots
+ * @returns {object} the line element
+ */
+function slotsOf(slots) {
+    const line = $('<div>', { class: 'sidekick-slots' });
+    for (const slot of slots) {
+        line.append($('<button>', {
+            type: 'button',
+            class: 'sidekick-slot',
+            'data-path': slot.path,
+            ...(slot.add ? { 'data-add': 'entry' } : {}),
+        }).text(`+ ${slot.noun}`));
+    }
+    return line;
 }
 
 /**
@@ -1157,155 +1253,6 @@ function drawSheet(body, state) {
 function sectionOf(title) {
     return $('<div>', { class: 'sidekick-section' })
         .append($('<h3>').text(title));
-}
-
-/**
- * One quiet label-value row.
- * @param {string} label
- * @param {string} value
- * @returns {object} the row element
- */
-function labelRow(label, value) {
-    const row = $('<div>', { class: 'sidekick-field' });
-    row.append($('<span>', { class: 'sidekick-quiet' }).text(`${label}: `));
-    row.append($('<span>').text(value));
-    return row;
-}
-
-/**
- * Dates read at a glance, the way a DM would say them.
- * @param {number} at epoch milliseconds
- * @returns {string}
- */
-function dayOf(at) {
-    const date = new Date(at);
-    return Number.isFinite(date.getTime()) ? date.toLocaleDateString() : '';
-}
-
-/**
- * The hero header: name, codename in parentheses, the status quo beneath.
- * @param {object|undefined} hero
- * @returns {object|null} the section, or null when the hero is unwritten
- */
-function heroSection(hero) {
-    const name = hero?.name || '';
-    const codename = hero?.codename || '';
-    const statusQuo = hero?.statusQuo || '';
-    if (!name && !codename && !statusQuo) {
-        return null;
-    }
-
-    const section = sectionOf('The hero');
-    const title = $('<div>', { class: 'sidekick-field' });
-    if (name) {
-        title.append($('<strong>').text(name));
-    }
-    if (codename) {
-        title.append($('<span>', { class: 'sidekick-quiet' })
-            .text(name ? `—${codename}` : codename));
-    }
-    section.append(title);
-
-    if (statusQuo) {
-        section.append($('<div>', { class: 'sidekick-field sidekick-quiet' })
-            .text(statusQuo));
-    }
-    return section;
-}
-
-/**
- * Every power as capability, limits and costs—the three parts that stop a
- * model from treating a power as pure upside (§2).
- * @param {object[]|undefined} powers
- * @returns {object|null} the section
- */
-function powersSection(powers) {
-    const list = (powers ?? []).filter((power) => power?.name || power?.capability);
-    if (list.length === 0) {
-        return null;
-    }
-
-    const section = sectionOf('What she can do');
-    for (const power of list) {
-        const title = $('<div>', { class: 'sidekick-field' });
-        title.append($('<strong>').text(power.name || power.capability));
-        if (power.stage) {
-            title.append($('<span>', { class: 'sidekick-quiet' }).text(`—${power.stage}`));
-        }
-        section.append(title);
-
-        if (power.capability) {
-            section.append($('<div>', { class: 'sidekick-field' }).text(power.capability));
-        }
-        section.append(labelRow("Won't", joined(power.limits)));
-        section.append(labelRow('Costs', joined(power.costs)));
-    }
-    return section;
-}
-
-/**
- * Joins a list for one row, and says so when nothing is written down—an empty
- * limits list is something the DM wants to notice, not a row that vanishes.
- * @param {string[]|undefined} values
- * @returns {string}
- */
-function joined(values) {
-    const items = (values ?? []).filter((item) => item && String(item).trim());
-    return items.length > 0 ? items.join('; ') : 'none written';
-}
-
-/**
- * The arc: where the hero is, what they are carrying, what they have crossed.
- * @param {object|undefined} arc
- * @returns {object|null} the section
- */
-function arcSection(arc) {
-    const phase = arc?.phase || '';
-    const threads = (arc?.threads ?? []).filter((thread) => thread?.text);
-    const pressures = (arc?.pressures ?? []).filter((pressure) => pressure?.text);
-    const crossings = (arc?.linesCrossed ?? []).filter((crossing) => crossing?.line);
-    if (!phase && threads.length === 0 && pressures.length === 0 && crossings.length === 0) {
-        return null;
-    }
-
-    const section = sectionOf('Where the hero is');
-    if (phase) {
-        section.append($('<div>', { class: 'sidekick-field' }).text(phase));
-    }
-
-    for (const thread of threads) {
-        const row = $('<div>', { class: 'sidekick-field' });
-        row.append($('<span>').text(thread.text));
-        const day = thread.lastTouched ? dayOf(thread.lastTouched) : '';
-        if (day) {
-            row.append($('<span>', { class: 'sidekick-quiet' }).text(`—${day}`));
-        }
-        section.append(row);
-    }
-
-    for (const pressure of pressures) {
-        const row = $('<div>', { class: 'sidekick-field' });
-        row.append($('<span>').text(pressure.text));
-        if (pressure.denialCount > 0) {
-            row.append($('<span>', { class: 'sidekick-quiet' })
-                .text(`—denied ${pressure.denialCount} ${pressure.denialCount === 1 ? 'time' : 'times'}`));
-        }
-        section.append(row);
-    }
-
-    for (const crossing of crossings) {
-        const row = $('<div>', { class: 'sidekick-field' });
-        row.append($('<span>').text(`${crossing.line} → ${crossing.provides}, at ${crossing.cost}`));
-        const chip = resolveChip(crossing.msgId);
-        if (chip?.dead) {
-            row.append(goneChip(chip.dead));
-        } else if (chip) {
-            row.append(jumpChip(`#${chip.index}`, chip.index));
-        }
-        section.append(row);
-    }
-
-    return section;
 }
 
 /**

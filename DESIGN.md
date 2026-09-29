@@ -326,6 +326,7 @@ src/evaluate.js    evaluator jsonSchema + validation, cadence policy
 src/scan-prompt.js the scan's prose, in one file the DM edits herself
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/labels.js      a change's path as the words the DM would use (the Queue's words)
+src/sheet.js       the Sheet's cards and collapsed slots, as data; ui.js draws them
 src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the panel
                     renders it

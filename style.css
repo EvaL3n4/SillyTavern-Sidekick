@@ -498,12 +498,77 @@ body.no-blur {
     letter-spacing: 0.08em;
 }
 
-.sidekick-field {
-    margin: 2px 0;
+/* A Sheet card (§7): a hairline border and one background step, no shadow, never
+   stacked on another card. The step is the text colour at a few percent, so it reads
+   on the host's theme instead of pasting a colour over it. */
+.sidekick-card {
+    margin: 6px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+    background: color-mix(in srgb, var(--sidekick-fg) 4%, transparent);
 }
 
-.sidekick-quiet {
+.sidekick-card > * + * {
+    margin-top: 4px;
+}
+
+.sidekick-card-caption,
+.sidekick-card-label {
     color: var(--sidekick-muted);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.sidekick-card-label {
+    margin-right: 6px;
+}
+
+.sidekick-card-title {
+    font-weight: 600;
+}
+
+/* Facts in mono, like every other number and id here. */
+.sidekick-card-meta,
+.sidekick-card-note {
+    color: var(--sidekick-muted);
+    font-family: var(--sidekick-mono);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+}
+
+.sidekick-card-list > * + * {
+    margin-top: 2px;
+}
+
+.sidekick-card-title,
+.sidekick-card-meta,
+.sidekick-card-text,
+.sidekick-card-note,
+.sidekick-card-item {
+    overflow-wrap: anywhere;
+}
+
+/* Collapsed empty fields: one faint line of "+ noun" per card, not one row each.
+   They are real slots; writing by hand attaches to them. */
+.sidekick-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+}
+
+.sidekick-slot {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--sidekick-muted);
+    font: inherit;
+    font-family: var(--sidekick-mono);
+    font-size: 0.85em;
+    opacity: 0.7;
+    cursor: default;
 }
 
 /* The discussion board: a conversation, not a form. The accent stays on the
