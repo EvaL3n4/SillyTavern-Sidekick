@@ -8,7 +8,7 @@
 import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
 import { reanchorCitations } from './src/citations.js';
-import { mountSettings, mountFab, mountQueue, mountSheet, mountBoard } from './src/ui.js';
+import { mountSettings, mountLauncher, mountQueue, mountSheet, mountBoard } from './src/ui.js';
 import { loadState } from './src/state.js';
 import { BOARD_KEY, readBoard, runBoardTurn } from './src/board.js';
 
@@ -250,7 +250,7 @@ async function evaluateNow(state) {
 }
 
 /**
- * Runs a scan because the DM asked for one. The FAB's Run a scan entry is the
+ * Runs a scan because the DM asked for one. The launcher's Run a scan entry is the
  * only manual path now: a typed command is a completion-era affordance, and
  * nobody types to run a pass when the button is already in front of them.
  *
@@ -332,7 +332,7 @@ async function onAppReady() {
         getState: readState,
         persist: persistState,
     });
-    mountFab({ onScan: () => void scanOnDemand() });
+    mountLauncher({ onScan: () => void scanOnDemand(), getState: readState });
     mountQueue({ getState: readState, persist: persistState });
     mountSheet({ getState: readState });
     mountBoard({

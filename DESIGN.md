@@ -79,7 +79,7 @@ construction—that is the product—so feeding it back would make the scan
 over-persuaded, and would cost us the only reader positioned to notice a render drifting
 from the DM's rulings.
 
-**The queue.** Proposals land in a queue behind the FAB. Each shows
+**The queue.** Proposals land in a queue behind the launcher. Each shows
 summary, changes (old → new), and evidence with jump-to-message. DM actions: apply,
 edit-then-apply, dismiss. Nothing touches state without an explicit DM action.
 
@@ -293,23 +293,24 @@ src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live 
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/board-prompt.js  the board's prose, in one file the DM edits herself
-src/board.js        the board's store, prompt and tool-call protocol; the FAB renders it
-src/ui.js          FAB menu: hero sheet, review queue, board, run a scan; drawer = the
-                   two live settings; the board's surface applies a change on the DM's
-                   click, not on generation
+src/board.js        the board's store, prompt and tool-call protocol; the launcher
+                    renders it
+src/ui.js          launcher menu: hero sheet, review queue, board, run a scan; the
+                   two live drawer settings; the board's surface applies a change
+                   on the DM's click, not on generation
 style.css          near-mono palette + single warm accent
 ```
 
 The extensions drawer holds settings only—cadence and digest budget, both per chat
 by §6's hygiene line, both writing the state the scan and the digest render already
 read. Everything the DM touches during play—hero sheet, review queue, board—sits
-behind a FAB; a surface that waits for a click is a surface that gets opened late.
+behind the launcher; a surface that waits for a click is a surface that gets opened late.
 
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind, citation
 re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlapping scans
 are guarded by the in-flight pass itself, because a quiet generation emits no end event—
 `GENERATION_ENDED` fires only for interactive ones. A pass also runs on the DM's click:
-the FAB menu's Run a scan entry is the manual trigger, and no command is typed.
+the launcher menu's Run a scan entry is the manual trigger, and no command is typed.
 
 A pass returns [] for every outcome—nothing found, a refused backend, a
 non-conforming response—so the queue cannot tell them apart. The console can:
@@ -324,10 +325,10 @@ reached the chat.
 `index.js` shapes that by wrapping the pass's `warn` channel into a flag, so the
 pass's own array contract stays the queue's, and no second one is invented for it.
 
-**House UI style.** Today's surfaces still hang off the scaffold's FAB; what they move
-to is already settled, and it comes from the two references Eva named—vercel.com's
-monochrome Geist instrument and giga.ai's dark-first instrument console—combined into
-one system in Modus's `docs/ux-concept.md` §6:
+**House UI style.** The launcher drags and the surfaces open from wherever it
+rests; the rest of what they wear comes from the two references Eva named—
+vercel.com's monochrome Geist instrument and giga.ai's dark-first instrument console—
+combined into one system in Modus's `docs/ux-concept.md` §6:
 
 - **Near-mono, dark-native, token-driven.** Surfaces breathe the host's theme rather
   as a white island—ST's colors come through, never pasted over.

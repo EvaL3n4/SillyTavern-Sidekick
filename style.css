@@ -37,11 +37,9 @@
     width: 6em;
 }
 
-/* The FAB and everything behind it. */
-.sidekick-fab {
+/* The launcher and everything behind it. */
+.sidekick-launcher {
     position: fixed;
-    right: 20px;
-    bottom: 20px;
     z-index: 3000;
     width: 48px;
     height: 48px;
@@ -51,21 +49,44 @@
     color: var(--sidekick-bg);
     font-size: 18px;
     cursor: pointer;
+    /* The drag is this module's own gesture; a touch-drag must not scroll the
+       chat out from under the press. */
+    touch-action: none;
 }
 
-.sidekick-fab:hover {
+.sidekick-launcher:hover {
     background: var(--sidekick-accent-dim);
 }
 
-.sidekick-fab:focus-visible {
+.sidekick-launcher:focus-visible {
     outline: 2px solid var(--sidekick-fg);
     outline-offset: 2px;
 }
 
-.sidekick-fab-menu {
+/* Waiting on you, and nothing else: how many proposals hold a ruling. */
+.sidekick-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 16px;
+    padding: 0 4px;
+    border: 1px solid var(--sidekick-accent);
+    border-radius: 999px;
+    background: var(--sidekick-bg);
+    color: var(--sidekick-accent);
+    font-family: monospace;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    line-height: 14px;
+    text-align: center;
+}
+
+.sidekick-badge[hidden] {
+    display: none;
+}
+
+.sidekick-launcher-menu {
     position: fixed;
-    right: 20px;
-    bottom: 76px;
     z-index: 2999;
     display: flex;
     flex-direction: column;
@@ -78,11 +99,11 @@
     background: var(--sidekick-bg);
 }
 
-.sidekick-fab-menu[hidden] {
+.sidekick-launcher-menu[hidden] {
     display: none;
 }
 
-.sidekick-fab-menu button {
+.sidekick-launcher-menu button {
     padding: 8px 12px;
     border: none;
     border-radius: var(--sidekick-radius);
@@ -93,7 +114,7 @@
     cursor: pointer;
 }
 
-.sidekick-fab-menu button:hover {
+.sidekick-launcher-menu button:hover {
     background: var(--sidekick-line);
 }
 
@@ -121,11 +142,9 @@
     white-space: pre-wrap;
 }
 
-/* The pane a surface opens into, above the menu's slot. */
-.sidekick-fab-pane {
+/* The floating pane a surface opens into. */
+.sidekick-launcher-panel {
     position: fixed;
-    right: 20px;
-    bottom: 76px;
     z-index: 2998;
     width: 340px;
     max-height: 60vh;

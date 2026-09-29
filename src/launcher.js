@@ -28,8 +28,12 @@ export function launcherKey() {
     return `sidekick_chrome_v${VERSION}`;
 }
 
-/** The launcher's footprint, which is what clamps know it by. */
-export const LAUNCHER_SIZE = { width: 48, height: 44 };
+/**
+ * The launcher's footprint, which is what clamps know it by. It has to match
+ * `.sidekick-launcher`'s box in style.css: a clamp that believes a smaller
+ * control than the one on screen lets its bottom edge hang off the viewport.
+ */
+export const LAUNCHER_SIZE = { width: 48, height: 48 };
 
 /** The panel's smallest usable size: the edit panel's from/to pairs need width. */
 export const PANEL_MIN = { width: 280, height: 200 };

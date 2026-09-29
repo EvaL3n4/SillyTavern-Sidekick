@@ -44,7 +44,7 @@ describe('launcherKey', () => {
 
 describe('defaultGeometry', () => {
     it('sits the launcher above the send form, on the right', () => {
-        assert.deepEqual(defaultGeometry(VIEWPORT).launcher, { x: 1208, y: 732 });
+        assert.deepEqual(defaultGeometry(VIEWPORT).launcher, { x: 1208, y: 728 });
     });
 
     it('centres the panel and opens it at its default size', () => {
@@ -69,7 +69,7 @@ describe('defaultGeometry', () => {
 
 describe('clampPosition', () => {
     it('keeps a control dragged past the bottom-right inside', () => {
-        assert.deepEqual(clampPosition(5000, 5000, LAUNCHER_SIZE, VIEWPORT), { x: 1232, y: 756 });
+        assert.deepEqual(clampPosition(5000, 5000, LAUNCHER_SIZE, VIEWPORT), { x: 1232, y: 752 });
     });
 
     it('pins a control dragged past the top-left at the origin', () => {
@@ -216,7 +216,7 @@ describe('readGeometry', () => {
 
         assert.deepEqual(readGeometry({ getStored: () => stored, viewport: VIEWPORT }), {
             v: 1,
-            launcher: { x: 1232, y: 756 },
+            launcher: { x: 1232, y: 752 },
             panel: { w: 1280, h: 800, x: 0, y: 0 },
         });
     });

@@ -2,15 +2,17 @@
  * UI surfaces (§7).
  *
  * The extensions drawer holds settings only. Everything the DM touches during
- * play—hero sheet, review queue, board—sits behind a FAB; a surface that waits
+ * play—hero sheet, review queue, board—sits behind the launcher; a surface that
  * for a click is a surface that gets opened late.
  */
 
 import { applyProposal, getPath, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
 import { appendTurn } from './board.js';
+import { LAUNCHER_SIZE, clampPosition, clampRecord, launcherKey, readGeometry, writeGeometry } from './launcher.js';
+
 /**
- * The FAB's surfaces, in menu order (§7).
+ * The launcher's surfaces, in menu order (§7).
  * @type {{id: string, label: string}[]}
  */
 const SURFACES = [
@@ -29,7 +31,7 @@ const surfaceRenderers = new Map();
 
 /**
  * Registers a surface's renderer behind its menu entry. The surface's own
- * module calls this when it exists; the FAB shells the rest.
+ * module calls this when it exists; the launcher shells the rest.
  * @param {string} id a SURFACES id
  * @param {(pane: object) => void} render receives the pane's empty body
  * @returns {void}
@@ -193,44 +195,130 @@ export async function mountSettings({ folder, context, getState, persist }) {
 }
 
 /**
- * Mounts the floating action button and the surfaces behind it.
+ * A press that moves at least this far from where it started is a drag, not a
+ * click. Without a threshold every drag would open the menu, which is the
+ * standard bug in a drag-on-click control.
+ */
+const DRAG_THRESHOLD = 4;
+
+/**
+ * Where the menu sits around the launcher: above when there is room, below when
+ * there is not, and flipped off the right edge when the launcher sits near it, so
+ * a menu pinned to a corner while its button moved never happens.
  *
- * Idempotent: APP_READY can fire again after a reconnect, and a second FAB
+ * The menu's size is asked for rather than guessed, because the placement is a
+ * geometry question only the laid-out menu can answer. The chosen corner goes
+ * through clampPosition, so a viewport too small for either preference still
+ * leaves the menu on screen.
+ *
+ * @param {{x: number, y: number}} launcher the launcher's top-left corner
+ * @param {{width: number, height: number}} viewport
+ * @param {{width: number, height: number}} size the menu's measured size
+ * @returns {{x: number, y: number}} the menu's top-left corner, clamped
+ */
+export function menuPlacement(launcher, viewport, size) {
+    const above = launcher.y - size.height >= 0;
+    const top = above ? launcher.y - size.height : launcher.y + LAUNCHER_SIZE.height;
+    const fits = launcher.x + size.width <= viewport.width;
+    const left = fits ? launcher.x : launcher.x + LAUNCHER_SIZE.width - size.width;
+    return clampPosition(left, top, size, viewport);
+}
+
+/**
+ * Mounts the launcher: the one control that is always in front of the DM, and
+ * the surfaces behind it.
+ *
+ * The launcher drags. A press past DRAG_THRESHOLD moves it and takes pointer
+ * capture on that first move rather than on the press, so a plain tap never
+ * establishes capture and the click path—mouse, touch and the keyboard's Enter
+ * and Space—stays exactly what it was. The click a drag ends with is eaten by a
+ * flag, and the resting position is clamped and written once, on pointerup: a
+ * storage write per frame is waste, and a mid-drag persist that gets abandoned
+ * leaves the record off the last resting place.
+ *
+ * The menu opens against the launcher's live position rather than a hardcoded
+ * corner (menuPlacement), and the badge counts what is waiting, because a queue
+ * she cannot see is a queue she forgets.
+ *
+ * Idempotent: APP_READY can fire again after a reconnect, and a second launcher
  * would stack on the first. Outside clicks are decided in the capture phase
  * so a synchronous repaint can never detach the event target before this
  * listener sees it.
+ *
+ * @param {object} [options]
+ * @param {() => void} [options.onScan] runs a scan because the DM asked
+ * @param {() => object|null} [options.getState] reads this chat's queue, for the
+ *     badge
  * @returns {void}
  */
-export function mountFab({ onScan } = {}) {
-    if ($('.sidekick-fab').length > 0) {
+export function mountLauncher({ onScan, getState } = {}) {
+    if ($('.sidekick-launcher').length > 0) {
         return;
     }
 
     const button = $('<button>', {
-        class: 'sidekick-fab',
+        class: 'sidekick-launcher',
         type: 'button',
         title: 'Sidekick',
         'aria-haspopup': 'true',
         'aria-expanded': 'false',
     }).text('S');
 
+    // Waiting on you, where she can see it without opening anything: how many
+    // proposals hold a ruling, and nothing at all when none do.
+    const badge = $('<span>', { class: 'sidekick-badge', hidden: true });
+    button.append(badge);
+
     const menu = $('<ul>', {
-        class: 'sidekick-fab-menu',
+        class: 'sidekick-launcher-menu',
         role: 'menu',
         hidden: true,
     });
 
     const pane = $('<div>', {
-        class: 'sidekick-fab-pane',
+        class: 'sidekick-launcher-panel',
         role: 'region',
         hidden: true,
     });
+
+    const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
+    const storage = {
+        getStored: () => localStorage.getItem(launcherKey()),
+        setStored: (key, value) => localStorage.setItem(key, value),
+    };
+
+    // Read once at mount, already clamped against the browser as it is now: a
+    // window that shrank while Sidekick was closed never leaves the control
+    // off-screen.
+    let geometry = readGeometry({ ...storage, viewport: viewport() });
+    const place = (at) => {
+        button.css({ left: `${at.x}px`, top: `${at.y}px`, right: 'auto', bottom: 'auto' });
+    };
+    place(geometry.launcher);
+
+    const showBadge = () => {
+        const waiting = getState?.()?.queue?.length ?? 0;
+        badge.text(waiting > 0 ? String(waiting) : '');
+        badge.prop('hidden', waiting === 0);
+    };
 
     let menuOpen = false;
     const setMenu = (open) => {
         menuOpen = open;
         menu.prop('hidden', !open);
         button.attr('aria-expanded', String(open));
+        if (!open) {
+            return;
+        }
+
+        // Read in the same synchronous turn the menu is unhidden, so nothing
+        // flashes at a corner the measurement disagrees with.
+        showBadge();
+        const at = menuPlacement(geometry.launcher, viewport(), {
+            width: menu[0].offsetWidth,
+            height: menu[0].offsetHeight,
+        });
+        menu.css({ left: `${at.x}px`, top: `${at.y}px`, right: 'auto', bottom: 'auto' });
     };
 
     const openSurface = (surface) => {
@@ -268,7 +356,7 @@ export function mountFab({ onScan } = {}) {
         menu.append($('<li>').append(item));
     }
 
-    // The one thing the FAB does rather than shows: a scan on demand.
+    // The one thing the launcher does rather than shows: a scan on demand.
     //
     // It used to be a typed command, which is a completion-era affordance—nobody
     // types to run a pass when the button is already in front of them. The cadence
@@ -284,7 +372,56 @@ export function mountFab({ onScan } = {}) {
     });
     menu.append($('<li>').append(scan));
 
-    button.on('click', () => setMenu(!menuOpen));
+    // The gesture. Capture is taken on the first move past the threshold rather
+    // than on the press, so a tap never establishes it; the click a drag ends
+    // with is eaten here rather than opening the menu over the new position.
+    let press = null;
+    let eatClick = false;
+    button.on('pointerdown', (event) => {
+        press = {
+            x: event.clientX,
+            y: event.clientY,
+            from: geometry.launcher,
+            dragging: false,
+        };
+        eatClick = false;
+    });
+    button.on('pointermove', (event) => {
+        if (!press) {
+            return;
+        }
+        const dx = event.clientX - press.x;
+        const dy = event.clientY - press.y;
+        if (!press.dragging) {
+            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                return;
+            }
+            press.dragging = true;
+            button[0].setPointerCapture?.(event.pointerId);
+        }
+        const at = clampPosition(press.from.x + dx, press.from.y + dy, LAUNCHER_SIZE, viewport());
+        place(at);
+        geometry = { ...geometry, launcher: at };
+    });
+    const rest = () => {
+        if (press?.dragging) {
+            // Persisted once, here: a write per frame is waste, and one left
+            // mid-drag leaves the record off the resting place.
+            eatClick = true;
+            writeGeometry(geometry, storage);
+        }
+        press = null;
+    };
+    button.on('pointerup', rest);
+    button.on('pointercancel', rest);
+
+    button.on('click', () => {
+        if (eatClick) {
+            eatClick = false;
+            return;
+        }
+        setMenu(!menuOpen);
+    });
 
     document.addEventListener('click', (event) => {
         if (button[0].contains(event.target) || menu[0].contains(event.target)) {
@@ -293,11 +430,27 @@ export function mountFab({ onScan } = {}) {
         setMenu(false);
     }, true);
 
+    // The badge's two reads. A new chat has its own queue, so a count left over
+    // from the last one names the wrong number, and the menu opening is the other
+    // moment the count is actually looked at. Between them it can be stale—a
+    // scan landing while she reads the board does not repaint it—which is the
+    // named residual; the fallback, if live testing shows it bothers her, is to
+    // move the count onto the menu's Review queue row.
+    const { eventSource, event_types } = SillyTavern.getContext();
+    eventSource.on(event_types.CHAT_CHANGED, showBadge);
+    showBadge();
+
+    window.addEventListener('resize', () => {
+        geometry = clampRecord(geometry, viewport());
+        place(geometry.launcher);
+        writeGeometry(geometry, storage);
+    });
+
     $('body').append(button, menu, pane);
 }
 
 /**
- * Registers the review queue behind the FAB's Review queue entry.
+ * Registers the review queue behind the launcher's Review queue entry.
  *
  * Every action re-reads the state and re-finds the entry by id: the store
  * holds the state by reference, so nothing captured when the pane was drawn
@@ -739,7 +892,7 @@ function goneChip(reason) {
 }
 
 /**
- * Registers the hero sheet behind the FAB's Hero sheet entry.
+ * Registers the hero sheet behind the launcher's Hero sheet entry.
  *
  * Read-only on purpose: §3 lets nothing touch state without an explicit DM
  * action, and the review queue owns every mutation path. This is the ledger as
@@ -942,7 +1095,7 @@ function arcSection(arc) {
 }
 
 /**
- * Registers the discussion board behind the FAB's Board entry.
+ * Registers the discussion board behind the launcher's Board entry.
  *
  * Unlike the sheet, the board writes: every change goes through applyProposal
  * on an explicit click, straight to history tagged origin 'discussion', and never
