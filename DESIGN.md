@@ -41,8 +41,7 @@ Three registers of state. Everything in the extension serves these.
 
 **Powers are capability + limits + cost, one indivisible entry.** Every tracked power
 all three parts: what it does in the hero's own vocabulary, what it can't do or is
-getting wrong, and what using it takes. A capability-only entry degenerates into a wish
-list and the model stops respecting limits within ten messages. Powers also carry a
+getting wrong, and what using it takes. Powers also carry a
 `stage` (the setting's progression vocabulary) and a `history[]` of notable shifts.
 
 **Arc is where the hero is in their story.** `phase` from the setting's own phases;
