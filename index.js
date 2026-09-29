@@ -8,6 +8,7 @@
 import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { renderDigest } from './src/grammar.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
+import { reanchorCitations } from './src/citations.js';
 import { mountSettings, mountFab, mountQueue, mountSheet } from './src/ui.js';
 import { loadState } from './src/state.js';
 
@@ -38,6 +39,42 @@ function bindState() {
     messagesSince = 0;
 }
 
+
+/**
+ * Keeps stored citations honest after the chat moves under them.
+ *
+ * A deletion shifts every later index; a swipe rewrites a message's date in
+ * place. Either turns a citation into a claim the chat no longer backs, and
+ * nothing would notice if nobody looked. This pass rewrites what moved and
+ * counts what it could not resolve; the queue and the sheet then name a dead
+ * citation when the DM actually tries to use it, which is the only moment
+ * she needs to know.
+ *
+ * Only a heal changes stored state, so only a heal persists. CHAT_CHANGED runs
+ * this after bindState, because listeners fire in registration order, so the
+ * state being walked is already this chat's.
+ */
+function onCitationsStale() {
+    const state = readState();
+    if (!state) {
+        return;
+    }
+
+    const { chat } = context();
+    const counts = reanchorCitations(state, chat);
+    if (counts.healed === 0 && counts.stale === 0) {
+        // every citation still lands where it was filed
+        return;
+    }
+
+    const report = `${counts.live} live, ${counts.healed} healed, ${counts.stale} stale`;
+    console.info(`[Sidekick] citations re-anchored: ${report}`);
+    if (counts.healed > 0) {
+        void persistState(state).catch((error) => {
+            console.error('[Sidekick] could not persist re-anchored citations', error);
+        });
+    }
+}
 /**
  * Persists a migrated state. Callers pass a state they already hold.
  *
@@ -174,6 +211,8 @@ async function onAppReady() {
 
     const { eventSource, event_types } = context();
     eventSource.on(event_types.CHAT_CHANGED, bindState);
+    eventSource.on(event_types.CHAT_CHANGED, onCitationsStale);
+    eventSource.on(event_types.MESSAGE_DELETED, onCitationsStale);
     eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
 
     registerSlashCommands();
