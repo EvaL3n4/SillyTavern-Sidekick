@@ -170,18 +170,41 @@ export async function saveBoardState(board, captured) {
 }
 
 /**
- * Runs a scan wherever it was triggered from. §3's silence rule ends here
- * rather than inside the pass: everything that can fail in a pass already
- * resolved to [], so what reaches this catch is our own wiring, and that logs
- * once instead of dying inside a fire-and-forget call.
+ * What a triggered pass did, in a shape the surface that triggered it can say
+ * something honest about. `null` is the one case that is not a result the pass
+ * produced: the in-flight guard dropped the trigger before it started.
  *
- * A dropped trigger—one that arrived while a pass was already running—returns
- * null, so the slash command stays quiet rather than reporting a zero it did
- * not produce. The queue is persisted only when something was added.
+ * `persisted` means nothing was lost—either the entries reached this chat's
+ * metadata, or there were none to file. `failed` means the pass reported that it
+ * could not do its job, which §7 keeps quiet in the queue but the manual trigger
+ * she clicked is entitled to name.
+ *
+ * §3's silence rule ends at this function's return value rather than inside the
+ * pass: everything that can fail there already resolved to [], so what reaches
+ * the catch below is our own wiring, and that logs once instead of dying inside
+ * a fire-and-forget call.
+ *
+ * @typedef {object} ScanOutcome
+ * @property {Array<object>} queued the entries the pass appended, possibly none
+ * @property {boolean} persisted whether anything was lost
+ * @property {boolean} failed whether the pass reported a failure of its own
  */
 async function evaluateNow(state) {
     const { chat, generateRaw, chatMetadata } = context();
-    const started = startEvaluation(state, { chat, generate: generateRaw, log });
+    let failed = false;
+    const passLog = {
+        ...log,
+        // The pass's `warn` is where it reports that it could not do its job (a
+        // refused generation, a voided citation), and both of those resolve to
+        // [] exactly as a genuine "nothing here" does. Wrapping the channel here
+        // is the only way that reaches the trigger without changing the pass's
+        // own array contract, which §3's silence rule depends on.
+        warn: (message, detail) => {
+            failed = true;
+            log.warn(message, detail);
+        },
+    };
+    const started = startEvaluation(state, { chat, generate: generateRaw, log: passLog });
     if (!started) {
         return null;
     }
@@ -190,33 +213,40 @@ async function evaluateNow(state) {
     try {
         queued = await started;
     } catch (error) {
+        // §7: a pass that resolves to [] is a quiet backend and stays quiet. A
+        // rejection out of the pass is our own wiring, and it is not the same
+        // thing as a dropped trigger.
         console.error('[Sidekick] evaluation pass failed', error);
-        return null;
+        return { queued: [], persisted: true, failed: true };
     }
 
-    if (queued.length > 0) {
-        // sk-06p: a quiet pass runs for seconds to minutes, and CHAT_CHANGED
-        // reassigns SillyTavern's chatMetadata pointer when it fires. Persisting
-        // after a switch would write this chat's ledger into the new chat's
-        // metadata—wrong data in the wrong chat, silently. This checks
-        // identity, not chat equality: returning to the same chat reloads
-        // metadata from disk, so a round trip also fails here and loses the
-        // entries instead, which is the honest direction to fail in. The
-        // guard and persistState's own read land in one turn, so nothing can
-        // move the pointer between them.
-        if (context().chatMetadata === chatMetadata) {
-            try {
-                await persistState(state);
-            } catch (error) {
-                // The entries are real and in memory; the chat just never learned
-                // them. Naming the phase keeps the next debug pass off the pass.
-                console.error('[Sidekick] could not persist the scan queue', error);
-            }
-        } else {
-            console.error('[Sidekick] the chat changed during the scan—nothing was persisted');
-        }
+    if (queued.length === 0) {
+        // Nothing to file, so nothing can be lost.
+        return { queued, persisted: true, failed };
     }
-    return queued;
+
+    // sk-06p: a quiet pass runs for seconds to minutes, and CHAT_CHANGED
+    // reassigns SillyTavern's chatMetadata pointer when it fires. Persisting
+    // after a switch would write this chat's ledger into the new chat's
+    // metadata—wrong data in the wrong chat, silently. This checks identity,
+    // not chat equality: returning to the same chat reloads metadata from disk,
+    // so a round trip also fails here and loses the entries instead, which is
+    // the honest direction to fail in. The guard and persistState's own read
+    // land in one turn, so nothing can move the pointer between them.
+    if (context().chatMetadata !== chatMetadata) {
+        console.error('[Sidekick] the chat changed during the scan—nothing was persisted');
+        return { queued, persisted: false, failed };
+    }
+
+    try {
+        await persistState(state);
+    } catch (error) {
+        // The entries are real and in memory; the chat just never learned
+        // them. Naming the phase keeps the next debug pass off the pass.
+        console.error('[Sidekick] could not persist the scan queue', error);
+        return { queued, persisted: false, failed };
+    }
+    return { queued, persisted: true, failed };
 }
 
 /**
@@ -227,17 +257,46 @@ async function evaluateNow(state) {
  * The wording the command produced is kept, because it carries the one
  * distinction that matters: null is a trigger the in-flight guard dropped, which
  * is not the same as a pass that found nothing.
+ * §7's silence for the DM is the scan surface itself, not this trigger: she
+ * asked for a pass, so she hears back which of the things happened. Four
+ * messages, one per outcome, instead of the two the old shape could make.
  *
  * @returns {Promise<void>}
  */
 async function scanOnDemand() {
-    const queued = await evaluateNow(readState());
-    if (queued) {
-        toastr.info(`Scan complete—${queued.length} proposal(s) queued.`);
+    const outcome = await evaluateNow(readState());
+    if (!outcome) {
+        toastr.info('A scan is already running—this trigger was dropped. Try again when it finishes.');
         return;
     }
 
-    toastr.info('A scan is already running—this trigger was dropped. Try again when it finishes.');
+    // Each branch below names a thing that really happened. The old shape made
+    // two of them say the same sentence: a thrown pass and a dropped trigger
+    // both returned null, and a refused backend and a real "nothing here" both
+    // returned an empty array queued.
+    if (!outcome.persisted) {
+        // The entries are real and in memory; the chat just never learned them,
+        // and they are gone on the next reload. Say so instead of the count.
+        toastr.error(
+            `The scan finished but could not be saved to this chat—${outcome.queued.length} proposal(s) not filed. Check the console.`,
+        );
+        return;
+    }
+
+    if (outcome.queued.length === 0) {
+        // An empty queue is three different things (nothing to say, the backend
+        // refused, a response that did not conform) and this is the one surface
+        // that can say which without another console hop.
+        toastr.warning(
+            outcome.failed
+                ? 'The scan could not run. Check the console for the phase it failed in.'
+                : 'Scan complete—no proposals worth writing down right now.',
+        );
+        return;
+    }
+
+    // Something queued and filed: the only message that can stay a success.
+    toastr.success(`Scan complete—${outcome.queued.length} proposal(s) queued.`);
 }
 
 /** Cadence ticker (§3): a fixed, configurable tick with a manual trigger on top. */

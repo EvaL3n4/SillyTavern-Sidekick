@@ -315,6 +315,13 @@ non-conforming response—so the queue cannot tell them apart. The console can:
 outcomes that are the extension's own suspicion (a voided citation, a failed
 generation) warn from the moment they happen, whether the flag is set or not.
 
+The manual trigger is the one audience that hears back, because she asked: it reads the
+pass's outcome rather than the queue, and says which happened—a dropped trigger, a pass
+that could not run, a clean zero, something filed, or something generated that never
+reached the chat.
+`index.js` shapes that by wrapping the pass's `warn` channel into a flag, so the
+pass's own array contract stays the queue's, and no second one is invented for it.
+
 ## 8. 1.0.0 scope / non-goals
 
 **In 1.0.0**
