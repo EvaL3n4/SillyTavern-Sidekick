@@ -8,6 +8,7 @@
 
 import { applyProposal, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
+import { appendTurn } from './board.js';
 /**
  * The FAB's surfaces, in menu order (§7).
  * @type {{id: string, label: string}[]}
@@ -579,4 +580,229 @@ function arcSection(arc) {
     }
 
     return section;
+}
+
+/**
+ * Registers the discussion board behind the FAB's Board entry.
+ *
+ * Unlike the sheet, the board writes: every change goes through applyProposal
+ * on an explicit click, straight to history tagged origin 'discussion', and never
+ * through the review queue. §3's two sentences stay apart—the queue is where
+ * Sidekick suggests, the board is where the DM thinks—and routing her own thought
+ * back through the queue would make her rule on herself.
+ *
+ * @param {object} options
+ * @param {() => object|null} options.getState reads the live state
+ * @param {(state: object) => Promise<void>} options.persist files the ledger
+ * @param {() => object} options.loadBoard reads this chat's board
+ * @param {(board: object, captured?: object) => Promise<boolean>} options.saveBoard
+ *     files the board, returning false when the chat moved underneath it
+ * @param {(state: object, board: object) => Promise<object>} options.runTurn one
+ *     generation, already wired to generateRaw
+ * @returns {void}
+ */
+export function mountBoard({ getState, persist, loadBoard, saveBoard, runTurn }) {
+    registerSurface('board', (body) => {
+        drawBoard(body, { getState, persist, loadBoard, saveBoard, runTurn });
+    });
+}
+
+/**
+ * Draws this chat's board: the turns that have happened, then a way to say
+ * something. The pane redraws when it opens; a turn is appended or replaced in
+ * place afterwards, so the DM keeps her scroll.
+ *
+ * @param {object} body jQuery pane body
+ * @param {object} deps
+ * @returns {void}
+ */
+function drawBoard(body, deps) {
+    body.empty();
+
+    const board = deps.loadBoard();
+    const log = $('<div>', { class: 'sidekick-log' });
+    const note = $('<p>', { class: 'sidekick-note', hidden: true });
+
+    if (board.turns.length === 0) {
+        log.append($('<p>', { class: 'sidekick-pane-empty' })
+            .text('The board is empty—say what you are thinking about.'));
+    } else {
+        // A snapshot: applying a change replaces the turn element it sits in.
+        for (const turn of [...board.turns]) {
+            log.append(boardTurn(turn, deps));
+        }
+    }
+
+    body.append(log);
+    body.append(note);
+    body.append(boardComposer(log, note, deps));
+}
+
+/**
+ * One turn of the conversation, and the Apply affordance when the board offered
+ * a change. Nothing about the tool runs on its own: the button is the only
+ * path, and it is wired to applyProposal by the click handler below.
+ *
+ * @param {object} turn
+ * @param {object} deps
+ * @returns {object} the turn element
+ */
+function boardTurn(turn, deps) {
+    const root = $('<div>', { class: `sidekick-turn sidekick-turn-${turn.role}` });
+    root.append($('<div>', { class: 'sidekick-turn-text' }).text(turn.text || '(nothing said)'));
+
+    if (turn.applied) {
+        root.append($('<span>', { class: 'sidekick-applied' }).text('applied'));
+        return root;
+    }
+
+    if (!turn.tool) {
+        return root;
+    }
+
+    const summary = String(turn.tool.arguments?.summary ?? '').trim();
+    root.append($('<button>', {
+        type: 'button',
+        class: 'sidekick-apply',
+        title: summary ? `Apply: ${summary}` : 'Apply a change',
+    }).text('Apply').on('click', () => {
+        void applyBoardChange(turn, root, deps);
+    }));
+
+    return root;
+}
+
+/**
+ * Applies one board turn's change: through applyProposal, so the provenance gate
+ * still applies, straight to history tagged origin 'discussion', and filed in the
+ * same synchronous turn as the click so no chat switch can open under it.
+ *
+ * A change the gate rejects says so on the chip—the DM is at the board
+ * waiting, so a silent no-op is the wrong behaviour where §3's silence is right
+ * for the scan nobody watches.
+ *
+ * @param {object} turn the turn as drawn
+ * @param {object} deps
+ * @returns {Promise<void>}
+ */
+async function applyBoardChange(turn, root, deps) {
+    const state = deps.getState();
+    if (!state) {
+        return;
+    }
+
+    // evidence is [] because a discussion cites no message—the board holds no
+    // chat index, which is the same fork and delete safety that keeps its
+    // conversation untethered from the chat.
+    const applied = applyProposal(state, {
+        origin: 'discussion',
+        summary: String(turn.tool.arguments?.summary ?? '').trim(),
+        evidence: [],
+        changes: turn.tool.arguments?.changes ?? [],
+    }, { at: Date.now() });
+
+    if (applied.length === 0) {
+        root.find('.sidekick-apply').prop('disabled', true).text('nothing landed');
+        return;
+    }
+
+    // The board is read again rather than drawn from the pane's copy: the
+    // store holds the turns by reference, and a chat switch may have happened
+    // since this pane drew. The turn is the same object when it is still there.
+    const board = deps.loadBoard();
+    turn.applied = true;
+
+    try {
+        await deps.persist(state);
+        await deps.saveBoard(board);
+    } catch (error) {
+        console.error('[Sidekick] could not persist the board change', error);
+    }
+
+    root.replaceWith(boardTurn(turn, deps));
+}
+
+/**
+ * The way the DM talks to the board: a box and a send button.
+ *
+ * Her line is filed before the generation starts and the reply after it, each
+ * guarded against a chat switch, because a board turn is a quiet generation
+ * that can run for seconds and CHAT_CHANGED reassigns chatMetadata while it
+ * does. The metadata identity is captured in the same synchronous turn as the
+ * click, exactly as the scan's persist guard does.
+ *
+ * @param {object} log the log turns are appended to
+ * @param {object} note where a failure is said out loud
+ * @param {object} deps
+ * @returns {object} the composer element
+ */
+function boardComposer(log, note, deps) {
+    const form = $('<div>', { class: 'sidekick-composer' });
+    const input = $('<textarea>', {
+        class: 'sidekick-input',
+        rows: 2,
+        placeholder: 'Think out loud…',
+        'aria-label': 'Message the board',
+    });
+    const send = $('<button>', { type: 'button', class: 'sidekick-send' }).text('Send');
+
+    const say = (message) => {
+        note.text(message).prop('hidden', message === '');
+    };
+
+    const busy = (value) => {
+        send.prop('disabled', value);
+        input.prop('disabled', value);
+    };
+
+    const submit = async () => {
+        const text = String(input.val()).trim();
+        if (text === '') {
+            return;
+        }
+
+        const captured = SillyTavern.getContext().chatMetadata;
+        input.val('');
+        say('');
+
+        const live = deps.loadBoard();
+        appendTurn(live, { role: 'dm', text, at: Date.now() });
+        log.append(boardTurn(live.turns[live.turns.length - 1], deps));
+
+        if (!await deps.saveBoard(live, captured)) {
+            say('The chat changed—your turn was not filed.');
+            return;
+        }
+
+        busy(true);
+        let reply;
+        try {
+            reply = await deps.runTurn(deps.getState(), live);
+        } catch (error) {
+            say(`The board could not answer: ${error instanceof Error ? error.message : error}`);
+            busy(false);
+            return;
+        }
+        busy(false);
+
+        const filed = await deps.saveBoard(live, captured);
+        log.append(boardTurn(reply, deps));
+        if (!filed) {
+            say('The chat changed—the reply is shown here once and was not filed.');
+        }
+    };
+
+    send.on('click', () => {
+        void submit();
+    });
+
+    input.on('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            void submit();
+        }
+    });
+
+    form.append(input).append(send);
+    return form;
 }

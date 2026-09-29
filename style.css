@@ -229,3 +229,89 @@
 .sidekick-quiet {
     color: var(--sidekick-muted);
 }
+
+/* The discussion board: a conversation, not a form. The accent stays on the
+   DM's own lines and the one affordance that writes. */
+.sidekick-log {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 50vh;
+    margin-bottom: 8px;
+    overflow-y: auto;
+}
+
+.sidekick-turn {
+    max-width: 85%;
+    padding: 6px 8px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+}
+
+.sidekick-turn-board {
+    border-left: 2px solid var(--sidekick-line);
+}
+
+.sidekick-turn-dm {
+    align-self: flex-end;
+    border-right: 2px solid var(--sidekick-accent);
+}
+
+.sidekick-turn-text {
+    white-space: pre-wrap;
+}
+
+.sidekick-composer {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.sidekick-input {
+    flex: 1;
+    resize: vertical;
+    font: inherit;
+}
+
+.sidekick-send {
+    padding: 4px 8px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+    background: transparent;
+    color: var(--sidekick-fg);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-send:hover:not(:disabled) {
+    background: var(--sidekick-line);
+}
+
+.sidekick-send:disabled {
+    color: var(--sidekick-muted);
+    cursor: default;
+}
+
+.sidekick-apply {
+    margin-top: 6px;
+    border: none;
+    background: transparent;
+    color: var(--sidekick-accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-applied {
+    display: inline-block;
+    margin-top: 6px;
+    color: var(--sidekick-muted);
+}
+
+.sidekick-note {
+    margin: 0;
+    color: var(--sidekick-muted);
+}
+
+.sidekick-note[hidden] {
+    display: none;
+}
