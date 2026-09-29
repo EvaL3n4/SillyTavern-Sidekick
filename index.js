@@ -8,7 +8,7 @@
 import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { renderDigest } from './src/grammar.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
-import { mountSettings, mountFab, mountQueue } from './src/ui.js';
+import { mountSettings, mountFab, mountQueue, mountSheet } from './src/ui.js';
 import { loadState } from './src/state.js';
 
 /** The folder SillyTavern mounts us under. Used for template lookups. */
@@ -167,6 +167,7 @@ async function onAppReady() {
     await mountSettings({ folder: EXTENSION_FOLDER, context });
     mountFab();
     mountQueue({ getState: readState, persist: persistState });
+    mountSheet({ getState: readState });
 }
 
 try {

@@ -276,20 +276,24 @@ async function rule(kind, entry, editor, root, deps) {
         });
     } else {
         // an edit is applied as the proposal's new summary, so the ChangeEvent
-        // and the ruling both carry the DM's own wording
+        // carries the DM's own wording; §6 records the wording on the ruling as
+        // `edit` (a string: how the DM reworded it) with action 'edited'
         const summary = edit || live.summary || '';
         const proposal = edit ? { ...live, summary } : live;
         const applied = applyProposal(state, proposal, { at });
-        const ruling = {
+        // 'stale' is a fourth action word beyond §6's union, on purpose: every
+        // change was provenance-gated, so 'applied' would train the scan on a
+        // change that never landed
+        const action = edit ? 'edited' : applied.length > 0 ? 'applied' : 'stale';
+        recordRuling(state, {
             proposalId: live.id,
-            summary,
-            action: applied.length > 0 ? 'applied' : 'stale',
+            // §6: the proposal's own summary, frozen at ruling time, so the
+            // ruling outlives the queue entry it judged
+            summary: live.summary || '',
+            action,
             at,
-        };
-        if (edit) {
-            ruling.edit = { from: live.summary || '', to: edit };
-        }
-        recordRuling(state, ruling);
+            ...(edit ? { edit } : {}),
+        });
     }
 
     state.queue = state.queue.filter((item) => item.id !== live.id);
@@ -322,4 +326,210 @@ function jumpToMessage(index) {
     }
     target.classList.add('sidekick-flash');
     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+/**
+ * Registers the hero sheet behind the FAB's Hero sheet entry.
+ *
+ * Read-only on purpose: §3 lets nothing touch state without an explicit DM
+ * action, and the review queue owns every mutation path. This is the ledger as
+ * the DM reads it mid-play.
+ *
+ * @param {object} options
+ * @param {() => object|null} options.getState reads the live state
+ * @returns {void}
+ */
+export function mountSheet({ getState }) {
+    registerSurface('sheet', (body) => {
+        drawSheet(body, getState());
+    });
+}
+
+/**
+ * Draws the hero, the powers and the arc into a pane body. A section with
+ * nothing in it says nothing at all, and a sheet with no sections at all says so.
+ * @param {object} body jQuery pane body
+ * @param {object|null} state the live state
+ * @returns {void}
+ */
+function drawSheet(body, state) {
+    body.empty();
+
+    const sections = [
+        heroSection(state?.hero),
+        powersSection(state?.powers),
+        arcSection(state?.arc),
+    ].filter(Boolean);
+
+    if (sections.length === 0) {
+        body.append($('<p>', { class: 'sidekick-pane-empty' })
+            .text('The hero sheet is empty until the campaign has a hero.'));
+        return;
+    }
+
+    for (const section of sections) {
+        body.append(section);
+    }
+}
+
+/**
+ * One titled block of the sheet.
+ * @param {string} title
+ * @returns {object} the section element
+ */
+function sectionOf(title) {
+    return $('<div>', { class: 'sidekick-section' })
+        .append($('<h3>').text(title));
+}
+
+/**
+ * One quiet label-value row.
+ * @param {string} label
+ * @param {string} value
+ * @returns {object} the row element
+ */
+function labelRow(label, value) {
+    const row = $('<div>', { class: 'sidekick-field' });
+    row.append($('<span>', { class: 'sidekick-quiet' }).text(`${label}: `));
+    row.append($('<span>').text(value));
+    return row;
+}
+
+/**
+ * Dates read at a glance, the way a DM would say them.
+ * @param {number} at epoch milliseconds
+ * @returns {string}
+ */
+function dayOf(at) {
+    const date = new Date(at);
+    return Number.isFinite(date.getTime()) ? date.toLocaleDateString() : '';
+}
+
+/**
+ * The hero header: name, codename in parentheses, the status quo beneath.
+ * @param {object|undefined} hero
+ * @returns {object|null} the section, or null when the hero is unwritten
+ */
+function heroSection(hero) {
+    const name = hero?.name || '';
+    const codename = hero?.codename || '';
+    const statusQuo = hero?.statusQuo || '';
+    if (!name && !codename && !statusQuo) {
+        return null;
+    }
+
+    const section = sectionOf('The hero');
+    const title = $('<div>', { class: 'sidekick-field' });
+    if (name) {
+        title.append($('<strong>').text(name));
+    }
+    if (codename) {
+        title.append($('<span>', { class: 'sidekick-quiet' })
+            .text(name ? `—${codename}` : codename));
+    }
+    section.append(title);
+
+    if (statusQuo) {
+        section.append($('<div>', { class: 'sidekick-field sidekick-quiet' })
+            .text(statusQuo));
+    }
+    return section;
+}
+
+/**
+ * Every power as capability, limits and costs—the three parts that stop a
+ * model from treating a power as pure upside (§2).
+ * @param {object[]|undefined} powers
+ * @returns {object|null} the section
+ */
+function powersSection(powers) {
+    const list = (powers ?? []).filter((power) => power?.name || power?.capability);
+    if (list.length === 0) {
+        return null;
+    }
+
+    const section = sectionOf('What she can do');
+    for (const power of list) {
+        const title = $('<div>', { class: 'sidekick-field' });
+        title.append($('<strong>').text(power.name || power.capability));
+        if (power.stage) {
+            title.append($('<span>', { class: 'sidekick-quiet' }).text(`—${power.stage}`));
+        }
+        section.append(title);
+
+        if (power.capability) {
+            section.append($('<div>', { class: 'sidekick-field' }).text(power.capability));
+        }
+        section.append(labelRow("Won't", joined(power.limits)));
+        section.append(labelRow('Costs', joined(power.costs)));
+    }
+    return section;
+}
+
+/**
+ * Joins a list for one row, and says so when nothing is written down—an empty
+ * limits list is something the DM wants to notice, not a row that vanishes.
+ * @param {string[]|undefined} values
+ * @returns {string}
+ */
+function joined(values) {
+    const items = (values ?? []).filter((item) => item && String(item).trim());
+    return items.length > 0 ? items.join('; ') : 'none written';
+}
+
+/**
+ * The arc: where the hero is, what they are carrying, what they have crossed.
+ * @param {object|undefined} arc
+ * @returns {object|null} the section
+ */
+function arcSection(arc) {
+    const phase = arc?.phase || '';
+    const threads = (arc?.threads ?? []).filter((thread) => thread?.text);
+    const pressures = (arc?.pressures ?? []).filter((pressure) => pressure?.text);
+    const crossings = (arc?.linesCrossed ?? []).filter((crossing) => crossing?.line);
+    if (!phase && threads.length === 0 && pressures.length === 0 && crossings.length === 0) {
+        return null;
+    }
+
+    const section = sectionOf('Where the hero is');
+    if (phase) {
+        section.append($('<div>', { class: 'sidekick-field' }).text(phase));
+    }
+
+    for (const thread of threads) {
+        const row = $('<div>', { class: 'sidekick-field' });
+        row.append($('<span>').text(thread.text));
+        const day = thread.lastTouched ? dayOf(thread.lastTouched) : '';
+        if (day) {
+            row.append($('<span>', { class: 'sidekick-quiet' }).text(`—${day}`));
+        }
+        section.append(row);
+    }
+
+    for (const pressure of pressures) {
+        const row = $('<div>', { class: 'sidekick-field' });
+        row.append($('<span>').text(pressure.text));
+        if (pressure.denialCount > 0) {
+            row.append($('<span>', { class: 'sidekick-quiet' })
+                .text(`—denied ${pressure.denialCount} ${pressure.denialCount === 1 ? 'time' : 'times'}`));
+        }
+        section.append(row);
+    }
+
+    for (const crossing of crossings) {
+        const row = $('<div>', { class: 'sidekick-field' });
+        row.append($('<span>').text(`${crossing.line} → ${crossing.provides}, at ${crossing.cost}`));
+        if (Number.isInteger(crossing.msgId) && crossing.msgId >= 0) {
+            row.append($('<button>', {
+                type: 'button',
+                class: 'sidekick-jump',
+                'aria-label': `Jump to message ${crossing.msgId}`,
+            }).text(`#${crossing.msgId}`).on('click', () => {
+                jumpToMessage(crossing.msgId);
+            }));
+        }
+        section.append(row);
+    }
+
+    return section;
 }

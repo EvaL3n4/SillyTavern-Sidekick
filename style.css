@@ -195,3 +195,30 @@
 .sidekick-flash {
     outline: 1px solid var(--sidekick-accent);
 }
+
+/* The hero sheet's quiet ledger rows. */
+.sidekick-section {
+    margin-top: 12px;
+}
+
+.sidekick-section:first-child {
+    margin-top: 0;
+}
+
+.sidekick-section h3 {
+    margin: 0 0 6px;
+    color: var(--sidekick-muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.sidekick-field {
+    margin: 2px 0;
+}
+
+.sidekick-quiet {
+    color: var(--sidekick-muted);
+}
