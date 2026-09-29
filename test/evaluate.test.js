@@ -839,6 +839,59 @@ describe('runEvaluation', () => {
         assert.match(voided.message, /outside the window/);
     });
 
+    it('warns when the model answered with something that is not a proposal set', async () => {
+        // SillyTavern returns '{}' for a response it could not read as JSON, which
+        // is what a provider that ignores json_schema produces. That is a failed
+        // pass, and it must not read as the clean zero below.
+        const state = ledger();
+        const generate = stub('{}');
+        const log = spyLog();
+
+        const queued = await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(queued, []);
+        const refused = log.calls.at(-1);
+        assert.equal(refused.level, 'warn');
+        assert.match(refused.message, /refused by the proposal gate/);
+        assert.deepEqual(refused.detail.received, []);
+    });
+
+    it('names the type when the reply was valid JSON but not an object', async () => {
+        const state = ledger();
+        const generate = stub('"just some prose"');
+        const log = spyLog();
+
+        const queued = await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(queued, []);
+        assert.equal(log.calls.at(-1).level, 'warn');
+        assert.equal(log.calls.at(-1).detail.received, 'string');
+    });
+
+    it('warns when one proposal is unusable, since the gate voids the whole pass', async () => {
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal({ evidence: [] })])));
+        const log = spyLog();
+
+        const queued = await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(queued, []);
+        assert.equal(log.calls.at(-1).level, 'warn');
+        assert.match(log.calls.at(-1).message, /refused by the proposal gate/);
+    });
+
+    it('does not warn when the model says there is nothing to propose', async () => {
+        // {"proposals": []} conforms: a scan that read the scene and found nothing.
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([])));
+        const log = spyLog();
+
+        const queued = await runEvaluation(state, { chat, generate, log });
+
+        assert.deepEqual(queued, []);
+        assert.deepEqual(log.calls.map((call) => call.level), ['debug', 'debug']);
+    });
+
     it('stays silent when no logger is injected', async () => {
         // The dependency is optional: a pass with nothing to log to behaves like a
         // pass that ran quietly under §3, rather than throwing on a missing channel.

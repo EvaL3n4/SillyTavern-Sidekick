@@ -346,6 +346,7 @@ export const PROPOSAL_SCHEMA = {
  * Silence means silence. A rejection returns [] and logs nothing, so a flaky
  * backend does not fill the console mid-session. There is no prose to detect
  * either: a failed pass arrives as the string '{}' from extractJsonFromData.
+ * Telling that apart from a clean zero is runEvaluation's job, not this gate's.
  *
  * Path validity is deliberately not this validator's job. applyProposal owns the
  * provenance gate and is the only thing positioned to call a path stale; a path
@@ -667,6 +668,17 @@ export async function runEvaluation(state, { chat = [], generate, log } = {}) {
     const proposals = validateProposals(response);
     say('debug', 'scan validated', { proposals: proposals.length });
     if (proposals.length === 0) {
+        // Only one empty answer is a scan that found nothing: the model said so
+        // in the schema's own words, {"proposals": []}. SillyTavern hands back '{}'
+        // for anything it could not read as JSON, and the gate voids a pass over one
+        // unusable proposal, so every other empty is a pass that failed. The
+        // manual trigger reads the warn channel to tell her which one happened.
+        const saidNothing = matchesSchema(response, PROPOSAL_SCHEMA.value) && response.proposals.length === 0;
+        if (!saidNothing) {
+            say('warn', 'scan response was refused by the proposal gate', {
+                received: isObject(response) ? Object.keys(response) : typeof response,
+            });
+        }
         return [];
     }
 
