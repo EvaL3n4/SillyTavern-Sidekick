@@ -79,7 +79,7 @@ construction—that is the product—so feeding it back would make the scan
 over-persuaded, and would cost us the only reader positioned to notice a render drifting
 from the DM's rulings.
 
-**The queue.** Proposals land in a queue behind the launcher. Each shows
+**The queue.** Proposals land in a queue behind the button. Each shows
 summary, changes (old → new), and evidence with jump-to-message. DM actions: apply,
 edit-then-apply, dismiss. Nothing touches state without an explicit DM action.
 
@@ -293,24 +293,41 @@ src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live 
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/board-prompt.js  the board's prose, in one file the DM edits herself
-src/board.js        the board's store, prompt and tool-call protocol; the launcher
+src/board.js        the board's store, prompt and tool-call protocol; the panel
                     renders it
-src/ui.js          launcher menu: hero sheet, review queue, board, run a scan; the
-                   two live drawer settings; the board's surface applies a change
-                   on the DM's click, not on generation
+src/ui.js          the button and its panel: tabs for the Sheet, the Queue (which
+                   carries run a scan) and the Board; the two live drawer settings;
+                   the Board applies a change on the DM's click, not on generation
 style.css          near-mono palette + single warm accent
 ```
 
+**Vocabulary.** One word per thing, in the UI copy, the docs, the code and the issues:
+
+- **Button**—the small draggable disc she opens Sidekick from. It hides while the
+  panel is open.
+- **Panel**—the floating window: the strip, the tabs and the surface below them.
+- **Strip**—the panel's slim top row: the grab handle and the close control.
+- **Tabs**—the row beneath the strip. Each opens one surface.
+- **Surface**—what a tab shows: the **Sheet** (hero sheet), the **Queue** (review
+  queue) and the **Board** (discussion board). Capitalised when they name a tab.
+- **Marker**—the numbered counter on the button and on the Queue tab: how many
+  proposals wait on a ruling.
+- **Chrome**—the button and the panel together, for geometry and storage only ("the
+  chrome's geometry"); never in UI copy.
+
+Launcher, menu, pane, FAB and badge are retired.
+
 The extensions drawer holds settings only—cadence and digest budget, both per chat
 by §6's hygiene line, both writing the state the scan and the digest render already
-read. Everything the DM touches during play—hero sheet, review queue, board—sits
-behind the launcher; a surface that waits for a click is a surface that gets opened late.
+read. Everything the DM touches during play—Sheet, Queue, Board—sits behind the
+button, and once the panel is open the three are tabs in it, one click apart; a
+surface that waits for a click is a surface that gets opened late.
 
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind, citation
 re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlapping scans
 are guarded by the in-flight pass itself, because a quiet generation emits no end event—
 `GENERATION_ENDED` fires only for interactive ones. A pass also runs on the DM's click:
-the launcher menu's Run a scan entry is the manual trigger, and no command is typed.
+the Queue tab's Run a scan control is the manual trigger, and no command is typed.
 
 A pass returns [] for every outcome—nothing found, a refused backend, a
 non-conforming response—so the queue cannot tell them apart. The console can:
@@ -325,8 +342,20 @@ reached the chat.
 `index.js` shapes that by wrapping the pass's `warn` channel into a flag, so the
 pass's own array contract stays the queue's, and no second one is invented for it.
 
-**House UI style.** The launcher drags and the surfaces open from wherever it
-rests; the rest of what they wear comes from the two references Eva named—
+**One frame.** The panel is one window: a slim strip on top that is the grab handle
+and holds the close control, and beneath it a row of three tabs—Sheet, Queue, Board.
+The tabs are their own row rather than sharing the strip because a panel dragged at
+its 280px minimum still needs a real handle, and an interactive child never starts a
+drag. The panel always opens on the tab she used last, and a new proposal never moves
+her: the marker announces it. The marker is a number on the button's rim, and its
+small counterpart on the Queue tab, that counts what waits on a ruling—the accent's
+one meaning, absent at zero. A rising number is the new item. Arrivals never pop up
+over her play, because SillyTavern's own toast is in the way. Run a scan sits at the
+top of the Queue tab, since scanning fills the queue and the control belongs where its
+result lands; its outcome still arrives as the toast it already is.
+
+**House UI style.** The button drags and opens a panel that keeps its own
+remembered place; the rest of what they wear comes from the two references Eva named—
 vercel.com's monochrome Geist instrument and giga.ai's dark-first instrument console—
 combined into one system in Modus's `docs/ux-concept.md` §6:
 
@@ -338,9 +367,18 @@ combined into one system in Modus's `docs/ux-concept.md` §6:
 - **Mono for facts.** Every number, id, turn count and state value in mono with tabular
   figures; micro-labels 10–11px, uppercase where scannable.
 - **Structure by hairlines, not stacked cards.** A panel is a border plus one
-  background step. Buttons are pills with at most one inverted primary per context;
-  icons thin and small.
+  background step. Controls are pills with at most one inverted primary per context;
+  icons thin and small. The one exception is the button, which is a disc.
+- **Frosted and matte, never glossy.** The button and the panel are a translucent
+  fill with a blur behind it, so SillyTavern moving underneath stays visible, and
+  matte: no gradient, highlight or shadow. Translucency follows the principle below.
+  The button is glance-and-away and the most see-through; the panel is a reading
+  surface and dense enough that text behind it never competes with text on it. Where
+  blur or transparency is unavailable or declined, both fall back to the opaque token.
 - **Motion 150–300ms, ease-out.** Surfaces slide in and settle; nothing else moves.
+  The button's position tracks the pointer one to one and is never eased, because
+  easing what follows a hand makes it lag; only its state, resting or being dragged,
+  transitions.
 
 The principle underneath: style follows session duration. Long-session heavy-reading
 surfaces get easy-on-eyes palettes; glance-and-away surfaces get high-parseability
@@ -352,15 +390,20 @@ not come back.
 
 - **No fixed UI elements.** A control pinned to a corner fights the host and every
   other extension—no two SillyTaverns wear the same skin, so nothing Sidekick adds may
-  reserve layout space.
-- **Movable and resizable, or it does not ship.** The launcher drags; the surfaces
+  reserve layout space. The button also steps aside while the panel is open: two
+  pieces of chrome for one job is one too many, and the panel is what she is looking
+  at then.
+- **Movable and resizable, or it does not ship.** The button drags; the surfaces
   open in a floating panel that drags and resizes, the one shape that survives every
   screen size and custom CSS. Position persists per browser under a versioned key,
   through pure node-tested clamp helpers behind an injected storage seam—the pattern
-  Modus's launcher already uses.
+  Modus's chrome already uses.
 
-The idiom went with the shape. The Material name the scaffold shipped under left
-the codebase with the rename. Material was never asked for and does not come back.
+The idiom went; the shape stayed. The scaffold shipped a Material button—a flat,
+solid accent fill—and nobody asked for it; it does not come back. The disc stays,
+because it is the one thing the old implementation got right and she is used to it.
+What changes is its surface: a hairline, frosted and matte, the glyph in the text
+colour, and the accent spent only on the marker that straddles its rim.
 
 ## 8. 1.0.0 scope / non-goals
 
