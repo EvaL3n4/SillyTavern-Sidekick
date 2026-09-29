@@ -583,8 +583,13 @@ describe('toPendingChange', () => {
 
 describe('runEvaluation', () => {
     // A real exchange, so the chain tests can prove the prompt carries the chat
-    // rather than a render of it.
-    const chat = [mes('Dungeon Master', 'the hall is quiet', false), mes('Hero', 'she checks her gear')];
+    // rather than a render of it. Long enough for the standing proposal's
+    // evidence to cite scenes the window actually holds.
+    const chat = [
+        mes('Dungeon Master', 'the hall is quiet', false),
+        mes('Hero', 'she checks her gear'),
+        ...chatOf(13).map((message, i) => ({ ...message, mes: `the scene keeps going, ${i + 2}` })),
+    ];
 
     /** Records every call, like runGeneration's stub. */
     function stub(response = JSON.stringify(scanPass([proposal()]))) {
@@ -718,6 +723,47 @@ describe('runEvaluation', () => {
         assert.ok(queued[1].id.endsWith('-1'), queued[1].id);
         assert.equal(state.queue.length, 2);
     });
+
+    it('fingerprints each citation with the date of the message it cites', async () => {
+        // §6's locator: the model cites an index, and the queue stores which
+        // message that was, so a later deletion or re-roll is distinguishable
+        // from the same scene quietly still sitting there.
+        const dated = chat.map((message, i) => ({ ...message, send_date: 1000 + i }));
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal({ evidence: [1] })])));
+
+        const queued = await runEvaluation(state, { chat: dated, generate });
+
+        assert.deepEqual(queued[0].evidence, [{ index: 1, send_date: 1001 }]);
+    });
+
+    it('voids the pass when a proposal cites outside the scene window', async () => {
+        // A citation the model could not have seen is a hallucination, and one
+        // pass is one generation: part of it inventing is all of it unreliable.
+        const long = chatOf(35).map((message, i) => ({ ...message, send_date: 1000 + i }));
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal({ evidence: [1] })])));
+
+        const queued = await runEvaluation(state, { chat: long, generate });
+
+        assert.deepEqual(queued, []);
+        assert.equal(state.queue.length, 0);
+    });
+
+    it('keeps a citation at either edge of the scene window', async () => {
+        // The window is the trailing SCENE_WINDOW entries, so the oldest one
+        // in it and the newest are both scenes the scan was genuinely shown.
+        const long = chatOf(35).map((message, i) => ({ ...message, send_date: 1000 + i }));
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal({ evidence: [5, 34] })])));
+
+        const queued = await runEvaluation(state, { chat: long, generate });
+
+        assert.deepEqual(queued[0].evidence, [
+            { index: 5, send_date: 1005 },
+            { index: 34, send_date: 1034 },
+        ]);
+    });
 });
 
 describe('startEvaluation', () => {
@@ -730,12 +776,15 @@ describe('startEvaluation', () => {
         return { generate, release: () => release() };
     }
 
+    // long enough for the standing proposal's evidence to be citable
+    const chat = chatOf(15);
+
     it('drops a trigger that arrives while a pass is running', async () => {
         // §7's overlap rule, guarding on the pass itself because a quiet
         // pass emits no end event to listen for; the next tick costs nothing
         // the ledger lacks
         const running = deferred();
-        const started = startEvaluation(ledger(), { generate: running.generate });
+        const started = startEvaluation(ledger(), { chat, generate: running.generate });
 
         assert.equal(startEvaluation(ledger(), { generate: deferred().generate }), null);
 
@@ -745,7 +794,7 @@ describe('startEvaluation', () => {
 
     it("leaves the dropped trigger's ledger alone", async () => {
         const running = deferred();
-        const started = startEvaluation(ledger(), { generate: running.generate });
+        const started = startEvaluation(ledger(), { chat, generate: running.generate });
         const dropped = ledger();
 
         assert.equal(startEvaluation(dropped, { generate: deferred().generate }), null);
@@ -757,12 +806,12 @@ describe('startEvaluation', () => {
 
     it('starts again once the pass before it has settled', async () => {
         const running = deferred();
-        const first = startEvaluation(ledger(), { generate: running.generate });
+        const first = startEvaluation(ledger(), { chat, generate: running.generate });
         running.release();
         await first;
 
         const next = deferred();
-        const started = startEvaluation(ledger(), { generate: next.generate });
+        const started = startEvaluation(ledger(), { chat, generate: next.generate });
         assert.notEqual(started, null);
 
         next.release();

@@ -8,6 +8,7 @@
  * prose and proposes deltas that merely restate the render.
  */
 import { isDigestMessage } from './inject.js';
+import { fingerprintCitations } from './citations.js';
 import { estimateTokens, hasState } from './grammar.js';
 
 /** §3: fixed, configurable cadence. Matches LocalSettings.evaluationCadence. */
@@ -536,8 +537,10 @@ export async function runEvaluation(state, { chat = [], generate } = {}) {
     }
 
     // The one-way valve in force: the prompt is built from state fields and the
-    // scene window, never from the render.
-    const prompt = buildPrompt(state, sceneWindow(chat));
+    // scene window, never from the render. The window is computed once and kept:
+    // the scene the model saw is the only place a citation may point.
+    const scene = sceneWindow(chat);
+    const prompt = buildPrompt(state, scene);
 
     let response;
     try {
@@ -555,8 +558,24 @@ export async function runEvaluation(state, { chat = [], generate } = {}) {
         return [];
     }
 
+    // A citation the window does not hold cites a scene the model never saw, so
+    // the pass is void exactly as a non-conforming response is: one pass is one
+    // generation, and part of it hallucinating is that generation being
+    // unreliable. §3's silence holds; the DM is not told, and will never know.
+    const shown = new Set(scene.map((entry) => entry.index));
+    if (proposals.some((proposal) => proposal.evidence.some((index) => !shown.has(index)))) {
+        return [];
+    }
     let counter = nextQueueCounter(state.queue);
-    const queued = proposals.map((proposal) => toPendingChange(proposal, { counter: counter++ }));
+    // The fingerprint is attached here, where the chat is in hand: the model
+    // cites plain indices (PROPOSAL_SCHEMA says integers), and (index,
+    // send_date) is the locator that survives a deletion or a re-roll.
+    // toPendingChange stays proposal-shaped; the evidence handed to it is
+    // already located.
+    const queued = proposals.map((proposal) => toPendingChange(
+        { ...proposal, evidence: fingerprintCitations(chat, proposal.evidence) },
+        { counter: counter++ },
+    ));
     state.queue.push(...queued);
     return queued;
 }
