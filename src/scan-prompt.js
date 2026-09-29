@@ -42,7 +42,8 @@ You never propose:
 
 Her recent rulings appear beside the scene. What she has kept tells you what
 to propose again; what she has refused tells you what to stop offering; what
-she has reworded tells you how to phrase it. The newest ruling is the most
+she has reworded tells you how to phrase it; what she wrote herself is her
+own word on the ledger, so do not propose against it. The newest ruling is the most
 current word on the ledger as it now stands.
 Cite the chat message indices that justify each proposal. If nothing in the
 scene justifies a change, propose nothing.

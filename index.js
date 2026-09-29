@@ -390,7 +390,7 @@ async function onAppReady() {
     });
     mountChrome({ getState: readState });
     mountQueue({ getState: readState, persist: persistState, onScan: scanOnDemand });
-    mountSheet({ getState: readState });
+    mountSheet({ getState: readState, persist: persistState });
     mountBoard({
         getState: readState,
         persist: persistState,

@@ -146,6 +146,7 @@ const RULING_VERB = {
     applied: 'kept',
     edited: 'reworded',
     dismissed: 'refused',
+    written: 'wrote herself',
 };
 
 /**

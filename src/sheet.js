@@ -31,6 +31,7 @@
  * @property {string} id
  * @property {string} [caption] what kind of card, for those whose text does not say
  * @property {(Row|ListRow)[]} rows
+ * @property {string} [remove] the entry's path, on a card she may remove whole
  * @property {{citation: object}} [cite] the message a crossed line was born at
  *
  * @typedef {object} Group
@@ -90,6 +91,7 @@ function powerCard(power, index) {
     const base = `powers.${id}`;
     return {
         id: `power:${id}`,
+        remove: base,
         rows: [
             field('title', `${base}.name`, power?.name, 'name'),
             field('meta', `${base}.stage`, power?.stage, 'stage'),
@@ -125,6 +127,7 @@ function arcGroup(arc) {
         const touched = day(thread.lastTouched);
         cards.push({
             id: `thread:${id}`,
+            remove: `arc.threads.${id}`,
             caption: 'Thread',
             rows: [
                 field('text', `arc.threads.${id}.text`, thread.text, 'thread'),
@@ -139,6 +142,7 @@ function arcGroup(arc) {
             : '';
         cards.push({
             id: `pressure:${index}`,
+            remove: `arc.pressures.${index}`,
             caption: 'Pressure',
             rows: [
                 field('text', `arc.pressures.${index}.text`, pressure.text, 'pressure'),
@@ -151,6 +155,7 @@ function arcGroup(arc) {
         const base = `arc.linesCrossed.${index}`;
         cards.push({
             id: `line:${index}`,
+            remove: `arc.linesCrossed.${index}`,
             caption: 'Line crossed',
             rows: [
                 field('text', `${base}.line`, crossing.line, 'line', 'Line'),

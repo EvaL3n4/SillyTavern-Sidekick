@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { isEmptyRow, sheetGroups } from '../src/sheet.js';
-import { createState, setPath } from '../src/state.js';
+import { createState, removeAt, setPath } from '../src/state.js';
 
 const group = (state, id) => sheetGroups(state).find((one) => one.id === id);
 const rowOf = (card, path) => card.rows.find((row) => row.path === path);
@@ -178,6 +178,33 @@ describe('sheetGroups', () => {
         const state = createState({ hero: { name: 42 } });
 
         assert.equal(rowOf(group(state, 'hero').cards[0], 'hero.name').value, '');
+    });
+});
+
+describe('what she may remove whole', () => {
+    it('gives every power, thread, pressure and line a remove path, and nothing else', () => {
+        const removes = sheetGroups(written()).flatMap((one) => one.cards).map((card) => [card.id, card.remove]);
+
+        assert.deepEqual(removes, [
+            ['hero', undefined],
+            ['power:the-spark', 'powers.the-spark'],
+            ['power:bare', 'powers.bare'],
+            ['phase', undefined],
+            ['thread:the-debt', 'arc.threads.the-debt'],
+            ['thread:quiet', 'arc.threads.quiet'],
+            ['pressure:0', 'arc.pressures.0'],
+            ['pressure:1', 'arc.pressures.1'],
+            ['pressure:2', 'arc.pressures.2'],
+            ['line:0', 'arc.linesCrossed.0'],
+            ['line:1', 'arc.linesCrossed.1'],
+            ['cosmology', undefined],
+        ]);
+    });
+
+    it('names paths that removeAt will take', () => {
+        for (const card of sheetGroups(written()).flatMap((one) => one.cards).filter((one) => one.remove)) {
+            assert.notEqual(removeAt(written(), card.remove), null, card.remove);
+        }
     });
 });
 

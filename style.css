@@ -568,7 +568,116 @@ body.no-blur {
     font-family: var(--sidekick-mono);
     font-size: 0.85em;
     opacity: 0.7;
-    cursor: default;
+    cursor: pointer;
+    transition: opacity var(--sidekick-time) var(--sidekick-ease);
+}
+
+.sidekick-slot:hover,
+.sidekick-slot:focus-visible {
+    opacity: 1;
+    color: var(--sidekick-fg);
+}
+
+/* Writing by hand (§7): a field is its own text box while she is in it. The colours
+   are set here on purpose: a bare textarea takes the host's, which on a dark panel
+   is a white box with pale text. */
+.sidekick-editable {
+    border-radius: 2px;
+    cursor: text;
+}
+
+.sidekick-editable:hover,
+.sidekick-editable:focus-visible {
+    background: color-mix(in srgb, var(--sidekick-fg) 8%, transparent);
+    outline: 0;
+}
+
+.sidekick-inline {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 2px 4px;
+    resize: none;
+    overflow: hidden;
+    border: 1px solid var(--sidekick-fg);
+    border-radius: 2px;
+    background: var(--sidekick-bg);
+    color: var(--sidekick-fg);
+    font: inherit;
+    line-height: inherit;
+}
+
+.sidekick-inline::placeholder {
+    color: var(--sidekick-muted);
+}
+
+.sidekick-inline:focus {
+    outline: 0;
+}
+
+/* The quiet ×, and the yes/no it turns into. The card's sits in its corner; a list
+   item's sits at the end of its line. */
+.sidekick-card {
+    position: relative;
+}
+
+.sidekick-card-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.sidekick-remove,
+.sidekick-confirm button {
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    color: var(--sidekick-muted);
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.sidekick-remove {
+    opacity: 0.35;
+    transition: opacity var(--sidekick-time) var(--sidekick-ease);
+}
+
+.sidekick-card > .sidekick-remove {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+}
+
+.sidekick-remove:hover,
+.sidekick-remove:focus-visible,
+.sidekick-card:hover > .sidekick-remove {
+    opacity: 1;
+    color: var(--sidekick-fg);
+}
+
+.sidekick-confirm {
+    color: var(--sidekick-muted);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.sidekick-card > .sidekick-confirm {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+}
+
+.sidekick-confirm button {
+    font-size: inherit;
+    text-decoration: underline;
+}
+
+.sidekick-confirm-yes {
+    color: var(--sidekick-fg);
 }
 
 /* The discussion board: a conversation, not a form. The accent stays on the

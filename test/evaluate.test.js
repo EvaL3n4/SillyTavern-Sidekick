@@ -294,6 +294,16 @@ describe('the rulings feedback', () => {
         assert.match(user, /refused: put the council in as a pressure/);
     });
 
+    it('reads a field she wrote herself as her own word', () => {
+        const state = ledger({
+            rulings: [ruling(1, { summary: 'The Spark · Limit 1: cannot aim it', action: 'written' })],
+        });
+        const { system, user } = buildPrompt(state, scene);
+
+        assert.match(user, /wrote herself: The Spark · Limit 1: cannot aim it/);
+        assert.match(system, /wrote herself is her\s+own word/);
+    });
+
     it('carries her wording beside the summary she was shown', () => {
         // §6 records both: the proposal's own frozen summary, and `edit` as the
         // string she replaced it with. Showing one without the other teaches

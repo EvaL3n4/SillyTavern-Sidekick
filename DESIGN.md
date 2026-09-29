@@ -327,6 +327,7 @@ src/scan-prompt.js the scan's prose, in one file the DM edits herself
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/labels.js      a change's path as the words the DM would use (the Queue's words)
 src/sheet.js       the Sheet's cards and collapsed slots, as data; ui.js draws them
+src/handwriting.js what she writes by hand: ids for new entries, the ruling log
 src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the panel
                     renders it
@@ -464,13 +465,26 @@ heading shows that heading's "+" and nothing else. The Sheet offers exactly the 
 §6's Paths allow, so it never offers one that would be a dead path.
 
 **Writing by hand.** Choosing a field turns it into an input in place. Enter or
-leaving the field commits it and Esc cancels; nothing saves as she types, so half a
-word never reaches the ledger or the digest. A commit writes the ledger at once,
-through the same `setPath` a queue apply uses, and records a `ChangeEvent` with origin
-`manual`. It reaches every field the Sheet shows, the cosmology included. A limit, a
-cost or a whole card is removed by a quiet × that asks once, in place. Her hand is
-never provenance-gated: the gate exists to keep the scan honest, and she is not the
-scan.
+leaving the field commits it, Shift+Enter is a line break and Esc cancels; nothing
+saves as she types, so half a word never reaches the ledger or the digest. A blank
+over a filled field clears it; over an empty slot, a list item or a new entry it is a
+cancel, because nothing was written. A commit writes the ledger at once, through the
+same `applyProposal` a queue apply uses and with no `from`, and records a
+`ChangeEvent` with origin `manual`. It reaches every field the Sheet shows, the
+cosmology included. Her hand is never provenance-gated: the gate exists to keep the
+scan honest, and she is not the scan.
+
+A new power or thread asks for its name first ("+ power" opens a box that says "Name
+the power"), and the card comes into being under an id made from what she typed:
+`light-throw`, and `light-throw-2` when that is taken. A pressure or a crossed line
+takes the next index, and any of the three arc entries is stamped with the newest
+message in the chat, which is where it was born.
+
+A limit, a cost, a word of the setting or a whole card is removed by a quiet × that
+asks once, in place ("Remove? yes no"). A removal is a `manual` history event and
+never a ruling: it is as likely to be tidying as a verdict, and a ruling that could
+not tell the two apart would teach the scan the wrong lesson. Everything after a
+removed item shifts up by one, so a removal closes every open hand ruling.
 
 **Her hand is a ruling.** What she writes herself is the strongest thing she tells the
 scan, so it is a ruling with action `written`, keyed by its path. The first commit on
@@ -481,12 +495,13 @@ ruling is removed, because the net change is nothing. A ruling closes when the f
 has been idle for about twenty seconds, or when the panel closes, the tab changes or
 the chat changes; the next commit on that field is then a new ruling, because she
 changed her mind. Nothing waits to be written. The ruling exists from the first
-commit, so an interrupted session can leave it unamended and never lost, and no timer
-reaches into a chat other than the one it started in (§6's hygiene line). The idle
-window is real time, unlike the queue's shelf life below, because it measures her
-editing and not the story. The scan reads `written` as "she wrote it herself"; when a
-written ruling and an applied one disagree about a path, the newest wins, as §3
-already says.
+commit, so an interrupted session can leave it unamended and never lost. There is no
+timer at all: idleness is read at the next commit to the same field, by the time since
+the last one, so nothing can fire into a chat other than the one it started in (§6's
+hygiene line). The idle window is real time, unlike the queue's shelf life below,
+because it measures her editing and not the story. The scan reads `written` as "she
+wrote it herself"; when a written ruling and an applied one disagree about a path,
+the newest wins, as §3 already says.
 
 **The Queue's words.** A proposal never shows its path. Each change reads as labels,
 made from the path and the ledger: `hero.statusQuo` is "Hero · Status quo",

@@ -6,9 +6,10 @@
  * for a click is a surface that gets opened late.
  */
 
-import { applyProposal, getPath, recordRuling } from './state.js';
-import { resolveCitation } from './citations.js';
+import { applyProposal, getPath, recordRuling, removeAt } from './state.js';
+import { fingerprintCitations, resolveCitation } from './citations.js';
 import { labelChange } from './labels.js';
+import { bornWithMessage, createHandLog, entryPath } from './handwriting.js';
 import { isEmptyRow, sheetGroups } from './sheet.js';
 import { appendTurn } from './board.js';
 import {
@@ -53,6 +54,14 @@ const surfaceRenderers = new Map();
 export function registerSurface(id, render) {
     surfaceRenderers.set(id, render);
 }
+
+/**
+ * What she has written by hand this session, and which of those rulings a further
+ * edit would still amend (§7, Her hand is a ruling). One log for the page: the panel
+ * closing, the tab changing and the chat changing all close it, so an edit never
+ * amends a ruling from somewhere she has since left.
+ */
+const handLog = createHandLog();
 
 /** The drawer's live controls, and the §6 settings field each one writes. */
 const SETTING_FIELDS = [
@@ -396,6 +405,7 @@ export function mountChrome({ getState } = {}) {
     };
 
     const select = (id) => {
+        handLog.close();
         active = id;
         writeTab(id, tabStorage);
         markSelected();
@@ -457,7 +467,10 @@ export function mountChrome({ getState } = {}) {
     const closePanel = () => {
         panel.prop('hidden', true);
         button.prop('hidden', false).attr('aria-expanded', 'false');
+        // Moving focus commits a field she was in the middle of, so the log closes
+        // after that, and the commit lands in the ruling it belongs to.
         button[0].focus();
+        handLog.close();
     };
     close.on('click', closePanel);
 
@@ -588,6 +601,7 @@ export function mountChrome({ getState } = {}) {
     // is left to go stale, which retires the residual the button's badge carried.
     const { eventSource, event_types } = SillyTavern.getContext();
     eventSource.on(event_types.CHAT_CHANGED, paintMarkers);
+    eventSource.on(event_types.CHAT_CHANGED, () => handLog.close());
     paintMarkers();
 
     window.addEventListener('resize', () => {
@@ -1109,17 +1123,19 @@ function goneChip(reason) {
 /**
  * Registers the hero sheet as the Sheet tab's surface.
  *
- * Read-only on purpose: §3 lets nothing touch state without an explicit DM
- * action, and the review queue owns every mutation path. This is the ledger as
- * the DM reads it mid-play.
+ * It writes, and only on her own hand (§7, Writing by hand): a field she chooses,
+ * commits with Enter or by leaving it, goes straight into the ledger and files one
+ * `written` ruling. §3's rule that nothing touches state without an explicit DM
+ * action still holds; the action is hers, and there is no proposal to rule on.
  *
  * @param {object} options
  * @param {() => object|null} options.getState reads the live state
+ * @param {(state: object) => Promise<void>} options.persist files the ledger
  * @returns {void}
  */
-export function mountSheet({ getState }) {
+export function mountSheet({ getState, persist }) {
     registerSurface('sheet', (body) => {
-        drawSheet(body, getState());
+        drawSheet(body, { getState, persist });
     });
 }
 
@@ -1128,29 +1144,187 @@ export function mountSheet({ getState }) {
  * as cards (§7). A ledger with nothing in it is still drawn, as collapsed slots;
  * only a chat with no ledger at all has nothing to show.
  * @param {object} body jQuery panel body
- * @param {object|null} state the live state
+ * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
  * @returns {void}
  */
-function drawSheet(body, state) {
+function drawSheet(body, deps) {
     body.empty();
 
-    const groups = sheetGroups(state);
+    const groups = sheetGroups(deps.getState());
     if (groups === null) {
         body.append($('<p>', { class: 'sidekick-panel-empty' })
             .text('Open a chat to see its sheet.'));
         return;
     }
 
+    // Redrawing rebuilds every card, so it keeps her place in the scroll: a write
+    // near the bottom must not send her back to the top.
+    const ctx = {
+        deps,
+        redraw: () => {
+            const top = body.scrollTop();
+            drawSheet(body, deps);
+            body.scrollTop(top);
+        },
+    };
+
     for (const group of groups) {
         const section = sectionOf(group.title);
         for (const card of group.cards) {
-            section.append(cardOf(card));
+            section.append(cardOf(card, ctx));
         }
         if (group.adds) {
-            section.append(slotsOf(group.adds.map((add) => ({ noun: add.noun, path: add.path, add: true }))));
+            section.append(slotsOf(group.adds.map((add) => ({ noun: add.noun, path: add.path, add: true })), ctx));
         }
         body.append(section);
     }
+}
+
+/**
+ * Writes one field by her hand: the ledger takes it at once, one `written` ruling
+ * files (or an open one amends), and the Sheet redraws from what the ledger now
+ * holds. The state is read, changed and handed to persist with nothing awaited in
+ * between, so a chat change cannot land it in the wrong chat.
+ * @param {{deps: object, redraw: () => void}} ctx
+ * @param {string} path
+ * @param {string} value
+ * @returns {Promise<void>}
+ */
+async function writeByHand(ctx, path, value) {
+    const state = ctx.deps.getState();
+    if (state) {
+        // A thread, pressure or line that this write brings into being is born at
+        // the newest message in the chat; anything else carries no citation.
+        const { chat } = SillyTavern.getContext();
+        const born = bornWithMessage(state, path) && Array.isArray(chat) && chat.length > 0
+            ? fingerprintCitations(chat, [chat.length - 1])[0] ?? null
+            : null;
+        const outcome = handLog.commit(state, path, value, { citation: born });
+        if (outcome !== 'unchanged') {
+            try {
+                await ctx.deps.persist(state);
+            } catch (error) {
+                console.error('[Sidekick] could not persist what she wrote', error);
+            }
+        }
+    }
+    ctx.redraw();
+}
+
+/**
+ * Removes one entry or list item by her hand. Everything after it shifts up, and a
+ * path counts positions, so every open ruling closes.
+ * @param {{deps: object, redraw: () => void}} ctx
+ * @param {string} path
+ * @returns {Promise<void>}
+ */
+async function removeByHand(ctx, path) {
+    const state = ctx.deps.getState();
+    if (state && removeAt(state, path)) {
+        handLog.close();
+        try {
+            await ctx.deps.persist(state);
+        } catch (error) {
+            console.error('[Sidekick] could not persist a removal', error);
+        }
+    }
+    ctx.redraw();
+}
+
+/**
+ * Turns `target` into a text box for one field. Enter or leaving the box commits
+ * and Escape cancels; Shift+Enter is a line break. Nothing saves while she types,
+ * so half a word never reaches the ledger or the digest (§7).
+ *
+ * `mode` decides what a blank means: over a filled field it clears it; over an empty
+ * slot, a list item or a new entry it is a cancel, since nothing was written.
+ * @param {object} target the element whose place the box takes
+ * @param {{mode: 'field'|'slot'|'item'|'entry', path: string, value?: string, placeholder: string}} edit
+ * @param {{deps: object, redraw: () => void}} ctx
+ * @returns {void}
+ */
+function beginEdit(target, { mode, path, value = '', placeholder }, ctx) {
+    const box = $('<textarea>', {
+        class: 'sidekick-inline',
+        rows: 1,
+        placeholder,
+        'aria-label': placeholder,
+    }).val(value);
+    const grow = () => box.css('height', 'auto').css('height', `${box[0].scrollHeight}px`);
+    let settled = false;
+
+    const settle = (commit) => {
+        if (settled) {
+            return;
+        }
+        settled = true;
+        const text = String(box.val()).trim();
+        if (!commit || (text === '' && mode !== 'field')) {
+            ctx.redraw();
+            return;
+        }
+        const written = mode === 'entry' ? entryPath(ctx.deps.getState(), path, text) : path;
+        if (written === null) {
+            ctx.redraw();
+            return;
+        }
+        void writeByHand(ctx, written, text);
+    };
+
+    box.on('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            settle(true);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            settle(false);
+        }
+    });
+    box.on('blur', () => settle(true));
+    box.on('input', grow);
+
+    if (mode === 'slot' || mode === 'entry') {
+        target.replaceWith(box);
+    } else {
+        target.empty().append(box);
+    }
+    grow();
+    box[0].focus();
+    box[0].select();
+}
+
+/**
+ * The quiet × that removes something, and asks once, in place: it turns into
+ * "Remove? yes no" where it stood, and nothing goes until she says yes.
+ * @param {string} path what it removes
+ * @param {{deps: object, redraw: () => void}} ctx
+ * @returns {object} the control
+ */
+function removeControl(path, ctx) {
+    const cross = $('<button>', {
+        type: 'button',
+        class: 'sidekick-remove',
+        'aria-label': 'Remove',
+        title: 'Remove',
+    }).text('×');
+    cross.on('click', (event) => {
+        event.stopPropagation();
+        const ask = $('<span>', { class: 'sidekick-confirm' }).text('Remove? ');
+        const yes = $('<button>', { type: 'button', class: 'sidekick-confirm-yes' }).text('yes');
+        const no = $('<button>', { type: 'button', class: 'sidekick-confirm-no' }).text('no');
+        yes.on('click', () => void removeByHand(ctx, path));
+        // detach, not replaceWith: replaceWith strips the old element's handlers,
+        // and the × has to work again when she says no
+        no.on('click', () => {
+            ask.after(cross);
+            ask.remove();
+        });
+        ask.append(yes, ' ', no);
+        cross.after(ask);
+        cross.detach();
+        yes[0].focus();
+    });
+    return cross;
 }
 
 /**
@@ -1158,10 +1332,14 @@ function drawSheet(body, state) {
  * at all but flow onto one line of collapsed slots, so an empty card costs a line
  * and not a screen (§7, Empty fields collapse).
  * @param {object} card a Card from src/sheet.js
+ * @param {{deps: object, redraw: () => void}} ctx
  * @returns {object} the card element
  */
-function cardOf(card) {
+function cardOf(card, ctx) {
     const root = $('<div>', { class: 'sidekick-card', 'data-card': card.id });
+    if (card.remove) {
+        root.append(removeControl(card.remove, ctx));
+    }
     // A card with nothing in it is named by its own slot ("+ phase"), so a caption
     // over it would only say the same word twice.
     if (card.caption && !card.rows.every(isEmptyRow)) {
@@ -1171,7 +1349,7 @@ function cardOf(card) {
     let slots = [];
     const flush = () => {
         if (slots.length > 0) {
-            root.append(slotsOf(slots));
+            root.append(slotsOf(slots, ctx));
             slots = [];
         }
     };
@@ -1182,7 +1360,7 @@ function cardOf(card) {
             continue;
         }
         flush();
-        root.append(rowOf(row));
+        root.append(rowOf(row, ctx));
         if (row.style === 'list') {
             // Something is written, so the way to add another is one faint slot
             // under it, and it flows onto the same line as any empty slots after.
@@ -1201,46 +1379,81 @@ function cardOf(card) {
 }
 
 /**
- * One row that has something written in it.
+ * One row that has something written in it. A field she can write is a click, or
+ * Enter on the keyboard, away from its text box; a list item also carries its ×.
  * @param {object} row a Row or ListRow from src/sheet.js
+ * @param {{deps: object, redraw: () => void}} ctx
  * @returns {object} the row element
  */
-function rowOf(row) {
+function rowOf(row, ctx) {
     if (row.style === 'list') {
         const list = $('<div>', { class: 'sidekick-card-list' });
         list.append($('<div>', { class: 'sidekick-card-label' }).text(row.label));
         for (const item of row.items) {
-            list.append($('<div>', { class: 'sidekick-card-item', 'data-path': item.path }).text(item.value));
+            const line = $('<div>', { class: 'sidekick-card-item', 'data-path': item.path });
+            const text = $('<span>', { class: 'sidekick-editable', tabindex: 0 }).text(item.value);
+            editable(text, () => beginEdit(line, { mode: 'item', path: item.path, value: item.value, placeholder: row.noun }, ctx));
+            line.append(text, removeControl(item.path, ctx));
+            list.append(line);
         }
         return list;
     }
 
     const element = $('<div>', { class: `sidekick-card-${row.style}` });
-    if (row.path) {
-        element.attr('data-path', row.path);
-    }
     if (row.label) {
         element.append($('<span>', { class: 'sidekick-card-label' }).text(row.label));
     }
-    return element.append($('<span>').text(row.value));
+    const value = $('<span>').text(row.value);
+    element.append(value);
+    if (row.path) {
+        element.attr('data-path', row.path);
+        value.addClass('sidekick-editable').attr('tabindex', 0);
+        editable(value, () => beginEdit(element, { mode: 'field', path: row.path, value: row.value, placeholder: row.noun }, ctx));
+    }
+    return element;
+}
+
+/**
+ * Makes an element open its text box on a click, or on Enter or Space from the
+ * keyboard, so a field is as reachable without a pointer as with one.
+ * @param {object} element
+ * @param {() => void} open
+ * @returns {void}
+ */
+function editable(element, open) {
+    element.on('click', open);
+    element.on('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open();
+        }
+    });
 }
 
 /**
  * A line of collapsed slots: each an empty field, drawn as a faint "+ noun". A slot
- * is a real, addressable place (its path is on the element), which is what lets
- * writing by hand reach it; until that is wired it only says what could be added.
+ * is a real, addressable place (its path is on the element), and choosing one opens
+ * its text box in the slot's own place. An entry slot ("+ power") asks for the name
+ * first, and the card comes into being under it (§7).
  * @param {{noun: string, path: string, add?: boolean}[]} slots
+ * @param {{deps: object, redraw: () => void}} ctx
  * @returns {object} the line element
  */
-function slotsOf(slots) {
+function slotsOf(slots, ctx) {
     const line = $('<div>', { class: 'sidekick-slots' });
     for (const slot of slots) {
-        line.append($('<button>', {
+        const button = $('<button>', {
             type: 'button',
             class: 'sidekick-slot',
             'data-path': slot.path,
             ...(slot.add ? { 'data-add': 'entry' } : {}),
-        }).text(`+ ${slot.noun}`));
+        }).text(`+ ${slot.noun}`);
+        button.on('click', () => beginEdit(button, {
+            mode: slot.add ? 'entry' : 'slot',
+            path: slot.path,
+            placeholder: slot.add && slot.noun === 'power' ? 'Name the power' : slot.noun,
+        }, ctx));
+        line.append(button);
     }
     return line;
 }

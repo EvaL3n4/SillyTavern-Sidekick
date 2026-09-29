@@ -282,6 +282,89 @@ export function applyProposal(state, proposal, meta = {}) {
 }
 
 /**
+ * What may be removed by hand, and how to find it: a whole entry by its id or its
+ * index, or one item of a list. Anything else is not removable, so a stray path
+ * cannot take a field out from under the ledger.
+ */
+const REMOVABLE = [
+    { entry: ['powers'], byId: true },
+    { entry: ['arc', 'threads'], byId: true },
+    { entry: ['arc', 'pressures'], byId: false },
+    { entry: ['arc', 'linesCrossed'], byId: false },
+];
+const REMOVABLE_LISTS = [
+    ['limits'], ['costs'], // under a power
+    ['cosmology', 'sources'], ['cosmology', 'stageVocabulary'], ['cosmology', 'costVocabulary'],
+];
+
+/** The words that name an entry once it is gone, for the history event. */
+function nameOfEntry(entry) {
+    return String(entry?.name || entry?.text || entry?.line || entry?.id || '');
+}
+
+/**
+ * Removes one thing she chose to remove: a power, thread, pressure or crossed line,
+ * or one limit, cost or cosmology word. A removal is a history event and never a
+ * ruling. Items after it shift up by one, which is why the caller closes any open
+ * hand ruling: a path counts positions in the stored list (§6 Paths).
+ *
+ * @param {object} state
+ * @param {string} path the entry or the list item
+ * @param {{at?: number, summary?: string}} [meta] the history event's summary, which
+ *   names what was removed when the caller gives none
+ * @returns {{from: string}|null} what was removed, or null when the path is not
+ *   something that can be removed or is not there
+ */
+export function removeAt(state, path, { at = Date.now(), summary } = {}) {
+    const keys = splitPath(path);
+    const finish = (from, list, index) => {
+        list.splice(index, 1);
+        state.history.push({
+            summary: summary ?? `Removed ${from || path}`,
+            origin: 'manual',
+            evidence: [],
+            at,
+            changes: [{ path, from, to: '' }],
+        });
+        return { from };
+    };
+    const indexIn = (list, key, byId) => {
+        if (!Array.isArray(list)) {
+            return -1;
+        }
+        if (byId) {
+            return Number.isNaN(Number(key)) ? list.findIndex((item) => item?.id === key) : -1;
+        }
+        return Number.isInteger(Number(key)) && Number(key) >= 0 && Number(key) < list.length ? Number(key) : -1;
+    };
+
+    // a whole entry
+    for (const { entry, byId } of REMOVABLE) {
+        if (keys.length === entry.length + 1 && entry.every((key, i) => keys[i] === key)) {
+            const list = getPath(state, entry.join('.'));
+            const index = indexIn(list, keys.at(-1), byId);
+            return index < 0 ? null : finish(nameOfEntry(list[index]), list, index);
+        }
+    }
+
+    // one item of a list: what sits between the owner (the power's id, or nothing) and
+    // the index has to be one of the lists named above
+    const listKeys = keys[0] === 'powers' ? keys.slice(2, -1) : keys.slice(0, -1);
+    if (keys.length >= 3 && REMOVABLE_LISTS.some((tail) => tail.length === listKeys.length
+        && tail.every((key, i) => key === listKeys[i]))) {
+        const list = getPath(state, keys.slice(0, -1).join('.'));
+        const index = indexIn(list, keys.at(-1), false);
+        if (index >= 0) {
+            const from = String(list[index]);
+            const result = finish(from, list, index);
+            powerAt(state, path)?.history.push(state.history.at(-1));
+            return result;
+        }
+    }
+    return null;
+}
+
+/**
  * Records a DM ruling and prunes the window.
  * `summary` is denormalized on purpose: the proposal it judged may be long gone
  * from the queue, and the lesson has to outlive the paperwork (§3).
@@ -295,6 +378,10 @@ export function recordRuling(state, ruling) {
     };
     if (ruling.edit !== undefined) {
         entry.edit = ruling.edit;
+    }
+    // a `written` ruling is about one field, and names it
+    if (ruling.path !== undefined) {
+        entry.path = ruling.path;
     }
 
     state.rulings.push(entry);
