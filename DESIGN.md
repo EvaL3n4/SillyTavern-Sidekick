@@ -287,6 +287,7 @@ src/state.js       state load/migrate/save, provenance-gated mutations, ruling l
 src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
+src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/board.js       discussion board UI (separate generateRaw chat, own system prompt)
 src/ui.js          FAB menu: hero sheet, review queue, board; drawer = settings
 style.css          near-mono palette + single warm accent
@@ -296,9 +297,10 @@ The extensions drawer holds settings only. Everything the DM touches during play
 sheet, review queue, board—sits behind a FAB; a surface that waits for a click is a
 surface that gets opened late.
 
-Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind),
-`APP_READY` (setup). Overlapping scans are guarded by the in-flight pass itself,
-because a quiet generation emits no end event—`GENERATION_ENDED` fires only for
+Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind, citation
+re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlapping scans
+are guarded by the in-flight pass itself, because a quiet generation emits no end event—
+`GENERATION_ENDED` fires only for
 interactive ones. Slash commands
 via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on demand,
 `/hero digest preview` renders the digest without generating.
