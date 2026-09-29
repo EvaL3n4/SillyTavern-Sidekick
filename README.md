@@ -60,6 +60,7 @@ markdown-linted before anything lands.
 | `src/inject.js` | The `generate_interceptor` and budget policy |
 | `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence policy |
 | `src/board.js` | The board's store, prompt and tool-call protocol |
+| `src/board-prompt.js` | The board's prose, in one file the DM edits herself |
 | `src/ui.js` | FAB menu and the hero sheet, review queue and board surfaces |
 | `style.css` | Near-mono palette with a single warm accent |
 | `settings.html` | Extensions-drawer template (`renderExtensionTemplateAsync`) |
@@ -69,10 +70,11 @@ markdown-linted before anything lands.
 The scaffold is landed. `src/state.js` and `src/grammar.js` are complete and tested.
 The evaluator scan's chain is complete and tested—scene window, prompt,
 generation, validation, queue assembly—and `index.js` wires it to the cadence and
-the slash command. The three FAB surfaces are built: the hero sheet, the review queue that
-rules on a queued proposal, and the discussion board, which turns the DM's own thinking
-into a change through one click. Citations survive deletion and re-roll, and the scan's
-evidence is fingerprinted at intake.
+the FAB's Run a scan entry. The three FAB surfaces are built: the hero sheet, the
+review queue that rules on a queued proposal, and the discussion board, which turns
+the DM's own thinking into a change through one click. A pass's failures name
+themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase.
+Citations survive deletion and re-roll, and the scan's evidence is fingerprinted at intake.
 
 ## License
 

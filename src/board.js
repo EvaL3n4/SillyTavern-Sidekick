@@ -121,35 +121,17 @@ export function boardContext(board, { limit = BOARD_TURN_LIMIT } = {}) {
  */
 export const BOARD_TOOL_NAME = 'record_change';
 
+
 /**
- * The board's own system prompt.
- *
- * It is not the campaign's system prompt and is never part of the campaign
- * conversation—the board is a separate generateRaw chat (§3). The tool is
- * described in prose rather than as a schema, because SillyTavern's structured
- * output constrains the entire response and would leave no room for the prose
- * the DM is here for.
+ * The prompt prose lives in src/board-prompt.js, where it can be hand-edited
+ * without touching this module's behaviour. §3's tool contract is carried here
+ * because the parsing below depends on it.
  */
-export const BOARD_SYSTEM_PROMPT = `You are the Sidekick discussion board: a quiet space
-where the player running this campaign thinks out loud about her hero and her
-story. She is the dungeon master; you are the board she thinks on.
-
-Answer in plain prose. Question what she has taken for granted. Offer readings of
-the hero she has not tried. Never write her story for her, and never decide
-anything on her behalf.
-
-When—and only when—your reply suggests a concrete change to her ledger, end
-the turn with exactly one tool call, fenced like this:
-
-\`\`\`sidekick-tool
-{"name": "record_change", "arguments": {"summary": "...", "changes":
-[{"path": "powers.the-spark.limits.0", "from": "...", "to": "..."}]}}
-\`\`\`
-
-The path is a dotted route into her ledger; from is what the value is now and to
-is what it becomes. The DM applies the change herself or ignores it, and no
-change is ever made for her. Never invent facts the state below does not carry,
-and never emit a tool call for a change you cannot express as a path.`;
+import {
+    BOARD_SPEAKERS,
+    BOARD_STATE_LABEL,
+    BOARD_SYSTEM_PROMPT,
+} from './board-prompt.js';
 
 /**
  * Assembles one board turn's prompt.
@@ -166,12 +148,12 @@ and never emit a tool call for a change you cannot express as a path.`;
  */
 export function buildBoardPrompt(state, board) {
     const history = boardContext(board)
-        .map((turn) => `${turn.role === 'dm' ? 'DM' : 'BOARD'}: ${turn.text}`)
+        .map((turn) => `${BOARD_SPEAKERS[turn.role] ?? turn.role}: ${turn.text}`)
         .join('\n\n');
 
     return {
         system: BOARD_SYSTEM_PROMPT,
-        user: [history, 'CURRENT STATE (read-only):', renderDigest(state).text]
+        user: [history, BOARD_STATE_LABEL, renderDigest(state).text]
             .filter(Boolean)
             .join('\n\n'),
     };

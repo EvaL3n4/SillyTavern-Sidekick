@@ -288,7 +288,8 @@ src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
-src/board.js       the board's store, prompt and tool-call protocol; the FAB renders it
+src/board-prompt.js  the board's prose, in one file the DM edits herself
+src/board.js        the board's store, prompt and tool-call protocol; the FAB renders it
 src/ui.js          FAB menu: hero sheet, review queue, board, run a scan; drawer = settings;
                    the board's surface applies a change on the DM's click, not on generation
 style.css          near-mono palette + single warm accent
@@ -303,6 +304,12 @@ re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlap
 are guarded by the in-flight pass itself, because a quiet generation emits no end event—
 `GENERATION_ENDED` fires only for interactive ones. A pass also runs on the DM's click:
 the FAB menu's Run a scan entry is the manual trigger, and no command is typed.
+
+A pass returns [] for every outcome—nothing found, a refused backend, a
+non-conforming response—so the queue cannot tell them apart. The console can:
+`localStorage.sidekick_debug = '1'` turns on the pass's phase log, and the two
+outcomes that are the extension's own suspicion (a voided citation, a failed
+generation) warn from the moment they happen, whether the flag is set or not.
 
 ## 8. 1.0.0 scope / non-goals
 

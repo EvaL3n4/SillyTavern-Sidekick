@@ -6,14 +6,14 @@ import {
     BOARD_TURN_LIMIT,
     appendTurn,
     boardContext,
-    createBoard,
-    readBoard,
-    BOARD_SYSTEM_PROMPT,
-    BOARD_TOOL_NAME,
     buildBoardPrompt,
+    createBoard,
     parseToolCall,
+    readBoard,
     runBoardTurn,
+    BOARD_TOOL_NAME,
 } from '../src/board.js';
+import { BOARD_SPEAKERS, BOARD_STATE_LABEL, BOARD_SYSTEM_PROMPT } from '../src/board-prompt.js';
 import { ledger } from './fixtures.js';
 
 /** A reply that ends in a valid tool call. */
@@ -229,7 +229,8 @@ describe('buildBoardPrompt', () => {
         const { system, user } = buildBoardPrompt(ledger(), board);
 
         assert.equal(system, BOARD_SYSTEM_PROMPT);
-        assert.match(user, /DM: what now\?/);
+        assert.match(user, new RegExp(`${BOARD_SPEAKERS.dm}: what now\\?`));
+        assert.match(user, new RegExp(BOARD_STATE_LABEL.replace(/[()]/g, '\\$&')));
         assert.match(user, /CURRENT STATE \(read-only\):/);
         assert.match(user, /Hailey Kogami Green/);
     });
@@ -240,14 +241,14 @@ describe('buildBoardPrompt', () => {
 
         const { user } = buildBoardPrompt(ledger(), board);
 
-        assert.match(user, /BOARD: she is holding something back\./);
+        assert.match(user, new RegExp(`${BOARD_SPEAKERS.board}: she is holding something back\\.`));
         assert.doesNotMatch(user, /DM:/);
     });
 
     it('carries only the digest for an empty board', () => {
         const { user } = buildBoardPrompt(ledger(), createBoard());
 
-        assert.match(user, /^CURRENT STATE \(read-only\):/);
+        assert.match(user, new RegExp(`^${BOARD_STATE_LABEL.replace(/[()]/g, '\\$&')}`));
     });
 
     it('describes the tool in the system prompt, fence and all', () => {
