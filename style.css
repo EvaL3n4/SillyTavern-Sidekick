@@ -120,3 +120,38 @@
     font-family: monospace;
     white-space: pre-wrap;
 }
+
+/* The pane a surface opens into, above the menu's slot. */
+.sidekick-fab-pane {
+    position: fixed;
+    right: 20px;
+    bottom: 76px;
+    z-index: 2998;
+    width: 300px;
+    max-height: 60vh;
+    overflow: auto;
+    padding: 12px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+    background: var(--sidekick-bg);
+    color: var(--sidekick-fg);
+}
+
+.sidekick-pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.sidekick-pane-close {
+    border: none;
+    background: transparent;
+    color: var(--sidekick-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-pane-empty {
+    color: var(--sidekick-muted);
+}
