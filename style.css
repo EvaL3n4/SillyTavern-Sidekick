@@ -295,6 +295,11 @@
     cursor: pointer;
 }
 
+.sidekick-apply:disabled {
+    color: var(--sidekick-muted);
+    cursor: default;
+}
+
 .sidekick-applied {
     display: inline-block;
     margin-top: 6px;

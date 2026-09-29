@@ -870,7 +870,10 @@ function boardTurn(turn, deps) {
     root.append($('<div>', { class: 'sidekick-turn-text' }).text(turn.text || '(nothing said)'));
 
     if (turn.applied) {
-        root.append($('<span>', { class: 'sidekick-applied' }).text('applied'));
+        // A partial landing names itself on the mark: 'applied' alone would
+        // claim the whole tool call went through (applyOutcome sets the label).
+        root.append($('<span>', { class: 'sidekick-applied' })
+            .text(turn.appliedLabel ?? 'applied'));
         return root;
     }
 
@@ -891,50 +894,143 @@ function boardTurn(turn, deps) {
 }
 
 /**
+ * What the Apply affordance says once the click has done its work.
+ *
+ * Pure, and exported for a test, because the honesty contract is the whole
+ * point of this path: the board is the one surface the DM sits at waiting, so
+ * a write must never claim to have landed when it did not—and a partial
+ * landing must say how many rather than reading as a clean 'applied'.
+ *
+ * @param {object} outcome
+ * @param {boolean} outcome.thrown applyProposal threw: a path did not resolve
+ * @param {number} outcome.applied how many changes produced a ChangeEvent
+ * @param {number} outcome.total how many changes the tool call offered
+ * @param {boolean} outcome.saved whether the ledger and the board both filed
+ * @returns {{chip?: string, applied?: boolean, label?: string}} a `chip` names
+ *     the outcome on the button in place; `applied` marks the turn, and a
+ *     `label` names a partial landing on that mark
+ */
+export function applyOutcome({ thrown, applied, total, saved }) {
+    if (thrown) {
+        // setPath throws on a dead path segment, and applyProposal mutates as
+        // it goes, so whatever landed before the throw exists in memory only
+        // and nothing is filed. The chip names the failure rather than leaving
+        // itself enabled, still reading 'Apply'.
+        return { chip: 'failed—a path did not resolve' };
+    }
+
+    if (applied === 0) {
+        // The provenance gate refused every change: a from that no longer
+        // matches what is stored. Nothing reached the ledger, so there is
+        // nothing to have failed to save.
+        return { chip: 'nothing landed' };
+    }
+
+    if (!saved) {
+        // The ledger or the board failed to file. The turn keeps its
+        // affordance instead of rendering 'applied' over a write nobody can
+        // find after a reload.
+        return { chip: 'could not be saved' };
+    }
+
+    if (applied < total) {
+        // A from mismatch skips one change and applies the rest. The landed
+        // ones are durable; the mark says how many, because 'applied' would
+        // claim the whole call went through.
+        return { applied: true, label: `${applied} of ${total} landed` };
+    }
+
+    return { applied: true };
+}
+
+/**
+ * Names an outcome on a turn's chip, in place: the affordance stays where the
+ * DM left it, and a write she is waiting on never vanishes without a word.
+ *
+ * @param {object} root the turn's element
+ * @param {string} text what the affordance now says
+ * @returns {void}
+ */
+function markApply(root, text) {
+    root.find('.sidekick-apply').prop('disabled', true).text(text);
+}
+
+/**
  * Applies one board turn's change: through applyProposal, so the provenance gate
  * still applies, straight to history tagged origin 'discussion', and filed in the
  * same synchronous turn as the click so no chat switch can open under it.
  *
- * A change the gate rejects says so on the chip—the DM is at the board
- * waiting, so a silent no-op is the wrong behaviour where §3's silence is right
- * for the scan nobody watches.
+ * The click says what happened. §7 owns the scan's quietness because nobody is
+ * watching, but the board is a surface she sits at waiting—so a throw, a refusal,
+ * a failed write and a partial landing each name themselves on the chip
+ * (applyOutcome), and only a write that both landed and filed marks the turn
+ * applied.
  *
  * @param {object} turn the turn as drawn
+ * @param {object} root the turn's element
  * @param {object} deps
  * @returns {Promise<void>}
  */
 async function applyBoardChange(turn, root, deps) {
     const state = deps.getState();
     if (!state) {
+        markApply(root, 'no hero state yet');
         return;
     }
+
+    // Captured in the same synchronous turn as the click, exactly as the
+    // composer does: without it, a chat switch mid-write files this chat's
+    // board into whichever chat is now open.
+    const captured = SillyTavern.getContext().chatMetadata;
+    const changes = turn.tool.arguments?.changes ?? [];
 
     // evidence is [] because a discussion cites no message—the board holds no
     // chat index, which is the same fork and delete safety that keeps its
     // conversation untethered from the chat.
-    const applied = applyProposal(state, {
-        origin: 'discussion',
-        summary: String(turn.tool.arguments?.summary ?? '').trim(),
-        evidence: [],
-        changes: turn.tool.arguments?.changes ?? [],
-    }, { at: Date.now() });
+    let applied = null;
+    try {
+        applied = applyProposal(state, {
+            origin: 'discussion',
+            summary: String(turn.tool.arguments?.summary ?? '').trim(),
+            evidence: [],
+            changes,
+        }, { at: Date.now() });
+    } catch (error) {
+        console.error('[Sidekick] the board change failed', error);
+    }
 
-    if (applied.length === 0) {
-        root.find('.sidekick-apply').prop('disabled', true).text('nothing landed');
+    let saved = false;
+    if (applied !== null && applied.length > 0) {
+        // The board is read again rather than drawn from the pane's copy: the
+        // store holds the turns by reference, and a chat switch may have
+        // happened since this pane drew. The turn is the same object when it
+        // is still there.
+        const board = deps.loadBoard();
+        try {
+            await deps.persist(state);
+            saved = await deps.saveBoard(board, captured);
+        } catch (error) {
+            console.error('[Sidekick] could not persist the board change', error);
+        }
+    }
+
+    const outcome = applyOutcome({
+        thrown: applied === null,
+        applied: applied?.length ?? 0,
+        total: changes.length,
+        saved,
+    });
+
+    if (outcome.chip) {
+        markApply(root, outcome.chip);
         return;
     }
 
-    // The board is read again rather than drawn from the pane's copy: the
-    // store holds the turns by reference, and a chat switch may have happened
-    // since this pane drew. The turn is the same object when it is still there.
-    const board = deps.loadBoard();
     turn.applied = true;
-
-    try {
-        await deps.persist(state);
-        await deps.saveBoard(board);
-    } catch (error) {
-        console.error('[Sidekick] could not persist the board change', error);
+    if (outcome.label) {
+        // The label rides along in the store—isTurn keeps fields it does not
+        // know—so a redraw after a reload still says how many landed.
+        turn.appliedLabel = outcome.label;
     }
 
     root.replaceWith(boardTurn(turn, deps));
@@ -987,7 +1083,18 @@ function boardComposer(log, note, deps) {
         appendTurn(live, { role: 'dm', text, at: Date.now() });
         log.append(boardTurn(live.turns[live.turns.length - 1], deps));
 
-        if (!await deps.saveBoard(live, captured)) {
+        let filed;
+        try {
+            filed = await deps.saveBoard(live, captured);
+        } catch {
+            // A rejection rather than a refusal: today's wiring already turns a
+            // save failure into false inside saveBoardState, so this holds the
+            // contract if that ever stops being true.
+            say('Your turn is shown here once and could not be filed.');
+            return;
+        }
+
+        if (!filed) {
             say('The chat changed—your turn was not filed.');
             return;
         }
@@ -1003,9 +1110,18 @@ function boardComposer(log, note, deps) {
         }
         busy(false);
 
-        const filed = await deps.saveBoard(live, captured);
+        let rejected = false;
+        let replyFiled = true;
+        try {
+            replyFiled = await deps.saveBoard(live, captured);
+        } catch {
+            rejected = true;
+        }
+
         log.append(boardTurn(reply, deps));
-        if (!filed) {
+        if (rejected) {
+            say('The reply is shown here once and could not be filed.');
+        } else if (!replyFiled) {
             say('The chat changed—the reply is shown here once and was not filed.');
         }
     };

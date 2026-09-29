@@ -17,10 +17,10 @@ const LINE_FLOOR = 95;
 const BRANCH_FLOOR = 90;
 
 /**
- * Browser-only modules the suite does not measure. test/ui-edit.test.js does
- * import ui.js, for the two pure helpers the edit path turns on, but mounting
- * the surfaces needs a live SillyTavern DOM, so the module stays exempt as a
- * whole.
+ * Browser-only modules the suite does not measure. test/ui-edit.test.js and
+ * test/ui-board.test.js do import ui.js, for the pure helpers their paths
+ * turn on, but mounting the surfaces needs a live SillyTavern DOM, so the
+ * module stays exempt as a whole.
  */
 const UNTESTED_BY_DESIGN = ['index.js', 'ui.js'];
 
