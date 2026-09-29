@@ -359,9 +359,8 @@ not come back.
   through pure node-tested clamp helpers behind an injected storage seam—the pattern
   Modus's launcher already uses.
 
-The idiom goes with the shape. `mountFab` becomes `mountLauncher`, `.sidekick-fab`
-becomes `.sidekick-launcher`, and the word FAB leaves the codebase with the rename.
-Material was never asked for and does not come back.
+The idiom went with the shape. The Material name the scaffold shipped under left
+the codebase with the rename. Material was never asked for and does not come back.
 
 ## 8. 1.0.0 scope / non-goals
 
