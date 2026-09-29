@@ -5,6 +5,7 @@ import {
     BUTTON_SIZE,
     PANEL_DEFAULT,
     PANEL_MIN,
+    panelDefault,
     clampPosition,
     clampRecord,
     clampSize,
@@ -52,8 +53,12 @@ describe('defaultGeometry', () => {
         assert.deepEqual(defaultGeometry(VIEWPORT).button, { x: 1208, y: 728 });
     });
 
-    it('centres the panel and opens it at its default size', () => {
-        assert.deepEqual(defaultGeometry(VIEWPORT).panel, { x: 470, y: 190, w: 340, h: 420 });
+    it('docks the panel against the right edge, in the gutter', () => {
+        assert.deepEqual(defaultGeometry(VIEWPORT).panel, { x: 928, y: 12, w: 340, h: 560 });
+    });
+
+    it('starts with a panel she has not placed', () => {
+        assert.equal(defaultGeometry(VIEWPORT).panelSet, false);
     });
 
     it('stamps the record with the version the key names', () => {
@@ -69,6 +74,71 @@ describe('defaultGeometry', () => {
             clampPosition(small.button.x, small.button.y, BUTTON_SIZE, { width: 600, height: 500 }),
             small.button,
         );
+    });
+});
+
+// Measured in SillyTavern's Bed (§7, Panel size): the chat column is half the
+// viewport, centred, under a 35px top bar and above a 39px send form.
+const ST = (width) => ({ column: { right: width * 0.75 }, top: 35, bottom: 39 });
+
+describe('panelDefault', () => {
+    it('opens at its full size in a gutter that holds it', () => {
+        for (const width of [1920, 2560]) {
+            const panel = panelDefault({ width, height: 1080 }, ST(width));
+            assert.equal(panel.w, 440, String(width));
+            assert.equal(panel.h, 560);
+        }
+    });
+
+    it('docks 12px in from the right edge and 12px under the top bar', () => {
+        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, ST(1920)), { x: 1468, y: 47, w: 440, h: 560 });
+    });
+
+    it('fits the gutter it has, down to the docked minimum', () => {
+        // gutter 480 -> 456 -> capped at 440; gutter 400 -> 376; below 364 the minimum holds
+        assert.equal(panelDefault({ width: 1600, height: 900 }, ST(1600)).w, 376);
+        assert.equal(panelDefault({ width: 1440, height: 900 }, ST(1440)).w, 340);
+        assert.equal(panelDefault({ width: 1280, height: 800 }, ST(1280)).w, 340);
+        assert.equal(panelDefault({ width: 1024, height: 768 }, ST(1024)).w, 340);
+    });
+
+    it('overlaps the chat column rather than shrink below the docked minimum', () => {
+        const panel = panelDefault({ width: 1280, height: 800 }, ST(1280));
+        assert.ok(panel.x < 1280 * 0.75, 'the panel reaches into the column');
+    });
+
+    it('follows a chat column she has widened, wherever its edge is', () => {
+        assert.equal(panelDefault({ width: 1920, height: 1080 }, { column: { right: 1700 } }).w, 340);
+        assert.equal(panelDefault({ width: 1920, height: 1080 }, { column: { right: 1200 } }).w, 440);
+    });
+
+    it('assumes SillyTavern\'s centred half-width column when nothing was measured', () => {
+        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }), { x: 1468, y: 12, w: 440, h: 560 });
+        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, {}), panelDefault({ width: 1920, height: 1080 }));
+        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, null), panelDefault({ width: 1920, height: 1080 }));
+    });
+
+    it('keeps the height inside a short viewport', () => {
+        assert.equal(panelDefault({ width: 1920, height: 600 }, ST(1920)).h, 541);
+    });
+
+    it('is a bottom sheet across the width where SillyTavern has no gutters', () => {
+        const phone = panelDefault({ width: 390, height: 844 }, { top: 35, bottom: 39 });
+        assert.deepEqual(phone, { x: 8, y: 254, w: 374, h: 539 });
+        assert.equal(phone.y + phone.h, 844 - 39 - 12, 'it stands on the send form');
+    });
+
+    it('caps the sheet at the default height on a tall screen', () => {
+        assert.equal(panelDefault({ width: 820, height: 1180 }, { top: 35, bottom: 39 }).h, 560);
+    });
+
+    it('switches at SillyTavern\'s own breakpoint', () => {
+        assert.equal(panelDefault({ width: 1000, height: 800 }, ST(1000)).x, 8);
+        assert.notEqual(panelDefault({ width: 1001, height: 800 }, ST(1001)).x, 8);
+    });
+
+    it('never puts the sheet above the top bar on a viewport too short for it', () => {
+        assert.ok(panelDefault({ width: 400, height: 90 }, { top: 35, bottom: 39 }).y >= 35);
     });
 });
 
@@ -229,6 +299,7 @@ describe('readGeometry', () => {
             v: 2,
             button: { x: 10, y: DEFAULTS.button.y },
             panel: { x: 30, y: 40, w: 300, h: DEFAULTS.panel.h },
+            panelSet: true,
         });
     });
 
@@ -239,6 +310,7 @@ describe('readGeometry', () => {
             v: 2,
             button: DEFAULTS.button,
             panel: { x: 30, y: 40, w: 300, h: 420 },
+            panelSet: true,
         });
     });
 
@@ -249,6 +321,7 @@ describe('readGeometry', () => {
             v: 2,
             button: { x: 100, y: 200 },
             panel: { x: 10, y: 20, w: 500, h: 400 },
+            panelSet: true,
         });
     });
 
@@ -263,6 +336,7 @@ describe('readGeometry', () => {
             v: 2,
             button: { x: 1232, y: 752 },
             panel: { w: 1280, h: 800, x: 0, y: 0 },
+            panelSet: true,
         });
     });
 
@@ -281,8 +355,86 @@ describe('readGeometry', () => {
     });
 });
 
+describe('a panel she has not placed', () => {
+    const wide = { width: 1920, height: 1080 };
+    const phone = { width: 390, height: 844 };
+    const seen = (stored, viewport, host) => readGeometry({ getStored: () => JSON.stringify(stored), viewport, host });
+
+    it('follows the default of the day, whatever was stored beside it', () => {
+        const stored = { v: 2, panelSet: false, button: { x: 5, y: 5 }, panel: { x: 1, y: 1, w: 999, h: 999 } };
+
+        assert.deepEqual(seen(stored, wide, ST(1920)).panel, panelDefault(wide, ST(1920)));
+    });
+
+    it('is a record from before the flag whose panel is still the old default size', () => {
+        // Every old record saved the default whenever the button or window moved, so the
+        // old size is what an unplaced panel looks like. Raising the default must reach it.
+        const stored = { v: 2, button: { x: 5, y: 5 }, panel: { x: 470, y: 190, w: 340, h: 420 } };
+
+        assert.deepEqual(seen(stored, wide, ST(1920)).panel, panelDefault(wide, ST(1920)));
+        assert.equal(seen(stored, wide, ST(1920)).panelSet, false);
+    });
+
+    it('keeps the button she placed while the panel moves to the new default', () => {
+        const stored = { v: 2, button: { x: 5, y: 5 }, panel: { x: 470, y: 190, w: 340, h: 420 } };
+
+        assert.deepEqual(seen(stored, wide, ST(1920)).button, { x: 5, y: 5 });
+    });
+
+    it('is re-derived when the window changes, not clamped', () => {
+        const record = readGeometry({ viewport: wide, host: ST(1920) });
+
+        assert.deepEqual(clampRecord(record, phone, { top: 35, bottom: 39 }).panel, panelDefault(phone, { top: 35, bottom: 39 }));
+    });
+
+    it('reads a record with a panel that is not an object as unplaced', () => {
+        const stored = { v: 2, button: { x: 5, y: 5 }, panel: 'junk' };
+
+        assert.equal(seen(stored, wide, ST(1920)).panelSet, false);
+    });
+});
+
+describe('a panel she has placed', () => {
+    const wide = { width: 1920, height: 1080 };
+
+    it('is never moved by a new default', () => {
+        const stored = { v: 2, panelSet: true, button: { x: 5, y: 5 }, panel: { x: 470, y: 190, w: 340, h: 420 } };
+        const read = readGeometry({ getStored: () => JSON.stringify(stored), viewport: wide, host: ST(1920) });
+
+        assert.deepEqual(read.panel, { x: 470, y: 190, w: 340, h: 420 });
+        assert.equal(read.panelSet, true);
+    });
+
+    it('is a record from before the flag whose panel she resized', () => {
+        const stored = { v: 2, button: { x: 5, y: 5 }, panel: { x: 40, y: 50, w: 600, h: 500 } };
+        const read = readGeometry({ getStored: () => JSON.stringify(stored), viewport: wide, host: ST(1920) });
+
+        assert.deepEqual(read.panel, { x: 40, y: 50, w: 600, h: 500 });
+        assert.equal(read.panelSet, true);
+    });
+
+    it('stays clamped to the window it is now in', () => {
+        const stored = { v: 2, panelSet: true, button: { x: 5, y: 5 }, panel: { x: 1800, y: 900, w: 440, h: 560 } };
+        const read = readGeometry({ getStored: () => JSON.stringify(stored), viewport: { width: 1000, height: 700 } });
+
+        assert.ok(read.panel.x + read.panel.w <= 1000);
+        assert.ok(read.panel.y + read.panel.h <= 700);
+    });
+
+    it('is written as placed, and an unplaced one as unplaced', () => {
+        const wrote = (record) => {
+            const fake = store();
+            writeGeometry(record, { setStored: fake.setStored });
+            return JSON.parse(fake.calls[0][1]).panelSet;
+        };
+
+        assert.equal(wrote({ v: 2, panelSet: true, button: { x: 1, y: 1 }, panel: { x: 1, y: 1, w: 400, h: 400 } }), true);
+        assert.equal(wrote({ v: 2, panelSet: false, button: { x: 1, y: 1 }, panel: { x: 1, y: 1, w: 400, h: 400 } }), false);
+    });
+});
+
 describe('writeGeometry', () => {
-    const record = { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } };
+    const record = { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 }, panelSet: true };
 
     it('hands the record over under the versioned key', () => {
         const fake = store();
@@ -317,7 +469,7 @@ describe('writeGeometry', () => {
 
         assert.deepEqual(
             readGeometry({ getStored: fake.getStored, viewport: VIEWPORT }),
-            { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } },
+            { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 }, panelSet: true },
         );
     });
 });
@@ -396,8 +548,9 @@ describe('writeTab', () => {
 
 describe('the defaults and the constants agree', () => {
     it('opens the panel at PANEL_DEFAULT and clamps it at PANEL_MIN', () => {
-        assert.equal(DEFAULTS.panel.w, PANEL_DEFAULT.width);
-        assert.equal(DEFAULTS.panel.h, PANEL_DEFAULT.height);
+        const roomy = defaultGeometry({ width: 2560, height: 1440 });
+        assert.equal(roomy.panel.w, PANEL_DEFAULT.width);
+        assert.equal(roomy.panel.h, PANEL_DEFAULT.height);
         assert.equal(clampSize(0, 0, PANEL_MIN, VIEWPORT).w, PANEL_MIN.width);
         assert.equal(clampSize(0, 0, PANEL_MIN, VIEWPORT).h, PANEL_MIN.height);
     });

@@ -42,11 +42,46 @@ export const BUTTON_SIZE = { width: 48, height: 48 };
  */
 export const PANEL_MIN = { width: 280, height: 260 };
 
-/** The panel's opening size, before she has resized it. */
-export const PANEL_DEFAULT = { width: 340, height: 420 };
+/**
+ * The panel's opening size at its largest, before she has resized it. Measured in
+ * SillyTavern (§7, Panel size): the chat column is half the viewport, centred, so
+ * each gutter is a quarter of it, and 440 fits a gutter from 1920px up.
+ */
+export const PANEL_DEFAULT = { width: 440, height: 560 };
+
+/**
+ * The narrowest the panel opens in a gutter. Below about 1360px no gutter holds
+ * more than this, and the panel overlaps the chat column's edge rather than
+ * shrink into a column of wrapped fragments.
+ */
+export const PANEL_DOCK_MIN_WIDTH = 340;
+
+/**
+ * SillyTavern's own mobile breakpoint, as measured: at this width and below the
+ * chat column fills the viewport and there are no gutters at all.
+ */
+export const NARROW_VIEWPORT = 1000;
 
 /** The gap the defaults leave between the chrome and the viewport's edges. */
 const MARGIN = 24;
+
+/** The gap between the panel and whatever it docks against. */
+const GAP = 12;
+
+/** The gap either side of the bottom sheet a narrow viewport gets. */
+const SHEET_MARGIN = 8;
+
+/** How much of the room above the send form the bottom sheet takes. */
+const SHEET_SHARE = 0.7;
+
+/**
+ * The size the panel opened at before the flag below existed. Every record from then
+ * saved it whenever the button or the window moved, so this size marks a panel she
+ * never resized.
+ */
+const OLD_PANEL_DEFAULT = { width: 340, height: 420 };
+
+/** The chat column, measured in the live page. @typedef {{column?: {right: number}, top?: number, bottom?: number}} Host */
 
 /**
  * Only used when the caller has no viewport to give: tests, and read's own
@@ -76,13 +111,57 @@ const hasNumbers = (value, fields) => isRect(value) && fields.every((field) => i
 const asSize = (size) => ({ width: size.w, height: size.h });
 
 /**
- * Where the chrome sits before she has ever moved it: the button above the
- * send form's corner, the panel centred. Both are starting points only.
+ * Where the panel opens before she has placed it (§7, Panel size). On a wide
+ * viewport it docks against the right edge, in the gutter beside the chat column,
+ * as wide as that gutter allows between PANEL_DOCK_MIN_WIDTH and PANEL_DEFAULT. On a
+ * narrow one, where SillyTavern's column fills the screen, it is a near-full-width
+ * sheet standing on the send form.
+ *
+ * `host` is what the page measured of SillyTavern's own layout. Every part of it is
+ * optional: without the column's right edge it assumes SillyTavern's default of a
+ * centred half-width column, so the pure tests and a missing element both get an
+ * answer.
  *
  * @param {{width: number, height: number}} [viewport]
- * @returns {{v: number, button: {x: number, y: number}, panel: {x: number, y: number, w: number, h: number}}}
+ * @param {Host} [host]
+ * @returns {{x: number, y: number, w: number, h: number}}
  */
-export function defaultGeometry(viewport = DEFAULT_VIEWPORT) {
+export function panelDefault(viewport = DEFAULT_VIEWPORT, host = {}) {
+    const { width, height } = viewport;
+    const top = isFinite(host?.top) ? host.top : 0;
+    const bottom = isFinite(host?.bottom) ? host.bottom : 0;
+
+    if (width <= NARROW_VIEWPORT) {
+        const h = Math.min(PANEL_DEFAULT.height, Math.round((height - top - bottom) * SHEET_SHARE));
+        return {
+            x: SHEET_MARGIN,
+            y: Math.max(top, height - bottom - GAP - h),
+            w: width - 2 * SHEET_MARGIN,
+            h,
+        };
+    }
+
+    const columnRight = isFinite(host?.column?.right) ? host.column.right : width * 0.75;
+    const gutter = width - columnRight;
+    const w = Math.round(Math.min(Math.max(gutter - 2 * GAP, PANEL_DOCK_MIN_WIDTH), PANEL_DEFAULT.width));
+    return {
+        x: width - w - GAP,
+        y: top + GAP,
+        w,
+        h: Math.min(PANEL_DEFAULT.height, height - top - 2 * GAP),
+    };
+}
+
+/**
+ * Where the chrome sits before she has ever moved it: the button above the
+ * send form's corner, the panel where panelDefault says. Both are starting
+ * points only.
+ *
+ * @param {{width: number, height: number}} [viewport]
+ * @param {Host} [host]
+ * @returns {{v: number, button: {x: number, y: number}, panel: {x: number, y: number, w: number, h: number}, panelSet: boolean}}
+ */
+export function defaultGeometry(viewport = DEFAULT_VIEWPORT, host = {}) {
     const { width, height } = viewport;
 
     return {
@@ -91,12 +170,8 @@ export function defaultGeometry(viewport = DEFAULT_VIEWPORT) {
             x: width - BUTTON_SIZE.width - MARGIN,
             y: height - BUTTON_SIZE.height - MARGIN,
         },
-        panel: {
-            x: Math.round((width - PANEL_DEFAULT.width) / 2),
-            y: Math.round((height - PANEL_DEFAULT.height) / 2),
-            w: PANEL_DEFAULT.width,
-            h: PANEL_DEFAULT.height,
-        },
+        panel: panelDefault(viewport, host),
+        panelSet: false,
     };
 }
 
@@ -159,19 +234,25 @@ export function clampSize(w, h, bounds = PANEL_MIN, viewport = DEFAULT_VIEWPORT)
  * before its position, because a panel that shrank must not sit at a
  * coordinate its new size makes unreachable.
  *
+ * A panel she has not placed is not clamped but re-derived: it has no place of
+ * its own, only the one panelDefault gives it for this viewport and layout.
+ *
  * @param {object} record
  * @param {{width: number, height: number}} [viewport]
+ * @param {Host} [host]
  * @returns {object} a record of this module's shape
  */
-export function clampRecord(record, viewport = DEFAULT_VIEWPORT) {
-    const base = normalize(record, viewport) ?? defaultGeometry(viewport);
-    const panelSize = clampSize(base.panel.w, base.panel.h, PANEL_MIN, viewport);
-    const panelAt = clampPosition(base.panel.x, base.panel.y, asSize(panelSize), viewport);
+export function clampRecord(record, viewport = DEFAULT_VIEWPORT, host = {}) {
+    const base = normalize(record, viewport, host) ?? defaultGeometry(viewport, host);
+    const panel = base.panelSet ? base.panel : panelDefault(viewport, host);
+    const panelSize = clampSize(panel.w, panel.h, PANEL_MIN, viewport);
+    const panelAt = clampPosition(panel.x, panel.y, asSize(panelSize), viewport);
 
     return {
         v: VERSION,
         button: clampPosition(base.button.x, base.button.y, BUTTON_SIZE, viewport),
         panel: { ...panelSize, ...panelAt },
+        panelSet: base.panelSet,
     };
 }
 
@@ -217,21 +298,33 @@ export function resizePanel(from, dx, dy, viewport) {
  * position she dragged the other half to. A half that is not an object at all
  * cannot be read field by field, so the whole half falls back.
  *
+ * `panelSet` is whether she has ever moved or resized the panel. Until she has, the
+ * stored panel is only the default of the day and is never read back, so a new
+ * default reaches everyone who never placed it. A record from before the flag
+ * existed has no answer, so it is read from the panel: a rect at the old default
+ * size was never resized, and counts as unplaced.
+ *
  * @param {unknown} record
  * @param {{width: number, height: number}} [viewport]
+ * @param {Host} [host]
  * @returns {object|null}
  */
-function normalize(record, viewport = DEFAULT_VIEWPORT) {
+function normalize(record, viewport = DEFAULT_VIEWPORT, host = {}) {
     if (!isRect(record) || record.v !== VERSION) {
         return null;
     }
 
-    const fallback = defaultGeometry(viewport);
+    const fallback = defaultGeometry(viewport, host);
+    const panelSet = typeof record.panelSet === 'boolean'
+        ? record.panelSet
+        : isRect(record.panel)
+            && !(record.panel.w === OLD_PANEL_DEFAULT.width && record.panel.h === OLD_PANEL_DEFAULT.height);
 
     return {
         v: VERSION,
         button: fillRect(record.button, fallback.button),
-        panel: fillRect(record.panel, fallback.panel),
+        panel: panelSet ? fillRect(record.panel, fallback.panel) : fallback.panel,
+        panelSet,
     };
 }
 
@@ -263,10 +356,10 @@ function fillRect(stored, shape) {
  * write all read as defaults, because the button is how she reaches every
  * other surface and a lost position costs one drag, not a working feature.
  *
- * @param {{getStored?: () => unknown, viewport?: {width: number, height: number}}} [seam]
+ * @param {{getStored?: () => unknown, viewport?: {width: number, height: number}, host?: Host}} [seam]
  * @returns {object} the record, clamped against the viewport when one is given
  */
-export function readGeometry({ getStored, viewport } = {}) {
+export function readGeometry({ getStored, viewport, host } = {}) {
     let raw = null;
 
     if (typeof getStored === 'function') {
@@ -280,15 +373,15 @@ export function readGeometry({ getStored, viewport } = {}) {
 
     if (typeof raw === 'string') {
         try {
-            parsed = normalize(JSON.parse(raw), viewport);
+            parsed = normalize(JSON.parse(raw), viewport, host);
         } catch {
             parsed = null;
         }
     }
 
-    const record = parsed ?? defaultGeometry(viewport);
+    const record = parsed ?? defaultGeometry(viewport, host);
 
-    return viewport ? clampRecord(record, viewport) : record;
+    return viewport ? clampRecord(record, viewport, host) : record;
 }
 
 /**

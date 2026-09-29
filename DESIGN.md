@@ -506,13 +506,26 @@ One action, Clear old, records every old proposal as `stale` and removes it; she
 decided nothing, so it teaches the scan nothing. Nothing leaves the queue unless she
 clicks. A proposal filed before `filedAt` existed has no age and is never old.
 
-**Panel size.** The default is 440 by 560, not 340 by 420: a panel that narrow reads
-as a column of wrapped fragments and does not sit in SillyTavern's own gutters. The
-number is a guide until the gutter widths are measured in the bench, and the measured
-ones replace it here. On a wide viewport the panel opens docked against the right
-gutter; on a narrow one it opens as a near-full-width sheet from the bottom. The
-minimum stays 280 and a saved geometry always wins, so raising the default moves
-nobody who has already placed the panel.
+**Panel size.** The panel opens at up to 440 by 560, not 340 by 420: a panel that
+narrow reads as a column of wrapped fragments. Measured in SillyTavern 1.18: the chat
+column is half the viewport, centred, under a 35px top bar and above a 39px send form,
+so each gutter is a quarter of the viewport (480px at 1920, 360 at 1440, 320 at 1280,
+256 at 1024); at 1000px and below the column fills the screen and there are no
+gutters. On a wide viewport the panel docks against the right edge, 12px in and 12px
+under the top bar, as wide as its gutter allows: 440 from about 1920px, the gutter
+less 24px between there and 1440, and never under 340. Below about 1360px no gutter
+holds 340, so the panel overlaps the column's edge (32px at 1280, 96px at 1024) rather
+than shrink; she can move it. At 1000px and below it is a sheet across the width,
+standing on the send form, 70% of the room above the form and never over 560. The
+column's edge is measured from the page, not assumed, so a chat width she has changed
+moves the dock with it. The minimum stays 280.
+
+A panel she has not moved or resized has no place of its own: it is the default of the
+day, re-derived when the window changes or the panel opens, and it is stored as
+unplaced. Only a drag or a resize makes it hers, and then a saved geometry always wins.
+Without that flag every write of the button's position saved the panel's default as
+well, and a raised default would have moved nobody. A record from before the flag whose
+panel is still the old 340 by 420 was never resized and is read as unplaced.
 
 ## 8. 1.0.0 scope / non-goals
 

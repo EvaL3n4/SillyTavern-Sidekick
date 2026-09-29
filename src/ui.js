@@ -319,10 +319,23 @@ export function mountChrome({ getState } = {}) {
         setStored: (key, value) => localStorage.setItem(key, value),
     };
 
+    // Where SillyTavern's own layout is, measured, so a panel she has not placed
+    // docks in the gutter beside the chat column (§7, Panel size). Any element that
+    // is missing reads as undefined, and chrome.js falls back to the stock layout.
+    const hostLayout = () => {
+        const sheld = document.querySelector('#sheld')?.getBoundingClientRect();
+        const form = document.querySelector('#form_sheld')?.getBoundingClientRect();
+        return {
+            column: sheld ? { right: sheld.right } : undefined,
+            top: sheld?.top,
+            bottom: form?.height,
+        };
+    };
+
     // Read once at mount, already clamped against the browser as it is now: a
     // window that shrank while Sidekick was closed never leaves the control
     // off-screen.
-    let geometry = readGeometry({ ...storage, viewport: viewport() });
+    let geometry = readGeometry({ ...storage, viewport: viewport(), host: hostLayout() });
     const place = (at) => {
         button.css({ left: `${at.x}px`, top: `${at.y}px`, right: 'auto', bottom: 'auto' });
     };
@@ -426,6 +439,13 @@ export function mountChrome({ getState } = {}) {
 
     // The button and the panel take turns: one is on screen at a time.
     const openPanel = () => {
+        // A panel she has never placed has no place of its own: it opens where
+        // the layout is now, which is not where it was at mount if she has since
+        // changed SillyTavern's chat width.
+        if (!geometry.panelSet) {
+            geometry = clampRecord(geometry, viewport(), hostLayout());
+            placePanel(geometry.panel);
+        }
         markSelected();
         renderActive();
         paintMarkers();
@@ -544,6 +564,9 @@ export function mountChrome({ getState } = {}) {
     });
     const restPanel = () => {
         if (panelPress?.dragging) {
+            // Only now is the panel hers: until a drag or a resize it is the
+            // default of the day, and is stored as such.
+            geometry = { ...geometry, panelSet: true };
             writeGeometry(geometry, storage);
         }
         panelPress = null;
@@ -567,7 +590,7 @@ export function mountChrome({ getState } = {}) {
     paintMarkers();
 
     window.addEventListener('resize', () => {
-        geometry = clampRecord(geometry, viewport());
+        geometry = clampRecord(geometry, viewport(), hostLayout());
         place(geometry.button);
         placePanel(geometry.panel);
         writeGeometry(geometry, storage);
