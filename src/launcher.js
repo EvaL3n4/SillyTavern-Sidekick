@@ -172,6 +172,40 @@ export function clampRecord(record, viewport = DEFAULT_VIEWPORT) {
 }
 
 /**
+ * The panel after its head has been dragged (dx, dy) from `from`: same size,
+ * new place, held inside the viewport.
+ *
+ * @param {{x: number, y: number, w: number, h: number}} from the panel at press
+ * @param {number} dx
+ * @param {number} dy
+ * @param {{width: number, height: number}} viewport
+ * @returns {{x: number, y: number, w: number, h: number}}
+ */
+export function movePanel(from, dx, dy, viewport) {
+    return { ...from, ...clampPosition(from.x + dx, from.y + dy, asSize(from), viewport) };
+}
+
+/**
+ * The panel after its grip has been dragged (dx, dy) from `from`: same corner,
+ * new size, never below PANEL_MIN and never past the viewport's edge.
+ *
+ * The grip is the bottom-right corner, so the top-left stays where it is and the
+ * panel may only grow into the room that corner leaves. clampSize is handed that
+ * room in place of the whole viewport, which is what stops a resize from
+ * carrying the grip off-screen where it could not be dragged back.
+ *
+ * @param {{x: number, y: number, w: number, h: number}} from the panel at press
+ * @param {number} dx
+ * @param {number} dy
+ * @param {{width: number, height: number}} viewport
+ * @returns {{x: number, y: number, w: number, h: number}}
+ */
+export function resizePanel(from, dx, dy, viewport) {
+    const room = { width: viewport?.width - from.x, height: viewport?.height - from.y };
+    return { ...from, ...clampSize(from.w + dx, from.h + dy, PANEL_MIN, room) };
+}
+
+/**
  * One stored record, field by field.
  *
  * A number this module cannot vouch for falls back to that same field's default and

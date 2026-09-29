@@ -9,7 +9,16 @@
 import { applyProposal, getPath, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
 import { appendTurn } from './board.js';
-import { LAUNCHER_SIZE, clampPosition, clampRecord, launcherKey, readGeometry, writeGeometry } from './launcher.js';
+import {
+    LAUNCHER_SIZE,
+    clampPosition,
+    clampRecord,
+    launcherKey,
+    movePanel,
+    readGeometry,
+    resizePanel,
+    writeGeometry,
+} from './launcher.js';
 
 /**
  * The launcher's surfaces, in menu order (§7).
@@ -296,6 +305,16 @@ export function mountLauncher({ onScan, getState } = {}) {
     };
     place(geometry.launcher);
 
+    const placePanel = (rect) => {
+        pane.css({
+            left: `${rect.x}px`,
+            top: `${rect.y}px`,
+            width: `${rect.w}px`,
+            height: `${rect.h}px`,
+        });
+    };
+    placePanel(geometry.panel);
+
     const showBadge = () => {
         const waiting = getState?.()?.queue?.length ?? 0;
         badge.text(waiting > 0 ? String(waiting) : '');
@@ -343,6 +362,7 @@ export function mountLauncher({ onScan, getState } = {}) {
                 .text(`${surface.label} is not built yet.`));
         }
         pane.append(body);
+        pane.append($('<div>', { class: 'sidekick-pane-grip', 'aria-hidden': 'true' }));
         pane.prop('hidden', false);
     };
 
@@ -415,6 +435,60 @@ export function mountLauncher({ onScan, getState } = {}) {
     button.on('pointerup', rest);
     button.on('pointercancel', rest);
 
+    // The panel's two gestures: the head drags it, the grip resizes it. They are
+    // delegated from the pane because openSurface rebuilds the head and the grip
+    // every time a surface opens, and a handler bound to the old element would
+    // go with it. Same shape as the launcher's—a threshold, one write at rest—
+    // except that capture is taken on the press. The launcher waits for the first
+    // move to keep its click path clean; the head and the grip have no click to
+    // protect, and a fast first move can jump clean off a 20px strip, in which
+    // case a listener that had not captured yet would never see the drag begin.
+    // The close button sits in the head and is left out, so closing is never the
+    // start of a drag.
+    const panelGestures = {
+        '.sidekick-pane-head': movePanel,
+        '.sidekick-pane-grip': resizePanel,
+    };
+    let panelPress = null;
+    for (const [selector, gesture] of Object.entries(panelGestures)) {
+        pane.on('pointerdown', selector, (event) => {
+            if (event.button !== 0 || $(event.target).closest('.sidekick-pane-close').length > 0) {
+                return;
+            }
+            panelPress = {
+                gesture,
+                x: event.clientX,
+                y: event.clientY,
+                from: geometry.panel,
+                dragging: false,
+            };
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+        });
+    }
+    pane.on('pointermove', (event) => {
+        if (!panelPress) {
+            return;
+        }
+        const dx = event.clientX - panelPress.x;
+        const dy = event.clientY - panelPress.y;
+        if (!panelPress.dragging) {
+            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                return;
+            }
+            panelPress.dragging = true;
+        }
+        const rect = panelPress.gesture(panelPress.from, dx, dy, viewport());
+        placePanel(rect);
+        geometry = { ...geometry, panel: rect };
+    });
+    const restPanel = () => {
+        if (panelPress?.dragging) {
+            writeGeometry(geometry, storage);
+        }
+        panelPress = null;
+    };
+    pane.on('pointerup pointercancel', restPanel);
+
     button.on('click', () => {
         if (eatClick) {
             eatClick = false;
@@ -443,6 +517,7 @@ export function mountLauncher({ onScan, getState } = {}) {
     window.addEventListener('resize', () => {
         geometry = clampRecord(geometry, viewport());
         place(geometry.launcher);
+        placePanel(geometry.panel);
         writeGeometry(geometry, storage);
     });
 
@@ -1134,6 +1209,10 @@ function drawBoard(body, deps) {
     const board = deps.loadBoard();
     const log = $('<div>', { class: 'sidekick-log' });
     const note = $('<p>', { class: 'sidekick-note', hidden: true });
+
+    // The board is the one surface whose body is a column that fills the panel:
+    // the log takes the height she sized and the composer stays at the bottom.
+    body.addClass('sidekick-pane-board');
 
     if (board.turns.length === 0) {
         log.append($('<p>', { class: 'sidekick-pane-empty' })

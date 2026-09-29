@@ -140,27 +140,82 @@
     color: var(--sidekick-muted);
     font-family: monospace;
     white-space: pre-wrap;
+    /* A path has no spaces to wrap at, and the panel can now be sized narrower
+       than one. */
+    overflow-wrap: anywhere;
 }
 
-/* The floating pane a surface opens into. */
+/* The floating window a surface opens into. Its place and size are inline, from
+   the stored geometry; the box here only says how the frame lays out. The band
+   stays under SillyTavern's own layers (popups at 10000, streaming at 9000) and
+   above the chat form: a window she can leave over ST's dialogs is a bug. */
 .sidekick-launcher-panel {
     position: fixed;
     z-index: 2998;
-    width: 340px;
-    max-height: 60vh;
-    overflow: auto;
-    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+    /* The bottom gutter is the grip's: it is 16px tall, so the body ends above
+       it and the grip never sits over a control (the board's Send, say). */
+    padding: 12px 12px 16px;
     border: 1px solid var(--sidekick-line);
     border-radius: var(--sidekick-radius);
     background: var(--sidekick-bg);
     color: var(--sidekick-fg);
 }
 
+.sidekick-launcher-panel[hidden] {
+    display: none;
+}
+
+/* The whole strip is the grab handle, so it is not a scroll region. */
 .sidekick-pane-head {
     display: flex;
+    flex: none;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
+    cursor: move;
+    user-select: none;
+    /* The drag is this module's own gesture; a touch-drag must not scroll the
+       chat out from under the press. */
+    touch-action: none;
+}
+
+/* The body takes what the head leaves and scrolls inside it. min-height: 0 is
+   what lets a flex child shrink below its content instead of stretching the
+   frame past the size she chose. */
+.sidekick-pane-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* The board's body is a column: the log fills it, the composer stays below. */
+.sidekick-pane-board {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* One resize grip, bottom-right: two hairline strokes, no accent. */
+.sidekick-pane-grip {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    touch-action: none;
+    background: linear-gradient(
+        135deg,
+        transparent 0 55%,
+        var(--sidekick-muted) 55% 62%,
+        transparent 62% 76%,
+        var(--sidekick-muted) 76% 83%,
+        transparent 83%
+    );
 }
 
 .sidekick-pane-close {
@@ -249,9 +304,15 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 50vh;
+    flex: 1 1 0;
+    min-height: 0;
     margin-bottom: 8px;
     overflow-y: auto;
+}
+
+.sidekick-pane-board > .sidekick-note,
+.sidekick-pane-board > .sidekick-composer {
+    flex: none;
 }
 
 .sidekick-turn {

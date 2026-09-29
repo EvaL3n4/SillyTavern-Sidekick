@@ -10,7 +10,9 @@ import {
     clampSize,
     defaultGeometry,
     launcherKey,
+    movePanel,
     readGeometry,
+    resizePanel,
     writeGeometry,
 } from '../src/launcher.js';
 
@@ -124,6 +126,46 @@ describe('clampSize', () => {
 
     it('uses the panel minimum and its own viewport when the caller supplies neither', () => {
         assert.deepEqual(clampSize(100, 100), { w: 280, h: 200 });
+    });
+});
+
+describe('movePanel', () => {
+    const panel = { x: 400, y: 200, w: 340, h: 420 };
+
+    it('moves the panel by the drag and leaves its size alone', () => {
+        assert.deepEqual(movePanel(panel, 50, -30, VIEWPORT), { x: 450, y: 170, w: 340, h: 420 });
+    });
+
+    it('stops the panel at the viewport edges by its own size, not the launcher\'s', () => {
+        assert.deepEqual(movePanel(panel, 5000, 5000, VIEWPORT), { x: 940, y: 380, w: 340, h: 420 });
+        assert.deepEqual(movePanel(panel, -5000, -5000, VIEWPORT), { x: 0, y: 0, w: 340, h: 420 });
+    });
+});
+
+describe('resizePanel', () => {
+    const panel = { x: 400, y: 200, w: 340, h: 420 };
+
+    it('grows and shrinks from the bottom-right, holding the top-left corner', () => {
+        assert.deepEqual(resizePanel(panel, 60, -40, VIEWPORT), { x: 400, y: 200, w: 400, h: 380 });
+    });
+
+    it('never shrinks below the minimum', () => {
+        assert.deepEqual(resizePanel(panel, -5000, -5000, VIEWPORT), { x: 400, y: 200, w: 280, h: 200 });
+    });
+
+    it('stops at the viewport edge the corner leaves room for, not at the viewport size', () => {
+        // 1280 - 400 and 800 - 200: the grip stays on screen, where it can be
+        // dragged back.
+        assert.deepEqual(resizePanel(panel, 5000, 5000, VIEWPORT), { x: 400, y: 200, w: 880, h: 600 });
+    });
+
+    it('keeps the panel inside a viewport too small for the minimum', () => {
+        const tight = { x: 0, y: 0, w: 280, h: 200 };
+        assert.deepEqual(resizePanel(tight, 100, 100, { width: 240, height: 150 }), { x: 0, y: 0, w: 240, h: 150 });
+    });
+
+    it('reads a viewport it cannot use as the minimum rather than throwing', () => {
+        assert.deepEqual(resizePanel(panel, 60, 60, undefined), { x: 400, y: 200, w: 280, h: 200 });
     });
 });
 
