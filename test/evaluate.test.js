@@ -8,8 +8,10 @@ import {
     SCENE_WINDOW,
     buildPrompt,
     matchesSchema,
+    runEvaluation,
     runGeneration,
     sceneWindow,
+    startEvaluation,
     toPendingChange,
     validateProposals,
 } from '../src/evaluate.js';
@@ -532,5 +534,190 @@ describe('toPendingChange', () => {
 
         assert.deepEqual(entry.evidence, proposal().evidence);
         assert.equal(entry.changes.length, 1);
+    });
+});
+
+describe('runEvaluation', () => {
+    // A real exchange, so the chain tests can prove the prompt carries the chat
+    // rather than a render of it.
+    const chat = [mes('Dungeon Master', 'the hall is quiet', false), mes('Hero', 'she checks her gear')];
+
+    /** Records every call, like runGeneration's stub. */
+    function stub(response = JSON.stringify(scanPass([proposal()]))) {
+        const calls = [];
+        const generate = async (args) => {
+            calls.push(args);
+            return typeof response === 'function' ? response() : response;
+        };
+        generate.calls = calls;
+        return generate;
+    }
+
+    it('appends one queue entry per validated proposal and returns them', async () => {
+        // §6: the queue is where validated proposals wait for the DM, and the
+        // returned entries are what the slash command counts.
+        const state = ledger();
+        const generate = stub();
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.equal(queued.length, 1);
+        assert.equal(state.queue.length, 1);
+        assert.deepEqual(state.queue, queued);
+    });
+
+    it('generates exactly once, from the scene and the ledger', async () => {
+        const state = ledger();
+        const generate = stub();
+
+        await runEvaluation(state, { chat, generate });
+
+        assert.equal(generate.calls.length, 1);
+        assert.equal(generate.calls[0].jsonSchema, PROPOSAL_SCHEMA);
+        assert.match(generate.calls[0].prompt, /\[0\] Dungeon Master: the hall is quiet/);
+        assert.match(generate.calls[0].prompt, /\[1\] Hero: she checks her gear/);
+    });
+
+    it('never leaks the render into the pass', async () => {
+        // §3's one-way valve at the seam that matters: the whole chain could
+        // be handed the render and still validate, so the leak is pinned here
+        // and not only inside buildPrompt.
+        const state = ledger();
+        const generate = stub();
+
+        await runEvaluation(state, { chat, generate });
+
+        const { text } = renderDigest(state, { contextSize: 100000 });
+        assert.ok(text.length > 0, 'the fixture must actually render something');
+        for (const sentence of text.split(/[.\n]+/)) {
+            const trimmed = sentence.trim();
+            if (trimmed.length > 12) {
+                assert.ok(!generate.calls[0].prompt.includes(trimmed),
+                    `the pass leaked a render line: ${trimmed}`);
+            }
+        }
+    });
+
+    it('makes no pass at all for an unwritten ledger', async () => {
+        const generate = stub();
+
+        const queued = await runEvaluation(null, { chat, generate });
+
+        assert.deepEqual(queued, []);
+        assert.equal(generate.calls.length, 0);
+    });
+
+    it('refuses to run without a generator', async () => {
+        // wiring, not a failed pass: a missing generateRaw is our bug, and it
+        // must throw rather than masquerade as a scan that found nothing
+        await assert.rejects(runEvaluation(ledger(), { chat }), /needs a generation function/);
+    });
+
+    it('queues nothing when the generation is rejected', async () => {
+        // a backend that refuses is a pass that yielded nothing, and §3's
+        // silence covers it: no console noise mid-session
+        const state = ledger();
+        const generate = async () => {
+            throw new Error('the backend said no');
+        };
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.deepEqual(queued, []);
+        assert.equal(state.queue.length, 0);
+    });
+
+    it('queues nothing when the response cannot be parsed', async () => {
+        const state = ledger();
+
+        const queued = await runEvaluation(state, { chat, generate: () => 'not json at all' });
+
+        assert.deepEqual(queued, []);
+        assert.equal(state.queue.length, 0);
+    });
+
+    it('queues nothing when the pass does not validate', async () => {
+        // validateProposals voids the whole pass; this is where that silence
+        // reaches the queue
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal({ summary: '  ' })])));
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.deepEqual(queued, []);
+        assert.equal(state.queue.length, 0);
+    });
+
+    it("continues the queue's id counter rather than its length", async () => {
+        // §3's rulings cite these ids, so the counter outlives the queue's
+        // length: length alone re-spends an id a dismissed entry already
+        // used, and a module counter resets on a reload the queue does not
+        const state = ledger();
+        state.queue.push(toPendingChange(proposal(), { counter: 7, now: 1 }));
+        const generate = stub();
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.ok(queued[0].id.endsWith('-8'), queued[0].id);
+    });
+
+    it('numbers two proposals from one pass distinctly', async () => {
+        const state = ledger();
+        const generate = stub(JSON.stringify(scanPass([proposal(), proposal({ summary: 'a second thing' })])));
+
+        const queued = await runEvaluation(state, { chat, generate });
+
+        assert.notEqual(queued[0].id, queued[1].id);
+        assert.ok(queued[1].id.endsWith('-1'), queued[1].id);
+    });
+});
+
+describe('startEvaluation', () => {
+    /** A generation held open until the test releases it. */
+    function deferred(value = JSON.stringify(scanPass([proposal()]))) {
+        let release;
+        const generate = () => new Promise((resolve) => {
+            release = () => resolve(value);
+        });
+        return { generate, release: () => release() };
+    }
+
+    it('drops a trigger that arrives while a pass is running', async () => {
+        // §7's overlap rule, guarding on the pass itself because a quiet
+        // pass emits no end event to listen for; the next tick costs nothing
+        // the ledger lacks
+        const running = deferred();
+        const started = startEvaluation(ledger(), { generate: running.generate });
+
+        assert.equal(startEvaluation(ledger(), { generate: deferred().generate }), null);
+
+        running.release();
+        assert.equal((await started).length, 1);
+    });
+
+    it("leaves the dropped trigger's ledger alone", async () => {
+        const running = deferred();
+        const started = startEvaluation(ledger(), { generate: running.generate });
+        const dropped = ledger();
+
+        assert.equal(startEvaluation(dropped, { generate: deferred().generate }), null);
+
+        running.release();
+        await started;
+        assert.equal(dropped.queue.length, 0);
+    });
+
+    it('starts again once the pass before it has settled', async () => {
+        const running = deferred();
+        const first = startEvaluation(ledger(), { generate: running.generate });
+        running.release();
+        await first;
+
+        const next = deferred();
+        const started = startEvaluation(ledger(), { generate: next.generate });
+        assert.notEqual(started, null);
+
+        next.release();
+        assert.equal((await started).length, 1);
     });
 });

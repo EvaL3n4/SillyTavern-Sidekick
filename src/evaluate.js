@@ -450,15 +450,115 @@ export async function runGeneration(prompt, schema, { generate } = {}) {
         throw new Error('Sidekick: the scan returned something that is not JSON');
     }
 }
+
 /**
- * Runs one evaluation pass. Not implemented yet—the prompt and validation
- * against PROPOSAL_SCHEMA are the next build.
+ * The queue's next id counter, read off the entries already in it.
  *
- * @returns {Promise<object[]>} proposals for the review queue
+ * §6's ids outlive the queue's length: dismissing an entry shifts every later
+ * id onto one already used, so `queue.length` cannot be the counter, and the
+ * module counter resets on a page reload while the queue does not. The counter
+ * rides the id we already persist, so keeping it safe costs nothing new in the
+ * ledger. An unparseable id (a hand-edited chatMetadata) counts as nothing and
+ * loses to the highest real one.
+ *
+ * @param {object[]} queue the ledger's current queue (§6 PendingChange[])
+ * @returns {number} the next counter, starting again at 0 for an empty queue
  */
-export async function runEvaluation(state) {
+function nextQueueCounter(queue) {
+    const highest = queue.reduce((highest, entry) => {
+        const counter = Number.parseInt(String(entry?.id ?? '').split('-').at(-1), 10);
+        return Number.isInteger(counter) && counter > highest ? counter : highest;
+    }, -1);
+    return highest + 1;
+}
+
+/**
+ * §3: one pass, end to end—scene window, prompt, generation, validation,
+ * assembly. The chain this module is made of, composed where the DM's trigger
+ * lands.
+ *
+ * §3's silence rule is the operative one. A pass that fails—a rejected
+ * generation, an unparseable response, a non-conforming one—yields nothing
+ * and logs nothing, because a backend that hiccups mid-session should not fill
+ * the console. That covers everything that can go wrong *in a pass*. What
+ * cannot happen in a pass—a missing generator, a bug in our own chain—
+ * throws, so it cannot pass for a quiet failure; the caller logs it once.
+ *
+ * Persistence stays the caller's. This appends to the queue on the state it is
+ * handed and returns what it appended, because §6's chatMetadata read and write
+ * are index.js's (bindState), and a module that writes metadata cannot be
+ * tested under node --test.
+ *
+ * @param {object|null} state a SidekickState (§6)
+ * @param {object} deps
+ * @param {object[]} [deps.chat] the chat as SillyTavern holds it
+ * @param {Function} [deps.generate] generateRaw, resolved in index.js
+ * @returns {Promise<object[]>} the PendingChange entries appended to
+ * state.queue, or [] when the pass yielded nothing (§3's silent no-op)
+ * @throws {Error} when the caller wired the pass without a generator
+ */
+export async function runEvaluation(state, { chat = [], generate } = {}) {
     if (!hasState(state)) {
         return [];
     }
-    throw new Error('Sidekick: the evaluation scan is not implemented yet');
+
+    if (typeof generate !== 'function') {
+        throw new Error('Sidekick: runEvaluation needs a generation function');
+    }
+
+    // The one-way valve in force: the prompt is built from state fields and the
+    // scene window, never from the render.
+    const prompt = buildPrompt(state, sceneWindow(chat));
+
+    let response;
+    try {
+        response = await runGeneration(prompt, PROPOSAL_SCHEMA, { generate });
+    } catch {
+        // A failed pass is a scan that yielded nothing: the backend refused,
+        // the request aborted, or what came back could not be read as a
+        // proposal. §3 makes that a silent no-op—see validateProposals for
+        // why silence is the strict reading.
+        return [];
+    }
+
+    const proposals = validateProposals(response);
+    if (proposals.length === 0) {
+        return [];
+    }
+
+    let counter = nextQueueCounter(state.queue);
+    const queued = proposals.map((proposal) => toPendingChange(proposal, { counter: counter++ }));
+    state.queue.push(...queued);
+    return queued;
+}
+
+let inFlight = null;
+
+/**
+ * Starts a pass unless one is already running.
+ *
+ * §7 names GENERATION_ENDED as the overlap guard and a quiet pass cannot use
+ * it: that event is emitted from hideStopButton (script.js:3510), inside
+ * interactive generations only, while this scan's pass is generateRaw's quiet
+ * call, which emits nothing when it ends. A listener would then be released
+ * by the DM's next reply rather than by the pass it guards.
+ *
+ * So the guard is the pass itself. A trigger arriving while one is in flight is
+ * dropped—§3's cadence is a tick, not a queue of scans, and the next tick costs
+ * nothing the ledger lacks. The slot frees when the in-flight promise settles,
+ * the only completion signal the quiet path has.
+ *
+ * @param {object|null} state a SidekickState (§6)
+ * @param {object} deps as runEvaluation's
+ * @returns {Promise<object[]>|null} the queued entries, null when dropped
+ */
+export function startEvaluation(state, deps) {
+    if (inFlight) {
+        return null;
+    }
+
+    inFlight = runEvaluation(state, deps).finally(() => {
+        inFlight = null;
+    });
+    return inFlight;
 }

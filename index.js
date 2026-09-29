@@ -7,7 +7,7 @@
  */
 import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { renderDigest } from './src/grammar.js';
-import { runEvaluation, shouldEvaluate } from './src/evaluate.js';
+import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
 import { mountSettings, mountFab } from './src/ui.js';
 import { loadState } from './src/state.js';
 
@@ -58,6 +58,35 @@ function previewDigest() {
     toastr.info(`Digest rendered — ${tokens} tokens. See the console.`);
 }
 
+/**
+ * Runs a scan wherever it was triggered from. §3's silence rule ends here
+ * rather than inside the pass: everything that can fail in a pass already
+ * resolved to [], so what reaches this catch is our own wiring, and that logs
+ * once instead of dying inside a fire-and-forget call.
+ *
+ * A dropped trigger—one that arrived while a pass was already running—returns
+ * null, so the slash command stays quiet rather than reporting a zero it did
+ * not produce. The queue is persisted only when something was added.
+ */
+async function evaluateNow(state) {
+    const { chat, generateRaw } = context();
+    const started = startEvaluation(state, { chat, generate: generateRaw });
+    if (!started) {
+        return null;
+    }
+
+    try {
+        const queued = await started;
+        if (queued.length > 0) {
+            await persistState(state);
+        }
+        return queued;
+    } catch (error) {
+        console.error('[Sidekick] evaluation pass failed', error);
+        return null;
+    }
+}
+
 function registerSlashCommands() {
     const { SlashCommandParser, SlashCommand, SlashCommandArgument, ARGUMENT_TYPE } = context();
 
@@ -70,8 +99,10 @@ function registerSlashCommands() {
                 return '';
             }
 
-            const proposals = await runEvaluation(readState());
-            toastr.info(`Scan complete — ${proposals.length} proposal(s) queued.`);
+            const queued = await evaluateNow(readState());
+            if (queued) {
+                toastr.info(`Scan complete—${queued.length} proposal(s) queued.`);
+            }
             return '';
         },
         helpString: 'Sidekick. <code>/hero evaluate</code> runs a pass on demand; '
@@ -101,7 +132,7 @@ function onMessageReceived() {
     const cadence = state.settings?.evaluationCadence;
     if (shouldEvaluate(messagesSince, cadence)) {
         messagesSince = 0;
-        void runEvaluation(state);
+        void evaluateNow(state);
     }
 }
 

@@ -67,8 +67,9 @@ markdown-linted before anything lands.
 ## Status
 
 The scaffold is landed. `src/state.js` and `src/grammar.js` are complete and tested.
-The evaluator scan is the next build—`runEvaluation` currently throws rather than
-pretending to work.
+The evaluator scan's chain is complete and tested—scene window, prompt,
+generation, validation, queue assembly—and `index.js` wires it to the cadence and
+the slash command. The review queue that applies a queued proposal is next.
 
 ## License
 

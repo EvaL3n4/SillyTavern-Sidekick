@@ -289,7 +289,9 @@ sheet, review queue, board—sits behind a FAB; a surface that waits for a click
 surface that gets opened late.
 
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind),
-`GENERATION_ENDED` (avoid overlapping quiet passes), `APP_READY` (setup). Slash commands
+`APP_READY` (setup). Overlapping scans are guarded by the in-flight pass itself,
+because a quiet generation emits no end event—`GENERATION_ENDED` fires only for
+interactive ones. Slash commands
 via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on demand,
 `/hero digest preview` renders the digest without generating.
 
