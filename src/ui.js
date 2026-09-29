@@ -38,17 +38,158 @@ export function registerSurface(id, render) {
     surfaceRenderers.set(id, render);
 }
 
+/** The drawer's live controls, and the §6 settings field each one writes. */
+const SETTING_FIELDS = [
+    { selector: '#sidekick_cadence', setting: 'evaluationCadence' },
+    { selector: '#sidekick_budget', setting: 'digestBudgetTokens' },
+];
+
 /**
- * Renders the settings template into the extensions panel.
+ * The value a settings input commits, or null when it must not commit at all.
+ *
+ * A drawer that clamps a typo in silence, or ignores one, is the defect this
+ * replaces: the DM would see the number she typed and believe it is the number
+ * that runs. Refusing keeps every commit visible as either a stored setting or
+ * a note naming the range.
+ *
+ * @param {string|number} raw what the input holds now
+ * @param {{min?: number, max?: number}} [bounds] the input's own min/max
+ * @returns {number|null} the setting to store, or null to refuse the commit
+ */
+export function committedSetting(raw, bounds = {}) {
+    const { min, max } = bounds;
+    const value = Number(String(raw ?? '').trim());
+    if (!Number.isInteger(value)) {
+        return null;
+    }
+    if (Number.isFinite(min) && value < min) {
+        return null;
+    }
+    if (Number.isFinite(max) && value > max) {
+        return null;
+    }
+    return value;
+}
+
+/**
+ * The words a settings input is introduced by, when it must be named.
+ */
+function settingLabel($input) {
+    const text = $input.closest('label').find('span').first().text().trim();
+    return text || $input.attr('id') || 'That setting';
+}
+
+/**
+ * Renders the settings template into the extensions panel, then makes its two
+ * live controls real.
+ *
+ * Both settings are per-chat by §6's hygiene line, so the drawer reads and
+ * writes exactly what already runs: the cadence ticker reads
+ * state.settings.evaluationCadence on every message, and the digest render reads
+ * state.settings.digestBudgetTokens on every generation. CHAT_CHANGED refills
+ * the inputs, because the panel outlives the chat it was opened in and showing
+ * one chat's cadence while another is open is the same lie in a quieter voice.
+ *
  * @param {object} options
  * @param {string} options.folder extension folder, e.g. 'third-party/Sidekick'
  * @param {() => object} options.context getContext
+ * @param {() => object|null} options.getState reads this chat's state
+ * @param {(state: object) => Promise<void>} options.persist writes this chat's state
  * @returns {Promise<void>}
  */
-export async function mountSettings({ folder, context }) {
-    const { renderExtensionTemplateAsync } = context();
+export async function mountSettings({ folder, context, getState, persist }) {
+    if ($('.sidekick-settings').length > 0) {
+        return;
+    }
+
+    const { renderExtensionTemplateAsync, eventSource, event_types } = context();
     const html = await renderExtensionTemplateAsync(folder, 'settings', {});
-    $('#extensions_settings2').append(html);
+    const $drawer = $(html);
+    $('#extensions_settings2').append($drawer);
+
+    const $note = $drawer.find('#sidekick-settings-note').hide();
+    const note = (text) => {
+        if (text) {
+            $note.text(text).show();
+            return;
+        }
+        $note.hide();
+    };
+
+    const inputs = SETTING_FIELDS.map(({ selector, setting }) => ({
+        setting,
+        $input: $drawer.find(selector),
+    })).filter((entry) => entry.$input.length > 0);
+
+    /** The draft in the template, there for a chat that holds no setting yet. */
+    const declared = ($input) => $input.attr('value');
+
+    /** What the active chat has committed, read from the store, not the DOM. */
+    const committed = (entry, state) =>
+        state?.settings?.[entry.setting] ?? declared(entry.$input);
+
+    const fill = () => {
+        const state = getState();
+        for (const entry of inputs) {
+            entry.$input.val(committed(entry, state));
+        }
+    };
+
+    const save = async (entry) => {
+        const { $input, setting } = entry;
+        const state = getState();
+        const value = committedSetting($input.val(), {
+            min: Number($input.attr('min')),
+            max: Number($input.attr('max')),
+        });
+
+        if (value === null) {
+            $input.val(committed(entry, state));
+            note(
+                `${settingLabel($input)} must be a whole number from ${$input.attr('min')} to ${$input.attr('max')}.`,
+            );
+            return;
+        }
+
+        if (value === Number(committed(entry, state))) {
+            note('');
+            return;
+        }
+
+        if (!state) {
+            $input.val(declared($input));
+            note('No chat is open, so there is no hero ledger to save this to.');
+            return;
+        }
+
+        // A state hand-mangled out of §6 can arrive without its settings; the
+        // ticker already reads through it, so the drawer can be the one that
+        // restores the object.
+        if (!state.settings || typeof state.settings !== 'object') {
+            state.settings = {};
+        }
+        state.settings[setting] = value;
+
+        try {
+            await persist(state);
+        } catch (error) {
+            // Never trust the object just written: read the store back and show
+            // the value it really holds.
+            const stored = getState()?.settings?.[setting];
+            $input.val(stored ?? declared($input));
+            note('That could not be saved—the console has the reason.');
+            console.error('[Sidekick] could not persist a settings change', error);
+            return;
+        }
+
+        note('Saved for this chat.');
+    };
+
+    for (const entry of inputs) {
+        entry.$input.on('change', () => void save(entry));
+    }
+    eventSource.on(event_types.CHAT_CHANGED, fill);
+    fill();
 }
 
 /**

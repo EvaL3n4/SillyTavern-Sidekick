@@ -294,14 +294,16 @@ src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the FAB renders it
-src/ui.js          FAB menu: hero sheet, review queue, board, run a scan; drawer = settings;
-                   the board's surface applies a change on the DM's click, not on generation
+src/ui.js          FAB menu: hero sheet, review queue, board, run a scan; drawer = the
+                   two live settings; the board's surface applies a change on the DM's
+                   click, not on generation
 style.css          near-mono palette + single warm accent
 ```
 
-The extensions drawer holds settings only. Everything the DM touches during play—hero
-sheet, review queue, board—sits behind a FAB; a surface that waits for a click is a
-surface that gets opened late.
+The extensions drawer holds settings only—cadence and digest budget, both per chat
+by §6's hygiene line, both writing the state the scan and the digest render already
+read. Everything the DM touches during play—hero sheet, review queue, board—sits
+behind a FAB; a surface that waits for a click is a surface that gets opened late.
 
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind, citation
 re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlapping scans

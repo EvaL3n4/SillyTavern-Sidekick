@@ -324,7 +324,14 @@ async function onAppReady() {
     eventSource.on(event_types.MESSAGE_DELETED, onCitationsStale);
     eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
 
-    await mountSettings({ folder: EXTENSION_FOLDER, context });
+    // The drawer's two live controls are per-chat by §6, so they go through the
+    // same state the scan and the digest render already read.
+    await mountSettings({
+        folder: EXTENSION_FOLDER,
+        context,
+        getState: readState,
+        persist: persistState,
+    });
     mountFab({ onScan: () => void scanOnDemand() });
     mountQueue({ getState: readState, persist: persistState });
     mountSheet({ getState: readState });

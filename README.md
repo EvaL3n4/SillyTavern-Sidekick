@@ -63,7 +63,7 @@ markdown-linted before anything lands.
 | `src/board-prompt.js` | The board's prose, in one file the DM edits herself |
 | `src/ui.js` | FAB menu and the hero sheet, review queue and board surfaces |
 | `style.css` | Near-mono palette with a single warm accent |
-| `settings.html` | Extensions-drawer template (`renderExtensionTemplateAsync`) |
+| `settings.html` | Extensions-drawer template: cadence and digest budget, both live |
 
 ## Status
 
@@ -78,7 +78,9 @@ Run a scan entry also tells the truth, in five messages rather than two: a dropp
 a pass that could not run, a clean zero, proposals filed, and proposals the chat never took.
 Citations survive deletion and re-roll, and the scan's evidence is fingerprinted at intake.
 Her rulings now render into the scan's prompt—the feedback half of §3—though
-ranking proposals by them is still §8.
+ranking proposals by them is still §8. The extensions drawer's two controls are
+real: cadence and digest budget write this chat's own settings, and the panel shows
+whichever chat is open.
 
 ## License
 
