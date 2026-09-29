@@ -263,6 +263,7 @@ interface PendingChange {
   summary: string;
   changes: { path: string; from: string; to: string }[];
   evidence: Citation[];                  // which scenes justified the change
+  source?: 'card';                       // rests on the character card, cites no scene
   status: 'pending' | 'applied' | 'dismissed';
   createdAt: number;
 }

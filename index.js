@@ -199,6 +199,7 @@ export async function saveBoardState(board, captured) {
  */
 async function evaluateNow(state) {
     const { chat, generateRaw, chatMetadata } = context();
+    const card = readCard();
     let failed = false;
     const passLog = {
         ...log,
@@ -212,7 +213,7 @@ async function evaluateNow(state) {
             log.warn(message, detail);
         },
     };
-    const started = startEvaluation(state, { chat, generate: generateRaw, log: passLog });
+    const started = startEvaluation(state, { chat, generate: generateRaw, log: passLog, card });
     if (!started) {
         return null;
     }
@@ -280,15 +281,10 @@ async function evaluateNow(state) {
 async function scanOnDemand() {
     const state = readState();
 
-    // A pass on a chat with no ledger returns before it generates anything, and
-    // that is not the same as a scan that read the scene and found nothing: the
-    // old wording told her the second while the first was true.
+    // No chat is open, so there is nothing for a pass to read. An empty ledger is
+    // not that: a scan on one begins the ledger from the card and the scene (§3).
     if (!state) {
         toastr.info('Open a chat first—a scan reads the chat that is open.');
-        return;
-    }
-    if (!hasState(state)) {
-        toastr.info('This chat has no hero ledger yet, so a scan has nothing to check the scene against.');
         return;
     }
 
@@ -327,10 +323,42 @@ async function scanOnDemand() {
     toastr.success(`Scan complete—${outcome.queued.length} proposal(s) queued.`);
 }
 
+/**
+ * The open character's card, for the scan that begins a ledger (§3). A group chat
+ * has no single card, so it reads as none and the pass reads the scene alone.
+ * Macros are expanded, so the model reads names and not {{char}}.
+ *
+ * @returns {{name: string, description: string, personality: string, scenario: string}|null}
+ */
+function readCard() {
+    const { characters, characterId, groupId, substituteParams } = context();
+    const character = groupId ? null : characters?.[characterId];
+    if (!character) {
+        return null;
+    }
+
+    const expand = (text) => {
+        const value = String(text ?? '');
+        try {
+            return typeof substituteParams === 'function' ? substituteParams(value) : value;
+        } catch {
+            return value;
+        }
+    };
+    return {
+        name: character.name ?? '',
+        description: expand(character.description ?? character.data?.description),
+        personality: expand(character.personality ?? character.data?.personality),
+        scenario: expand(character.scenario ?? character.data?.scenario),
+    };
+}
+
 /** Cadence ticker (§3): a fixed, configurable tick with a manual trigger on top. */
 function onMessageReceived() {
     const state = readState();
-    if (!state) {
+    // The first scan of an empty ledger is always hers to press (§3): a hero
+    // filed unasked every fifteen messages is noise.
+    if (!state || !hasState(state)) {
         return;
     }
 

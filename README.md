@@ -70,9 +70,11 @@ markdown-linted before anything lands.
 The scaffold is landed. `src/state.js` and `src/grammar.js` are complete and tested.
 The evaluator scan's chain is complete and tested—scene window, prompt,
 generation, validation, queue assembly—and `index.js` wires it to the cadence and
-the Queue tab's Run a scan control. The three surfaces are built: the hero sheet, the
-review queue that rules on a queued proposal, and the discussion board, which turns
-the DM's own thinking into a change through one click. A pass's failures name
+the Queue tab's Run a scan control. On a chat with no ledger that scan begins one
+from the character card and the scene, and she rules on each entry. The three
+surfaces are built: the hero sheet, the review queue that rules on a queued
+proposal, and the discussion board, which turns the DM's own thinking into a change
+through one click. A pass's failures name
 themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase.
 The Queue tab's Run a scan control also tells the truth, in five messages rather
 than two: a dropped trigger, a pass that could not run, a clean zero, proposals

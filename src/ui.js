@@ -854,16 +854,25 @@ function proposalBody(entry, deps) {
             .text(`${change.path}: ${change.from || '(nothing)'} → ${change.to}`));
     }
 
+    // A proposal that begins the ledger from the character card cites no message
+    // (§3), so it says where it came from where the evidence would be.
     const evidence = $('<div>', { class: 'sidekick-evidence' });
-    evidence.append($('<span>').text('evidence: '));
-    for (const citation of entry.evidence ?? []) {
-        // §6's locator, resolved where it is used: the index that was filed
-        // may have moved since, and the chat is read live rather than trusted.
-        const chip = resolveChip(citation);
-        if (chip?.dead) {
-            evidence.append(goneChip(chip.dead));
-        } else if (chip) {
-            evidence.append(jumpChip(String(chip.index), chip.index));
+    const cited = entry.evidence ?? [];
+    const fromCard = entry.source === 'card';
+    if (fromCard) {
+        evidence.append($('<span>').text('from the character card'));
+    }
+    if (!fromCard || cited.length > 0) {
+        evidence.append($('<span>').text(fromCard ? ' · evidence: ' : 'evidence: '));
+        for (const citation of cited) {
+            // §6's locator, resolved where it is used: the index that was filed
+            // may have moved since, and the chat is read live rather than trusted.
+            const chip = resolveChip(citation);
+            if (chip?.dead) {
+                evidence.append(goneChip(chip.dead));
+            } else if (chip) {
+                evidence.append(jumpChip(String(chip.index), chip.index));
+            }
         }
     }
     root.append(evidence);
