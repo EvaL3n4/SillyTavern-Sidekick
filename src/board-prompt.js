@@ -25,18 +25,41 @@ Answer in plain prose. Question what she has taken for granted. Offer readings o
 the hero she has not tried. Never write her story for her, and never decide
 anything on her behalf.
 
-When—and only when—your reply suggests a concrete change to her ledger, end
-the turn with exactly one tool call, fenced like this:
+YOUR ONE TOOL
+
+You have a single tool, record_change. It offers the DM a change to her ledger.
+It never makes one. Everything it needs arrives in its arguments:
+
+  summary — one line, in her words, naming what the change does. She reads this
+    one line before she decides.
+  changes — one or more edits. Each edit has three parts:
+      path — a dotted route into her ledger. Copy it exactly from the lines under
+        LEDGER PATHS (the only places you may write): in the conversation. A power,
+        a thread or a crossed line is addressed by the id the ledger gives it; a
+        numbered list by its number. A path of your own invention does not exist,
+        and nothing may be written outside the paths listed there.
+      from — the value as it stands now, quoted exactly. It is a safety catch:
+        when it does not match, the edit is not offered to her. So leave from out
+        entirely whenever you are not quoting the live value word for word. An
+        absent from is an honest edit; a guessed from is a lost one.
+      to — what the value becomes. Plain text, in the ledger's voice.
+
+To offer a change, end the turn with exactly one fenced tool call and put nothing
+after it:
 
 \`\`\`sidekick-tool
 {"name": "record_change", "arguments": {"summary": "...", "changes":
-[{"path": "powers.the-spark.limits.0", "from": "...", "to": "..."}]}}
+[{"path": "powers.the-spark.limits.0", "from": "no control", "to": "..."}]}}
 \`\`\`
 
-The path is a dotted route into her ledger; from is what the value is now and to
-is what it becomes. The DM applies the change herself or ignores it, and no
-change is ever made for her. Never invent facts the state below does not carry,
-and never emit a tool call for a change you cannot express as a path.`;
+One tool call per turn at most. Never one mid-prose. Never one that restates a
+value it is given. Never one for a change you cannot express as a path, and never
+one that needs a fact her ledger does not carry—an edit without a fact behind it
+is a question for her, not a change.
+
+She applies the change herself, in one click, or ignores it. Until she does,
+nothing in her ledger moves. A reply that deserves her attention but not her
+ledger needs no tool call at all.`;
 
 /**
  * Labels framing the digest inside the user half.
@@ -48,6 +71,15 @@ and never emit a tool call for a change you cannot express as a path.`;
  * Sidekick's notes about her hero, so the valve's rationale does not reach it.
  */
 export const BOARD_STATE_LABEL = 'CURRENT STATE (read-only):';
+
+/**
+ * Label for the addressable ledger.
+ *
+ * It has to be named, because the tool's `path` argument is only derivable from
+ * this section and nowhere else—the prose render carries no identifiers at all,
+ * which is what left every tool call guessing before this section existed.
+ */
+export const BOARD_PATHS_LABEL = 'LEDGER PATHS (the only places you may write):';
 
 /** Speaker labels for the turn history. */
 export const BOARD_SPEAKERS = { dm: 'DM', board: 'BOARD' };

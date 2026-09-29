@@ -8,12 +8,18 @@ import {
     boardContext,
     buildBoardPrompt,
     createBoard,
+    ledgerMap,
     parseToolCall,
     readBoard,
     runBoardTurn,
     BOARD_TOOL_NAME,
 } from '../src/board.js';
-import { BOARD_SPEAKERS, BOARD_STATE_LABEL, BOARD_SYSTEM_PROMPT } from '../src/board-prompt.js';
+import {
+    BOARD_PATHS_LABEL,
+    BOARD_SPEAKERS,
+    BOARD_STATE_LABEL,
+    BOARD_SYSTEM_PROMPT,
+} from '../src/board-prompt.js';
 import { ledger } from './fixtures.js';
 
 /** A reply that ends in a valid tool call. */
@@ -217,12 +223,55 @@ describe('boardContext', () => {
         assert.equal(boardContext(board, { limit: 2 }).length, 2);
     });
 });
+
+describe('ledgerMap', () => {
+    it('addresses a power by its id, the way a path is written', () => {
+        // The digest render names what a power does and never where it lives, so
+        // without this the path a tool call needs is not in the context at all.
+        const map = ledgerMap(ledger());
+
+        assert.match(map, /^powers\.the-spark\.capability = /m);
+        assert.match(map, /^powers\.the-spark\.limits\.0 = "no control"$/m);
+        assert.match(map, /^arc\.threads\.t1\.text = /m);
+    });
+
+    it('quotes each value so a from can be copied exactly', () => {
+        const map = ledgerMap(ledger());
+
+        assert.match(map, /^powers\.the-spark\.capability = "a blue-black force that wraps what she protects"$/m);
+        // an unwritten field is still addressable, and still visibly empty
+        assert.match(map, /^hero\.codename = ""$/m);
+    });
+
+    it('names the vocabulary a constrained field accepts', () => {
+        // `stage` cannot be guessed, and a guessed stage is a refused change.
+        const map = ledgerMap(ledger());
+
+        assert.match(map, /^# powers\.<id>\.stage accepts: new, settling$/m);
+    });
+
+    it('lists a plain list by its number, and a crossed line by index', () => {
+        const map = ledgerMap(ledger());
+
+        assert.match(map, /^arc\.pressures\.0\.text = "her family must not learn"$/m);
+        assert.match(map, /^arc\.pressures\.1\.text = "the council wants answers"$/m);
+        assert.match(map, /^arc\.linesCrossed\.0\.provides = "a stranger saw"$/m);
+    });
+
+    it('says nothing at all for a state that is not written', () => {
+        assert.equal(ledgerMap(null), '');
+        assert.equal(ledgerMap({}), '');
+    });
+});
 describe('buildBoardPrompt', () => {
     it('names the tool the DM can apply', () => {
         assert.equal(BOARD_TOOL_NAME, 'record_change');
     });
 
-    it('puts the digest in the user half, not the history', () => {
+    it('puts the digest and the addresses in the user half, not the history', () => {
+        // The digest is the state as prose; the ledger map is the same state as
+        // paths. A tool call names a path, and the prose holds none, so the map is
+        // not decoration—without it every path the board offers is invented.
         const board = createBoard();
         appendTurn(board, { role: 'dm', text: 'what now?', at: 1 });
 
@@ -233,6 +282,14 @@ describe('buildBoardPrompt', () => {
         assert.match(user, new RegExp(BOARD_STATE_LABEL.replace(/[()]/g, '\\$&')));
         assert.match(user, /CURRENT STATE \(read-only\):/);
         assert.match(user, /Hailey Kogami Green/);
+        assert.match(user, new RegExp(BOARD_PATHS_LABEL.replace(/[()]/g, '\\$&')));
+        assert.match(user, /powers\.the-spark\.limits\.0 = "no control"/);
+    });
+
+    it('points the prompt at the map it was given', () => {
+        // The instruction must name the section the addresses actually arrive in,
+        // or a model that reads carefully still cannot follow it.
+        assert.match(BOARD_SYSTEM_PROMPT, new RegExp(BOARD_PATHS_LABEL.replace(/[()]/g, '\\$&')));
     });
 
     it('labels whose line is whose', () => {
@@ -244,18 +301,32 @@ describe('buildBoardPrompt', () => {
         assert.match(user, new RegExp(`${BOARD_SPEAKERS.board}: she is holding something back\\.`));
         assert.doesNotMatch(user, /DM:/);
     });
-
     it('carries only the digest for an empty board', () => {
         const { user } = buildBoardPrompt(ledger(), createBoard());
 
         assert.match(user, new RegExp(`^${BOARD_STATE_LABEL.replace(/[()]/g, '\\$&')}`));
     });
 
-    it('describes the tool in the system prompt, fence and all', () => {
-        // the board takes no schema, so the prompt is the contract
+    it('describes the tool it asks for, fence and all', () => {
+        // The board takes no jsonSchema, so the system prompt is the entire
+        // contract. It has to name the tool, its arguments, and their meaning—
+        // a prompt that only says 'end with a tool call' leaves the model guessing
+        // at what the arguments are and what they do.
         assert.match(BOARD_SYSTEM_PROMPT, /```sidekick-tool/);
         assert.match(BOARD_SYSTEM_PROMPT, /record_change/);
+        assert.match(BOARD_SYSTEM_PROMPT, /summary/);
+        assert.match(BOARD_SYSTEM_PROMPT, /changes/);
+        // the three parts of an edit, each named rather than shown only as an example
+        assert.match(BOARD_SYSTEM_PROMPT, /\bpath\b/);
+        assert.match(BOARD_SYSTEM_PROMPT, /\bfrom\b/);
+        assert.match(BOARD_SYSTEM_PROMPT, /\bto\b/);
+        // the consent it is built on
         assert.match(BOARD_SYSTEM_PROMPT, /never decide/);
+        assert.match(BOARD_SYSTEM_PROMPT, /applies the change herself, in one click/);
+        assert.match(BOARD_SYSTEM_PROMPT, /One tool call per turn at most/);
+        // a from that does not match silently drops the change, so the prompt has
+        // to say when to leave it out rather than when to fill it in
+        assert.match(BOARD_SYSTEM_PROMPT, /leave from out/);
     });
 });
 

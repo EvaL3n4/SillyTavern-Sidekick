@@ -9,7 +9,7 @@
  * conversation itself is read and written by index.js, which owns context()—
  * nothing here touches the DOM, so the whole module stays under node --test.
  */
-import { renderDigest } from './grammar.js';
+import { hasState, renderDigest } from './grammar.js';
 
 
 export const BOARD_KEY = 'sidekick_board';
@@ -131,16 +131,80 @@ import {
     BOARD_SPEAKERS,
     BOARD_STATE_LABEL,
     BOARD_SYSTEM_PROMPT,
+    BOARD_PATHS_LABEL,
 } from './board-prompt.js';
 
 /**
- * Assembles one board turn's prompt.
+ * The ledger as addresses.
  *
- * The digest render goes in the `user` half, not the turn history, because it is
- * the state as it stands at turn time rather than something anyone said—and it
- * must go in at all. §7's one-way valve keeps the scan from reading Sidekick's
- * own output so a scan cannot grade itself; the board is the DM thinking in
- * Sidekick's notes about her hero, so the valve's rationale does not reach it.
+ * renderDigest is prose: it says what a power does, never where it lives. A tool
+ * call has to name a path, and the prose holds no path—the words `the-spark` and
+ * `arc.threads.t1` appear nowhere in the render, so without this the path in the
+ * system prompt's own example is un-derivable and every tool call is a guess. A
+ * guessed path is worse than useless: a wrong `from` silently drops the change
+ * and a wrong key segment throws.
+ *
+ * So the same state is rendered again, keyed the way applyProposal's paths are:
+ * array items by the id the ledger gives them, plain lists by their number. What
+ * is not listed is not addressable, which is the restriction the prompt relies on.
+ *
+ * @param {object|null} state a SidekickState (§6)
+ * @returns {string} `path = value` lines, one per addressable leaf
+ */
+export function ledgerMap(state) {
+    if (!hasState(state)) {
+        return '';
+    }
+
+    const lines = [];
+    const put = (path, value) => lines.push(`${path} = ${JSON.stringify(value ?? '')}`);
+
+    put('hero.name', state.hero.name);
+    put('hero.codename', state.hero.codename);
+    put('hero.statusQuo', state.hero.statusQuo);
+
+    for (const power of state.powers) {
+        const base = `powers.${power.id}`;
+        put(`${base}.name`, power.name);
+        put(`${base}.capability`, power.capability);
+        put(`${base}.stage`, power.stage);
+        power.limits.forEach((limit, i) => put(`${base}.limits.${i}`, limit));
+        power.costs.forEach((cost, i) => put(`${base}.costs.${i}`, cost));
+    }
+
+    put('arc.phase', state.arc.phase);
+    state.arc.threads.forEach((thread) => put(`arc.threads.${thread.id}.text`, thread.text));
+    state.arc.pressures.forEach((pressure, i) => put(`arc.pressures.${i}.text`, pressure.text));
+    state.arc.linesCrossed.forEach((crossed, i) => {
+        put(`arc.linesCrossed.${i}.line`, crossed.line);
+        put(`arc.linesCrossed.${i}.provides`, crossed.provides);
+        put(`arc.linesCrossed.${i}.cost`, crossed.cost);
+    });
+
+    // A vocabulary is a constraint rather than an address, so it rides a comment
+    // line: the prompt says only the listed lines may be written, and this is how
+    // a constrained field stays writable without being guessed at.
+    const stages = state.cosmology?.stageVocabulary ?? [];
+    if (stages.length > 0) {
+        lines.push(`# powers.<id>.stage accepts: ${stages.join(', ')}`);
+    }
+
+    return lines.join('\n');
+}
+
+/**
+ * Assembles one board turn's prompt.
+ * The state reaches the `user` half twice, and on purpose. The digest render is
+ * the state as prose—what a power does, never where it lives; it is the state as
+ * it stands at turn time rather than something anyone said, and it must go in at
+ * all. §7's one-way valve keeps the scan from reading Sidekick's own output so a
+ * scan cannot grade itself; the board is the DM thinking in Sidekick's notes about
+ * her hero, so the valve's rationale does not reach it.
+ *
+ * The second copy is ledgerMap, the state as addresses, because the tool call the
+ * system prompt asks for names a path and the prose render holds none. Without it
+ * every path is a guess: a wrong `from` drops the change and a wrong segment
+ * throws.
  *
  * @param {object} state the hero ledger
  * @param {{turns?: object[]}} board
@@ -153,7 +217,7 @@ export function buildBoardPrompt(state, board) {
 
     return {
         system: BOARD_SYSTEM_PROMPT,
-        user: [history, BOARD_STATE_LABEL, renderDigest(state).text]
+        user: [history, BOARD_STATE_LABEL, renderDigest(state).text, BOARD_PATHS_LABEL, ledgerMap(state)]
             .filter(Boolean)
             .join('\n\n'),
     };
