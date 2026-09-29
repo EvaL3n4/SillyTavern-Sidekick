@@ -11,35 +11,7 @@ import {
 } from '../src/grammar.js';
 import { DEFAULT_CADENCE, PROPOSAL_SCHEMA, shouldEvaluate } from '../src/evaluate.js';
 import { createState } from '../src/state.js';
-
-/**
- * The §5 worked ledger, reduced to shape: the spark, its limits and costs, one
- * thread, one hidden pressure, one line crossed, and an arc phase.
- */
-function hailey() {
-    return createState({
-        hero: { name: 'Hailey', codename: '', statusQuo: '' },
-        powers: [{
-            id: 'the-spark',
-            name: 'the Spark',
-            capability: 'a blue-black force that wraps what she protects',
-            limits: ['no control', 'unfocused it takes everything from the waist down', 'it answers before she asks'],
-            costs: ['cracked asphalt', 'witnesses'],
-            history: [],
-        }],
-        arc: {
-            phase: 'the first week of having something',
-            threads: [{ id: 't1', text: 'what fired the projectile', bornAt: 1, lastTouched: 1 }],
-            pressures: [{ text: 'her family must not learn', since: 1, denialCount: 0, hidden: true }],
-            linesCrossed: [{
-                line: 'public breakage',
-                provides: 'a stranger saw her do it',
-                cost: 'a witness',
-                msgId: 3,
-            }],
-        },
-    });
-}
+import { ledger, theSpark } from './fixtures.js';
 
 describe('estimateTokens', () => {
     it('grows with length and rounds up', () => {
@@ -76,7 +48,7 @@ describe('effectiveBudget', () => {
 
 describe('renderDigest', () => {
     it('renders the capability with its limits and costs intact', () => {
-        const { text, tokens } = renderDigest(hailey());
+        const { text, tokens } = renderDigest(ledger());
 
         assert.match(text, /a blue-black force that wraps what she protects/);
         assert.match(text, /no control/);
@@ -86,27 +58,57 @@ describe('renderDigest', () => {
     });
 
     it('renders shame as concealment rather than as an admission', () => {
-        const { text } = renderDigest(hailey());
+        const { text } = renderDigest(ledger());
 
         assert.match(text, /keeps her family must not learn out of the open/);
         assert.match(text, /the keeping costs her/);
     });
 
+    it('renders an open pressure as due and a hidden one as concealed', () => {
+        // the ledger fixture holds one of each, so both branches of the split
+        // have to render or the fixture has drifted again
+        const { text } = renderDigest(ledger());
+
+        assert.match(text, /What is due: the council wants answers/);
+        assert.match(text, /keeps her family must not learn out of the open/);
+    });
+
+    it('drops a blank limit rather than rendering a dangling clause', () => {
+        // list() filters falsy entries, so a half-filled limit from a partial
+        // edit must not leave "it: ." hanging in the render
+        const { text } = renderDigest(ledger({ powers: [{ ...theSpark(), limits: [''] }] }));
+
+        assert.match(text, /Hailey Kogami Green can one thing:/);
+        assert.doesNotMatch(text, /while she is doing it/);
+    });
+
+    it('renders a power that carries neither limits nor costs', () => {
+        // the false side of both gates: an early ledger has a capability only,
+        // and it must render rather than trailing empty clauses
+        const { text } = renderDigest(ledger({
+            powers: [{ id: 'p', name: 'P', capability: 'a first push', limits: [], costs: [] }],
+        }));
+
+        assert.match(text, /can one thing: a first push/);
+        assert.doesNotMatch(text, /while she is doing it/);
+        assert.doesNotMatch(text, /leaves a bill/);
+    });
+
     it('renders residue as what the line provided and what it cost', () => {
-        const { text } = renderDigest(hailey());
+        const { text } = renderDigest(ledger());
         assert.match(text, /public breakage/);
         assert.match(text, /a witness/);
     });
 
     it('compresses limits and costs before it touches the arc', () => {
-        const result = renderDigest(hailey(), { budget: 40 });
+        const result = renderDigest(ledger(), { budget: 40 });
 
         assert.ok(result.degraded.includes('capability'));
         assert.ok(result.degraded.indexOf('capability') < result.degraded.indexOf('arc'));
     });
 
     it('never drops the arc, even at an absurd budget', () => {
-        const result = renderDigest(hailey(), { budget: 1 });
+        const result = renderDigest(ledger(), { budget: 1 });
 
         assert.match(result.text, /the first week of having something/);
 
@@ -121,7 +123,7 @@ describe('renderDigest', () => {
     it('says nothing about itself', () => {
         // §4 rule 6: no meta-awareness. The render never acknowledges the
         // ledger it came from or the tool doing the rendering.
-        const { text } = renderDigest(hailey(), { budget: 1 });
+        const { text } = renderDigest(ledger(), { budget: 1 });
         const lowered = text.toLowerCase();
 
         for (const word of ['digest', 'state', 'ledger', 'sidekick', 'prompt', 'character', 'model']) {
@@ -131,7 +133,7 @@ describe('renderDigest', () => {
 
     it('stops short of resolving anything', () => {
         // §4 rule 4: it ends before the outcome, never at it.
-        const { text } = renderDigest(hailey());
+        const { text } = renderDigest(ledger());
         const lowered = text.toLowerCase();
 
         for (const word of ['catches', 'saves', 'she manages to', 'successfully']) {
@@ -146,7 +148,7 @@ describe('renderDigest', () => {
 
 describe('shouldSkip', () => {
     it('skips quiet generations even with a full ledger', () => {
-        assert.equal(shouldSkip({ type: 'quiet', state: hailey() }), true);
+        assert.equal(shouldSkip({ type: 'quiet', state: ledger() }), true);
     });
 
     it('skips sessions that have no state yet', () => {
@@ -155,7 +157,7 @@ describe('shouldSkip', () => {
     });
 
     it('does not skip a real generation with a ledger', () => {
-        assert.equal(shouldSkip({ type: 'regenerate', state: hailey() }), false);
+        assert.equal(shouldSkip({ type: 'regenerate', state: ledger() }), false);
     });
 });
 

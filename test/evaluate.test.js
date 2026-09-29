@@ -3,16 +3,17 @@ import { describe, it } from 'node:test';
 
 import { isDigestMessage } from '../src/inject.js';
 import { renderDigest } from '../src/grammar.js';
-import { PROPOSAL_SCHEMA, SCENE_WINDOW, buildPrompt, runGeneration, sceneWindow, validateProposals } from '../src/evaluate.js';
+import {
+    PROPOSAL_SCHEMA,
+    SCENE_WINDOW,
+    buildPrompt,
+    matchesSchema,
+    runGeneration,
+    sceneWindow,
+    validateProposals,
+} from '../src/evaluate.js';
 
-/** A plain chat message in the shape SillyTavern holds. */
-function mes(name, text = 'a line', isUser = true) {
-    return { is_user: isUser, name, mes: text };
-}
-
-function chatOf(count) {
-    return Array.from({ length: count }, (_, i) => mes('Hailey', `line ${i}`));
-}
+import { chatOf, ledger, mes, proposal, scanPass } from './fixtures.js';
 
 describe('isDigestMessage', () => {
     it('is true only for messages this extension inserted', () => {
@@ -104,32 +105,6 @@ describe('sceneWindow', () => {
  * A ledger rich enough that renderDigest produces real prose, so the
  * one-way-valve test has something distinctive to look for.
  */
-function ledger() {
-    return {
-        cosmology: {
-            sources: ['manifestation'],
-            stageVocabulary: ['new', 'settling'],
-            costVocabulary: ['strain', 'exposure'],
-            taboos: 'no one outside the program may know',
-        },
-        hero: { name: 'Hailey Kogami Green', codename: '', statusQuo: 'assumed unmanifested' },
-        powers: [{
-            id: 'the-spark',
-            name: 'the Spark',
-            capability: 'a blue-black force that wraps what she protects',
-            limits: ['no control', 'unfocused it takes everything from the waist down'],
-            costs: ['cracked asphalt', 'witnesses'],
-            stage: 'new',
-            history: [],
-        }],
-        arc: {
-            phase: 'the first week of having something',
-            threads: [{ id: 't1', text: 'what fired the projectile', bornAt: 1, lastTouched: 9 }],
-            pressures: [{ text: 'her family must not learn', since: 1, denialCount: 3, hidden: true }],
-            linesCrossed: [{ line: 'public breakage', provides: 'a stranger saw', cost: 'a witness', msgId: 3 }],
-        },
-    };
-}
 
 describe('buildPrompt', () => {
     const scene = sceneWindow([
@@ -321,15 +296,6 @@ describe('runGeneration', () => {
 });
 
 describe('validateProposals', () => {
-    /** A proposal that satisfies every rule the schema and the code express. */
-    function good(changes = [{ path: 'hero.status_quo', to: 'moved' }], evidence = [4]) {
-        return { summary: 'record the move', changes, evidence };
-    }
-
-    /** Wraps proposals in the response shape a pass returns. */
-    function pass(proposals) {
-        return { proposals };
-    }
     /**
      * A copy of a proposal with keys dropped, which is what a model forgets to
      * send. Copying first matters: the fixture is reused by later assertions.
@@ -343,13 +309,13 @@ describe('validateProposals', () => {
     }
 
     it('returns the proposals from a conforming pass', () => {
-        assert.deepEqual(validateProposals(pass([good()])), [good()]);
+        assert.deepEqual(validateProposals(scanPass([proposal()])), [proposal()]);
     });
 
     it('returns [] for an empty pass, which is a pass that found nothing', () => {
         // the prompt asks for {"proposals": []} when nothing qualifies, and that
         // is a legitimate answer rather than a failure
-        assert.deepEqual(validateProposals(pass([])), []);
+        assert.deepEqual(validateProposals(scanPass([])), []);
     });
 
     it('never throws, whatever it is handed', () => {
@@ -370,81 +336,82 @@ describe('validateProposals', () => {
     });
 
     it('rejects a proposal with no summary', () => {
-        assert.deepEqual(validateProposals(pass([withoutKeys(good(), 'summary')])), []);
+        assert.deepEqual(validateProposals(scanPass([withoutKeys(proposal(), 'summary')])), []);
     });
 
     it('rejects a proposal with no changes', () => {
-        assert.deepEqual(validateProposals(pass([withoutKeys(good(), 'changes')])), []);
+        assert.deepEqual(validateProposals(scanPass([withoutKeys(proposal(), 'changes')])), []);
     });
 
     it('rejects a summary that is not a string', () => {
-        assert.deepEqual(validateProposals(pass([{ ...good(), summary: 7 }])), []);
+        assert.deepEqual(validateProposals(scanPass([{ ...proposal(), summary: 7 }])), []);
     });
 
     it('rejects a change with no path', () => {
         const change = { to: 'moved' };
-        assert.deepEqual(validateProposals(pass([good([change])])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [change] })])), []);
     });
 
     it('rejects a change with no to', () => {
         const change = { path: 'hero.status_quo' };
-        assert.deepEqual(validateProposals(pass([good([change])])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [change] })])), []);
     });
 
     it('rejects a change whose path or to is not a string', () => {
-        assert.deepEqual(validateProposals(pass([good([{ path: 0, to: 'x' }])])), []);
-        assert.deepEqual(validateProposals(pass([good([{ path: 'a', to: 1 }])])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [{ path: 0, to: 'x' }] })])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [{ path: 'a', to: 1 }] })])), []);
     });
 
     it('rejects a change whose from is not a string', () => {
-        assert.deepEqual(validateProposals(pass([good([{ path: 'a', from: 2, to: 'x' }])])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [{ path: 'a', from: 2, to: 'x' }] })])), []);
     });
 
     it('accepts a change that carries no from at all', () => {
         // §6 marks from optional: an insert into an empty array has no prior
-        assert.deepEqual(validateProposals(pass([good([{ path: 'a', to: 'x' }])])),
-            [good([{ path: 'a', to: 'x' }])]);
+        const change = { path: 'a', to: 'x' };
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [change] })])),
+            [proposal({ changes: [change] })]);
     });
 
     it('rejects evidence that is not an array of integers', () => {
         for (const evidence of ['4', [4.5], [{}], [null], 4, {}]) {
-            assert.deepEqual(validateProposals(pass([good(undefined, evidence)])), [],
+            assert.deepEqual(validateProposals(scanPass([proposal({ evidence })])), [],
                 `accepted evidence ${JSON.stringify(evidence)}`);
         }
     });
 
     it('rejects a summary that is blank rather than merely short', () => {
         for (const summary of ['', '   ', '\t\n']) {
-            const proposal = { ...good(), summary };
-            assert.deepEqual(validateProposals(pass([proposal])), [], `accepted ${JSON.stringify(summary)}`);
+            const blank = { ...proposal(), summary };
+            assert.deepEqual(validateProposals(scanPass([blank])), [], `accepted ${JSON.stringify(summary)}`);
         }
     });
 
     it('rejects an empty changes array, which is schema-conforming and useless', () => {
-        assert.deepEqual(validateProposals(pass([good([])])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal({ changes: [] })])), []);
     });
 
     it('rejects a proposal with no evidence, because it cites no message', () => {
-        assert.deepEqual(validateProposals(pass([withoutKeys(good(), 'evidence')])), []);
+        assert.deepEqual(validateProposals(scanPass([withoutKeys(proposal(), 'evidence')])), []);
     });
 
     it('voids the whole pass when a single proposal is malformed', () => {
         // one malformed entry never reaches the per-item rules: the schema walk
         // rejects the array through .items first, so the good ones go with it
         const broken = { summary: 'no changes here' };
-        assert.deepEqual(validateProposals(pass([good(), broken, good()])), []);
+        assert.deepEqual(validateProposals(scanPass([proposal(), broken, proposal()])), []);
     });
 
     it('voids the whole pass when a single proposal is unusable', () => {
         // the rules the schema cannot express behave the same way: a blank
         // summary is schema-conforming, and still voids the pass
-        const blank = { ...good(), summary: '   ' };
-        const empty = { ...good(), changes: [] };
+        const blank = { ...proposal(), summary: '   ' };
+        const empty = { ...proposal(), changes: [] };
         const uncited = { summary: 'a move', changes: [{ path: 'a', to: 'b' }] };
 
-        for (const proposal of [blank, empty, uncited]) {
-            assert.deepEqual(validateProposals(pass([good(), proposal])), [],
-                `kept a pass holding ${JSON.stringify(proposal)}`);
+        for (const item of [blank, empty, uncited]) {
+            assert.deepEqual(validateProposals(scanPass([proposal(), item])), [],
+                `kept a pass holding ${JSON.stringify(item)}`);
         }
     });
 
@@ -456,5 +423,15 @@ describe('validateProposals', () => {
         const item = PROPOSAL_SCHEMA.value.properties.proposals.items;
         assert.ok(item.required.includes('summary'));
         assert.ok(item.required.includes('changes'));
+    });
+    it('treats a schema keyword it does not implement as a mismatch', () => {
+        // refusing a proposal is recoverable; half-checking one is not. A schema
+        // upgrade must not be able to loosen the gate by adding a keyword this
+        // walker would silently skip.
+        const expanded = structuredClone(PROPOSAL_SCHEMA.value);
+        expanded.properties.proposals.items.anyOf = [{}];
+
+        const item = { summary: 'anchored', changes: [{ path: 'a', to: 'b' }], evidence: [1] };
+        assert.equal(matchesSchema(item, expanded.properties.proposals.items), false);
     });
 });

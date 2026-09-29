@@ -13,7 +13,7 @@ import {
     setPath,
     pruneRulings,
 } from '../src/state.js';
-
+import { proposal, ruling, theSpark } from './fixtures.js';
 describe('createState', () => {
     it('starts at the current schema version with empty collections', () => {
         const state = createState();
@@ -23,6 +23,23 @@ describe('createState', () => {
         assert.deepEqual(state.rulings, []);
         assert.equal(state.settings.evaluationCadence, 15);
         assert.equal(state.settings.digestBudgetTokens, 200);
+    });
+
+    it('starts a corrupt version at the beginning rather than trusting it', () => {
+        // a non-integer version is not a schema we know, so it walks forward from
+        // zero instead of treating a junk value as current or unreadable
+        const state = migrate({ version: 'one', hero: { name: 'Hailey' } });
+
+        assert.equal(state.version, SCHEMA_VERSION);
+        assert.equal(state.hero.name, 'Hailey');
+    });
+
+    it('refuses to loop forever on a version it has no migration for', () => {
+        // the break in the walk is a guard, not decoration: a version below
+        // SCHEMA_VERSION whose step is missing must stop rather than spin
+        const state = migrate({ version: -1 });
+
+        assert.equal(state.version, -1);
     });
 
     it('accepts overrides without dropping sibling defaults', () => {
@@ -116,27 +133,21 @@ describe('paths', () => {
 });
 
 describe('applyProposal', () => {
-    const power = () => ({ id: 'the-spark', name: 'the Spark', capability: 'the force', limits: ['no control'], costs: [], history: [] });
-
+    /**
+     * The reference Spark, with costs emptied so the insert tests have a real
+     * empty array to write into.
+     */
     function seeded() {
-        const state = createState({ powers: [power()] });
-        return state;
+        return createState({ powers: [theSpark({ costs: [] })] });
     }
-
-    const proposal = {
-        origin: 'evaluation',
-        summary: 'the spark has a second limit',
-        evidence: [12, 14],
-        changes: [{ path: 'powers.the-spark.limits.0', from: 'no control', to: 'unfocused it takes everything from the waist down' }],
-    };
 
     it('applies a change and records provenance for it', () => {
         const state = seeded();
         const at = 1700000000000;
-        const [event] = applyProposal(state, proposal, { at });
+        const [event] = applyProposal(state, proposal(), { at });
 
         assert.equal(getPath(state, 'powers.the-spark.limits.0'), 'unfocused it takes everything from the waist down');
-        assert.equal(event.summary, proposal.summary);
+        assert.equal(event.summary, proposal().summary);
         assert.equal(event.origin, 'evaluation');
         assert.equal(event.at, at);
         assert.deepEqual(event.evidence, [12, 14]);
@@ -149,14 +160,14 @@ describe('applyProposal', () => {
 
     it('mirrors the event into the touched power history', () => {
         const state = seeded();
-        applyProposal(state, proposal, { at: 1 });
+        applyProposal(state, proposal(), { at: 1 });
         assert.equal(state.powers[0].history.length, 1);
         assert.equal(state.powers[0].history[0], state.history[0]);
     });
 
     it('does not mirror into a power the path never touched', () => {
         const state = createState({
-            powers: [power()],
+            powers: [theSpark()],
             arc: { phase: 'a', threads: [], pressures: [], linesCrossed: [] },
         });
         applyProposal(state, {
@@ -171,7 +182,7 @@ describe('applyProposal', () => {
         const state = seeded();
         setPath(state, 'powers.the-spark.limits.0', 'the DM reworded it');
 
-        const applied = applyProposal(state, proposal, { at: 1 });
+        const applied = applyProposal(state, proposal(), { at: 1 });
 
         assert.deepEqual(applied, []);
         assert.equal(getPath(state, 'powers.the-spark.limits.0'), 'the DM reworded it');
@@ -210,13 +221,15 @@ describe('applyProposal', () => {
 });
 
 describe('recordRuling', () => {
-    const ruling = (n) => ({
-        proposalId: `p${n}`,
-        summary: `proposal ${n}`,
-        action: 'applied',
-        at: n,
-    });
+    it('stores the ruling it is handed, whole', () => {
+        // the fixture carries the whole §6 shape; if the log dropped or
+        // reshaped a field here the review queue would lose the provenance
+        const state = createState();
 
+        recordRuling(state, ruling(1));
+
+        assert.deepEqual(state.rulings, [ruling(1)]);
+    });
     it('keeps the edit when the DM reworded one, and omits the key when they did not', () => {
         const state = createState();
 

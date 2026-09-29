@@ -73,11 +73,15 @@ function sections(state) {
                 const limits = level === 0 ? power.limits : power.limits?.slice(0, 1);
                 const costs = level === 0 ? power.costs : power.costs?.slice(0, 1);
                 const sentences = [`${hero} can one thing: ${power.capability}.`];
-                if (limits?.length) {
-                    sentences.push(`She feels what it will not do while she is doing it: ${list(limits)}.`);
+                // gate on what renders, not on the array: a limit whose text has been
+                // cleared to '' must drop its sentence rather than leave "it: ."
+                const limitsList = limits?.length ? list(limits) : '';
+                const costsList = costs?.length ? list(costs) : '';
+                if (limitsList) {
+                    sentences.push(`She feels what it will not do while she is doing it: ${limitsList}.`);
                 }
-                if (costs?.length) {
-                    sentences.push(`And it leaves a bill: ${list(costs)}.`);
+                if (costsList) {
+                    sentences.push(`And it leaves a bill: ${costsList}.`);
                 }
                 return sentences.join(' ');
             },

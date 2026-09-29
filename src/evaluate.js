@@ -234,7 +234,9 @@ function isObject(value) {
  * @param {object} schema a schema node in the supported draft-04 subset
  * @returns {boolean}
  */
-function matchesSchema(value, schema) {
+// Exported so the gate's edge cases can be tested directly: the same keywords
+// that make it strict are the ones a schema upgrade would use to weaken it.
+export function matchesSchema(value, schema) {
     if (!isObject(schema)) {
         return true; // nothing declared at this node, nothing to enforce
     }
