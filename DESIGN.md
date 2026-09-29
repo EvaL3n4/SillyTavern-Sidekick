@@ -316,7 +316,8 @@ index.js           entry point; activates on APP_READY
 src/state.js       state load/migrate/save, provenance-gated mutations, ruling log
 src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
-src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
+src/evaluate.js    evaluator jsonSchema + validation, cadence policy
+src/scan-prompt.js the scan's prose, in one file the DM edits herself
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the panel

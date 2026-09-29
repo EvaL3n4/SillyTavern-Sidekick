@@ -58,7 +58,8 @@ markdown-linted before anything lands.
 | `src/state.js` | State load/migrate/save, provenance-gated mutations, ruling log |
 | `src/grammar.js` | The digest renderer: state → lean prose (the dosage rules) |
 | `src/inject.js` | The `generate_interceptor` and budget policy |
-| `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence policy |
+| `src/evaluate.js` | Evaluator jsonSchema, validation, cadence policy |
+| `src/scan-prompt.js` | The scan's prose, in one file the DM edits herself |
 | `src/board.js` | The board's store, prompt and tool-call protocol |
 | `src/board-prompt.js` | The board's prose, in one file the DM edits herself |
 | `src/ui.js` | The button and panel: tabs for the Sheet, Queue and Board surfaces |

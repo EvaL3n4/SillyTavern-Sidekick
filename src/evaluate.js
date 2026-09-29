@@ -10,6 +10,12 @@
 import { isDigestMessage } from './inject.js';
 import { fingerprintCitations } from './citations.js';
 import { estimateTokens, hasState } from './grammar.js';
+import {
+    SCAN_SYSTEM_PROMPT,
+    SCAN_BEGIN_PROMPT,
+    SCAN_HEADINGS,
+    SCAN_REPLY_PROMPT,
+} from './scan-prompt.js';
 
 /** §3: fixed, configurable cadence. Matches LocalSettings.evaluationCadence. */
 export const DEFAULT_CADENCE = 15;
@@ -63,67 +69,6 @@ export function sceneWindow(chat, { limit = SCENE_WINDOW } = {}) {
         .filter((entry) => !isDigestMessage(entry.message));
     return readable.slice(Math.max(0, readable.length - size));
 }
-
-/**
- * §3: what the scan may propose, and what it may never propose. The schema
- * enforces the second half structurally--there is no field for what happens
- * next--so this has to aim the first half, or the model spends its budget
- * re-describing the scene instead of reading the ledger.
- *
- * §4's no-meta-awareness rule governs the *render*, not this prompt: the
- * scan's audience is the model, and naming the ledger is the point.
- */
-const SYSTEM_PROMPT = [
-    'You are the bookkeeping scan for a tabletop campaign ledger.',
-    '',
-    'You read a scene and the ledger it belongs to, and you propose state',
-    'changes only.',
-    '',
-    'You may propose:',
-    '- entries to write: a power, a thread, a pressure, or a line crossed',
-    '- threads to surface: one that has gone quiet, or one coming due',
-    '- pressures coming due: tolerance spent, denials accumulating',
-    '- phrasing for a turn the DM should record',
-    '',
-    'You never propose:',
-    '- story outcomes',
-    '- campaign direction',
-    '- opinions about what should happen next',
-    '- anything the scene did not justify',
-    '',
-    'Her recent rulings appear beside the scene. What she has kept tells you what',
-    'to propose again; what she has refused tells you what to stop offering; what',
-    'she has reworded tells you how to phrase it. The newest ruling is the most',
-    'current word on the ledger as it now stands.',
-    'Cite the chat message indices that justify each proposal. If nothing in the',
-    'scene justifies a change, propose nothing.',
-    '',
-    'Each change names one field by a dot path from the ledger root:',
-    '- hero.name, hero.codename, hero.statusQuo',
-    '- powers.<id>.name, .capability, .stage; powers.<id>.limits.<n>, .costs.<n>',
-    '- arc.phase; arc.threads.<id>.text; arc.pressures.<n>.text;',
-    '  arc.linesCrossed.<n>.line, .provides, .cost',
-    '<id> is a lowercase slug such as the-spark; <n> counts from 0. A new power or',
-    'thread comes into being when you write its first field under a new id, and',
-    'the next <n> of a list appends. "to" is the new value and is never empty.',
-    '"from" is exactly what the ledger holds at that path now, or "" for a field it',
-    'does not hold yet. For example, to add a limit to a power the ledger already',
-    'holds: {"path": "powers.the-spark.limits.0", "from": "", "to": "cannot aim it"}.',
-].join('\n');
-
-/**
- * §3, Beginning a ledger: what the pass is told when the ledger is empty. The
- * cosmology stays out on purpose: the ledger never invents a vocabulary.
- */
-const BEGIN_PROMPT = [
-    'The ledger is empty, so this pass begins it. Propose the hero (name, codename',
-    'if the card gives one, statusQuo) and the powers the character card describes:',
-    'each with what it does, what limits it and what it costs, in the card\'s own',
-    'words, whether or not the scene has shown the power yet. If the card names no',
-    'powers, propose none. Set "source": "card" on a proposal that rests on the',
-    'card rather than on a message, and cite message indices for the rest. Do not',
-    'propose a cosmology: the setting\'s vocabulary is hers to write.',
-].join('\n');
 
 /** §3: the card's share of the prompt, in tokens. It is read only while the ledger is empty. */
 export const CARD_PROMPT_BUDGET = 2000;
@@ -324,27 +269,26 @@ export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET, card =
     const entries = Array.isArray(scene) ? scene : [];
     const ledger = renderState(state);
     const feedback = renderRulings(state);
-    const ruled = feedback ? ['## What she has been ruling', '', feedback, ''] : [];
+    const ruled = feedback ? [SCAN_HEADINGS.rulings, '', feedback, ''] : [];
     const beginning = !hasState(state);
     const cardText = beginning ? renderCard(card) : '';
-    const carded = cardText ? ['## The character card', '', cardText, ''] : [];
-    const system = beginning ? `${SYSTEM_PROMPT}\n\n${BEGIN_PROMPT}` : SYSTEM_PROMPT;
+    const carded = cardText ? [SCAN_HEADINGS.card, '', cardText, ''] : [];
+    const system = beginning ? `${SCAN_SYSTEM_PROMPT}\n\n${SCAN_BEGIN_PROMPT}` : SCAN_SYSTEM_PROMPT;
     const userFor = (window) => [
-        '## The ledger',
+        SCAN_HEADINGS.ledger,
         '',
         ledger,
         '',
         ...ruled,
         '',
         ...carded,
-        '## The scene',
+        SCAN_HEADINGS.scene,
         '',
         renderScene(window),
         '',
-        '## What to return',
+        SCAN_HEADINGS.reply,
         '',
-        'Proposals as JSON. Only what the scene justifies; when nothing',
-        'qualifies, return {"proposals": []}.',
+        SCAN_REPLY_PROMPT,
     ].join('\n');
 
     const systemTokens = estimateTokens(system);
