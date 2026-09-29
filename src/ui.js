@@ -14,7 +14,7 @@ import { appendTurn } from './board.js';
  * @type {{id: string, label: string}[]}
  */
 const SURFACES = [
-    { id: 'hero', label: 'Hero sheet' },
+    { id: 'sheet', label: 'Hero sheet' },
     { id: 'queue', label: 'Review queue' },
     { id: 'board', label: 'Board' },
 ];
@@ -60,7 +60,7 @@ export async function mountSettings({ folder, context }) {
  * listener sees it.
  * @returns {void}
  */
-export function mountFab() {
+export function mountFab({ onScan } = {}) {
     if ($('.sidekick-fab').length > 0) {
         return;
     }
@@ -126,6 +126,22 @@ export function mountFab() {
         item.on('click', () => openSurface(surface));
         menu.append($('<li>').append(item));
     }
+
+    // The one thing the FAB does rather than shows: a scan on demand.
+    //
+    // It used to be a typed command, which is a completion-era affordance—nobody
+    // types to run a pass when the button is already in front of them. The cadence
+    // ticker stays the automatic path; this is the manual one.
+    const scan = $('<button>', {
+        type: 'button',
+        role: 'menuitem',
+        'data-action': 'scan',
+    }).text('Run a scan');
+    scan.on('click', () => {
+        setMenu(false);
+        onScan?.();
+    });
+    menu.append($('<li>').append(scan));
 
     button.on('click', () => setMenu(!menuOpen));
 

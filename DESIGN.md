@@ -289,8 +289,8 @@ src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live 
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/board.js       the board's store, prompt and tool-call protocol; the FAB renders it
-src/ui.js          FAB menu: hero sheet, review queue, board; drawer = settings; the board's
-                   surface applies a change to history on the DM's click, not on generation
+src/ui.js          FAB menu: hero sheet, review queue, board, run a scan; drawer = settings;
+                   the board's surface applies a change on the DM's click, not on generation
 style.css          near-mono palette + single warm accent
 ```
 
@@ -301,10 +301,8 @@ surface that gets opened late.
 Events used: `MESSAGE_RECEIVED` (cadence ticker), `CHAT_CHANGED` (state rebind, citation
 re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlapping scans
 are guarded by the in-flight pass itself, because a quiet generation emits no end event—
-`GENERATION_ENDED` fires only for
-interactive ones. Slash commands
-via `SlashCommandParser.addCommandObject`: `/hero evaluate` runs a pass on demand,
-`/hero digest preview` renders the digest without generating.
+`GENERATION_ENDED` fires only for interactive ones. A pass also runs on the DM's click:
+the FAB menu's Run a scan entry is the manual trigger, and no command is typed.
 
 ## 8. 1.0.0 scope / non-goals
 

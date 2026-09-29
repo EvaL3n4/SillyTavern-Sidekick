@@ -6,7 +6,6 @@
  * module's exports respectively.
  */
 import { createInterceptor, registerInterceptor } from './src/inject.js';
-import { renderDigest } from './src/grammar.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
 import { reanchorCitations } from './src/citations.js';
 import { mountSettings, mountFab, mountQueue, mountSheet, mountBoard } from './src/ui.js';
@@ -135,18 +134,6 @@ export async function saveBoardState(board, captured) {
         return false;
     }
 }
-/** `/hero digest` — renders and reports, generating nothing (§5). */
-function previewDigest() {
-    const state = readState();
-    if (!state) {
-        toastr.warning('No hero state in this chat yet');
-        return;
-    }
-
-    const { text, tokens } = renderDigest(state);
-    console.info(`[Sidekick] digest (${tokens} tokens)\n${text}`);
-    toastr.info(`Digest rendered — ${tokens} tokens. See the console.`);
-}
 
 /**
  * Runs a scan wherever it was triggered from. §3's silence rule ends here
@@ -198,43 +185,25 @@ async function evaluateNow(state) {
     return queued;
 }
 
-function registerSlashCommands() {
-    const { SlashCommandParser, SlashCommand, SlashCommandArgument, ARGUMENT_TYPE } = context();
+/**
+ * Runs a scan because the DM asked for one. The FAB's Run a scan entry is the
+ * only manual path now: a typed command is a completion-era affordance, and
+ * nobody types to run a pass when the button is already in front of them.
+ *
+ * The wording the command produced is kept, because it carries the one
+ * distinction that matters: null is a trigger the in-flight guard dropped, which
+ * is not the same as a pass that found nothing.
+ *
+ * @returns {Promise<void>}
+ */
+async function scanOnDemand() {
+    const queued = await evaluateNow(readState());
+    if (queued) {
+        toastr.info(`Scan complete—${queued.length} proposal(s) queued.`);
+        return;
+    }
 
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
-        name: 'hero',
-        callback: async (_namedArgs, unnamedArgs) => {
-            const mode = String(unnamedArgs?.[0] ?? 'evaluate').toLowerCase();
-            if (mode === 'digest' || mode === 'preview') {
-                previewDigest();
-                return '';
-            }
-
-            const queued = await evaluateNow(readState());
-            if (queued) {
-                toastr.info(`Scan complete—${queued.length} proposal(s) queued.`);
-            } else {
-                // null, not []: the in-flight guard dropped this trigger, which
-                // would otherwise be indistinguishable from a pass that found
-                // nothing at all.
-                toastr.info('A scan is already running—this trigger was dropped. Try again when it finishes.');
-            }
-            return '';
-        },
-        helpString: 'Sidekick. <code>/hero evaluate</code> runs a pass on demand; '
-            + '<code>/hero digest</code> renders the digest without generating.',
-        returns: 'the number of proposals queued',
-        namedArgumentList: [],
-        unnamedArgumentList: [
-            SlashCommandArgument.fromProps({
-                description: 'evaluate | digest',
-                typeList: ARGUMENT_TYPE.STRING,
-                isRequired: false,
-                defaultValue: 'evaluate',
-                enumList: ['evaluate', 'digest'],
-            }),
-        ],
-    }));
+    toastr.info('A scan is already running—this trigger was dropped. Try again when it finishes.');
 }
 
 /** Cadence ticker (§3): a fixed, configurable tick with a manual trigger on top. */
@@ -262,9 +231,8 @@ async function onAppReady() {
     eventSource.on(event_types.MESSAGE_DELETED, onCitationsStale);
     eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
 
-    registerSlashCommands();
     await mountSettings({ folder: EXTENSION_FOLDER, context });
-    mountFab();
+    mountFab({ onScan: () => void scanOnDemand() });
     mountQueue({ getState: readState, persist: persistState });
     mountSheet({ getState: readState });
     mountBoard({
