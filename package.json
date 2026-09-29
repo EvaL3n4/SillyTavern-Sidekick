@@ -15,7 +15,7 @@
         "prepare": "husky",
         "test": "node --test test/*.test.js && node scripts/coverage.mjs",
         "lint": "eslint .",
-        "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#.beads/**\" \"#AGENTS.md\"",
+        "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#.beads/**\" \"#.remember/**\" \"#AGENTS.md\"",
         "coverage": "node scripts/coverage.mjs",
         "lint-staged": "lint-staged"
     },
