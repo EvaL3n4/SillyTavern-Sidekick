@@ -61,7 +61,7 @@ markdown-linted before anything lands.
 | `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence policy |
 | `src/board.js` | The board's store, prompt and tool-call protocol |
 | `src/board-prompt.js` | The board's prose, in one file the DM edits herself |
-| `src/ui.js` | The button and menu; the hero sheet, review queue and board surfaces |
+| `src/ui.js` | The button and panel: tabs for the Sheet, Queue and Board surfaces |
 | `style.css` | Near-mono palette with a single warm accent |
 | `settings.html` | Extensions-drawer template: cadence and digest budget, both live |
 
@@ -70,12 +70,13 @@ markdown-linted before anything lands.
 The scaffold is landed. `src/state.js` and `src/grammar.js` are complete and tested.
 The evaluator scan's chain is complete and tested—scene window, prompt,
 generation, validation, queue assembly—and `index.js` wires it to the cadence and
-the menu's Run a scan entry. The three surfaces are built: the hero sheet, the
+the Queue tab's Run a scan control. The three surfaces are built: the hero sheet, the
 review queue that rules on a queued proposal, and the discussion board, which turns
 the DM's own thinking into a change through one click. A pass's failures name
-themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase. The menu's
-Run a scan entry also tells the truth, in five messages rather than two: a dropped trigger,
-a pass that could not run, a clean zero, proposals filed, and proposals the chat never took.
+themselves in the console; `localStorage.sidekick_debug = '1'` logs every phase.
+The Queue tab's Run a scan control also tells the truth, in five messages rather
+than two: a dropped trigger, a pass that could not run, a clean zero, proposals
+filed, and proposals the chat never took.
 Citations survive deletion and re-roll, and the scan's evidence is fingerprinted at intake.
 Her rulings now render into the scan's prompt—the feedback half of §3—though
 ranking proposals by them is still §8. The extensions drawer's two controls are

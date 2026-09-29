@@ -85,37 +85,21 @@
     display: none;
 }
 
-.sidekick-menu {
-    position: fixed;
-    z-index: 2999;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin: 0;
-    padding: 4px;
-    list-style: none;
-    border: 1px solid var(--sidekick-line);
-    border-radius: var(--sidekick-radius);
-    background: var(--sidekick-bg);
-}
-
-.sidekick-menu[hidden] {
+/* The button steps aside while the panel is open. */
+.sidekick-button[hidden] {
     display: none;
 }
 
-.sidekick-menu button {
-    padding: 8px 12px;
-    border: none;
-    border-radius: var(--sidekick-radius);
-    background: transparent;
-    color: var(--sidekick-fg);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
+/* The Queue tab's counterpart: the same count, inline with the tab's name. */
+.sidekick-marker-tab {
+    position: static;
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: baseline;
 }
 
-.sidekick-menu button:hover {
-    background: var(--sidekick-line);
+.sidekick-marker-tab[hidden] {
+    display: none;
 }
 
 /* Review queue: one accent per proposal awaiting a ruling. */
@@ -169,13 +153,14 @@
     display: none;
 }
 
-/* The whole strip is the grab handle, so it is not a scroll region. */
+/* The whole strip is the grab handle, so it is not a scroll region. It holds only
+   the close control, and stays tall enough to grab comfortably. */
 .sidekick-panel-strip {
     display: flex;
     flex: none;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
+    justify-content: flex-end;
+    min-height: 24px;
     cursor: move;
     user-select: none;
     /* The drag is this module's own gesture; a touch-drag must not scroll the
@@ -183,7 +168,8 @@
     touch-action: none;
 }
 
-/* The body takes what the head leaves and scrolls inside it. min-height: 0 is
+/* The body takes what the strip and the tabs leave and scrolls inside it.
+   min-height: 0 is
    what lets a flex child shrink below its content instead of stretching the
    frame past the size she chose. */
 .sidekick-panel-body {
@@ -230,7 +216,65 @@
     color: var(--sidekick-muted);
 }
 
-/* One proposal's rulings: quiet buttons, the same as the menu's. */
+/* The tabs: one row under the strip, Sheet, Queue, Board. The selected tab is
+   marked in the text colour, not the accent, which stays for what waits on her. */
+.sidekick-panel-tabs {
+    display: flex;
+    flex: none;
+    gap: 4px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--sidekick-line);
+}
+
+.sidekick-tab {
+    padding: 4px 10px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--sidekick-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-tab:hover {
+    color: var(--sidekick-fg);
+}
+
+.sidekick-tab[aria-selected="true"] {
+    border-bottom-color: var(--sidekick-fg);
+    color: var(--sidekick-fg);
+}
+
+.sidekick-tab:focus-visible {
+    outline: 2px solid var(--sidekick-fg);
+    outline-offset: -2px;
+}
+
+/* Run a scan, at the top of the Queue. */
+.sidekick-scan {
+    margin-bottom: 8px;
+}
+
+.sidekick-scan-run {
+    padding: 4px 10px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+    background: transparent;
+    color: var(--sidekick-fg);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-scan-run:hover:not(:disabled) {
+    background: var(--sidekick-line);
+}
+
+.sidekick-scan-run:disabled {
+    color: var(--sidekick-muted);
+    cursor: default;
+}
+
+/* One proposal's rulings: quiet buttons, the same as the tabs'. */
 .sidekick-actions {
     display: flex;
     gap: 4px;

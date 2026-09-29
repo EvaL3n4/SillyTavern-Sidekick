@@ -8,7 +8,14 @@
 import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
 import { reanchorCitations } from './src/citations.js';
-import { mountSettings, mountChrome, mountQueue, mountSheet, mountBoard } from './src/ui.js';
+import {
+    mountSettings,
+    mountChrome,
+    mountQueue,
+    mountSheet,
+    mountBoard,
+    refreshChrome,
+} from './src/ui.js';
 import { loadState } from './src/state.js';
 import { BOARD_KEY, readBoard, runBoardTurn } from './src/board.js';
 
@@ -225,6 +232,11 @@ async function evaluateNow(state) {
         return { queued, persisted: true, failed };
     }
 
+    // The entries are in the queue now, whatever the save below does, so the
+    // marker and an open Queue tab say so without waiting for it. This is the one
+    // arrival signal: no toast, and nothing switches the tab she is on.
+    refreshChrome();
+
     // sk-06p: a quiet pass runs for seconds to minutes, and CHAT_CHANGED
     // reassigns SillyTavern's chatMetadata pointer when it fires. Persisting
     // after a switch would write this chat's ledger into the new chat's
@@ -250,9 +262,9 @@ async function evaluateNow(state) {
 }
 
 /**
- * Runs a scan because the DM asked for one. The button's Run a scan entry is the
- * only manual path now: a typed command is a completion-era affordance, and
- * nobody types to run a pass when the button is already in front of them.
+ * Runs a scan because the DM asked for one. The Queue tab's Run a scan control is
+ * the only manual path now: a typed command is a completion-era affordance, and
+ * nobody types to run a pass when the control is already in front of them.
  *
  * The wording the command produced is kept, because it carries the one
  * distinction that matters: null is a trigger the in-flight guard dropped, which
@@ -332,8 +344,8 @@ async function onAppReady() {
         getState: readState,
         persist: persistState,
     });
-    mountChrome({ onScan: () => void scanOnDemand(), getState: readState });
-    mountQueue({ getState: readState, persist: persistState });
+    mountChrome({ getState: readState });
+    mountQueue({ getState: readState, persist: persistState, onScan: scanOnDemand });
     mountSheet({ getState: readState });
     mountBoard({
         getState: readState,

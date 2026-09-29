@@ -16,31 +16,34 @@ import {
     chromeKey,
     movePanel,
     readGeometry,
+    readTab,
     resizePanel,
+    tabKey,
     writeGeometry,
+    writeTab,
 } from './chrome.js';
 
 /**
- * The button's surfaces, in menu order (§7).
+ * The panel's surfaces, in tab order (§7). The labels are the tabs' names.
  * @type {{id: string, label: string}[]}
  */
 const SURFACES = [
-    { id: 'sheet', label: 'Hero sheet' },
-    { id: 'queue', label: 'Review queue' },
+    { id: 'sheet', label: 'Sheet' },
+    { id: 'queue', label: 'Queue' },
     { id: 'board', label: 'Board' },
 ];
 
 /**
  * Renderers the surface modules register as they are built, keyed by surface
- * id. Until one registers, its menu entry opens a panel that says so, because
- * an empty panel and an unbuilt surface read the same from the DM's side.
+ * id. Until one registers, its tab opens a body that says so, because an empty
+ * panel and an unbuilt surface read the same from the DM's side.
  * @type {Map<string, (panel: object) => void>}
  */
 const surfaceRenderers = new Map();
 
 /**
- * Registers a surface's renderer behind its menu entry. The surface's own
- * module calls this when it exists; the chrome shells the rest.
+ * Registers a surface's renderer behind its tab. The surface's own module calls
+ * this when it exists; the chrome shells the rest.
  * @param {string} id a SURFACES id
  * @param {(panel: object) => void} render receives the panel's empty body
  * @returns {void}
@@ -205,32 +208,34 @@ export async function mountSettings({ folder, context, getState, persist }) {
 
 /**
  * A press that moves at least this far from where it started is a drag, not a
- * click. Without a threshold every drag would open the menu, which is the
+ * click. Without a threshold every drag would open the panel, which is the
  * standard bug in a drag-on-click control.
  */
 const DRAG_THRESHOLD = 4;
 
 /**
- * Where the menu sits around the button: above when there is room, below when
- * there is not, and flipped off the right edge when the button sits near it, so
- * a menu pinned to a corner while its button moved never happens.
- *
- * The menu's size is asked for rather than guessed, because the placement is a
- * geometry question only the laid-out menu can answer. The chosen corner goes
- * through clampPosition, so a viewport too small for either preference still
- * leaves the menu on screen.
- *
- * @param {{x: number, y: number}} button the button's top-left corner
- * @param {{width: number, height: number}} viewport
- * @param {{width: number, height: number}} size the menu's measured size
- * @returns {{x: number, y: number}} the menu's top-left corner, clamped
+ * The chrome's own repaint, reachable from outside mountChrome because two things
+ * that live elsewhere change what it shows: a ruling in the Queue, and a pass in
+ * index.js that files something. Null until the chrome is mounted.
+ * @type {{repaintMarkers: () => void, refresh: () => void}|null}
  */
-export function menuPlacement(button, viewport, size) {
-    const above = button.y - size.height >= 0;
-    const top = above ? button.y - size.height : button.y + BUTTON_SIZE.height;
-    const fits = button.x + size.width <= viewport.width;
-    const left = fits ? button.x : button.x + BUTTON_SIZE.width - size.width;
-    return clampPosition(left, top, size, viewport);
+let chromeHooks = null;
+
+/**
+ * Brings the chrome up to date with a queue that changed somewhere it cannot see:
+ * repaints both markers, and redraws the Queue tab when it is the one open.
+ *
+ * The redraw is what makes a scan run from the Queue tab show its result there,
+ * and it is careful in two ways. It keeps the scroll position, because a pass can
+ * land while she is reading, and it stands down while an edit panel is open,
+ * because a redraw would throw away the wording she is in the middle of typing.
+ * The marker still counts the new proposals then, and the list catches up the
+ * next time the tab is drawn.
+ *
+ * @returns {void}
+ */
+export function refreshChrome() {
+    chromeHooks?.refresh();
 }
 
 /**
@@ -245,22 +250,22 @@ export function menuPlacement(button, viewport, size) {
  * storage write per frame is waste, and a mid-drag persist that gets abandoned
  * leaves the record off the last resting place.
  *
- * The menu opens against the button's live position rather than a hardcoded
- * corner (menuPlacement), and the marker counts what is waiting, because a queue
- * she cannot see is a queue she forgets.
+ * A click opens the panel on the tab she used last, and the button steps aside
+ * until the panel closes: two pieces of chrome for one job is one too many, and
+ * it ends the button ever sitting over the panel's grip. The marker counts what is
+ * waiting, on the button and on the Queue tab, because a queue she cannot see is a
+ * queue she forgets. Nothing announces an arrival and nothing switches her tab: a
+ * rising number is the new item.
  *
  * Idempotent: APP_READY can fire again after a reconnect, and a second button
- * would stack on the first. Outside clicks are decided in the capture phase
- * so a synchronous repaint can never detach the event target before this
- * listener sees it.
+ * would stack on the first.
  *
  * @param {object} [options]
- * @param {() => void} [options.onScan] runs a scan because the DM asked
  * @param {() => object|null} [options.getState] reads this chat's queue, for the
- *     marker
+ *     markers
  * @returns {void}
  */
-export function mountChrome({ onScan, getState } = {}) {
+export function mountChrome({ getState } = {}) {
     if ($('.sidekick-button').length > 0) {
         return;
     }
@@ -269,7 +274,7 @@ export function mountChrome({ onScan, getState } = {}) {
         class: 'sidekick-button',
         type: 'button',
         title: 'Sidekick',
-        'aria-haspopup': 'true',
+        'aria-controls': 'sidekick_panel',
         'aria-expanded': 'false',
     }).text('S');
 
@@ -278,17 +283,31 @@ export function mountChrome({ onScan, getState } = {}) {
     const marker = $('<span>', { class: 'sidekick-marker', hidden: true });
     button.append(marker);
 
-    const menu = $('<ul>', {
-        class: 'sidekick-menu',
-        role: 'menu',
-        hidden: true,
-    });
-
+    // The panel is built once. Its strip is the grab handle and holds the close
+    // control; the tabs are their own row beneath it, so a panel dragged to its
+    // minimum still has a real handle and no interactive child starts a drag.
     const panel = $('<div>', {
+        id: 'sidekick_panel',
         class: 'sidekick-panel',
         role: 'region',
+        'aria-label': 'Sidekick',
         hidden: true,
     });
+    const strip = $('<div>', { class: 'sidekick-panel-strip' });
+    const close = $('<button>', {
+        type: 'button',
+        class: 'sidekick-panel-close',
+        'aria-label': 'Close',
+    }).text('×');
+    strip.append(close);
+    const tabs = $('<div>', {
+        class: 'sidekick-panel-tabs',
+        role: 'tablist',
+        'aria-label': 'Surfaces',
+    });
+    const body = $('<div>', { class: 'sidekick-panel-body', role: 'tabpanel' });
+    const grip = $('<div>', { class: 'sidekick-panel-grip', 'aria-hidden': 'true' });
+    panel.append(strip, tabs, body, grip);
 
     const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
     const storage = {
@@ -315,86 +334,128 @@ export function mountChrome({ onScan, getState } = {}) {
     };
     placePanel(geometry.panel);
 
-    const showMarker = () => {
+    // The Queue tab carries its own, smaller marker: the same count, where she is
+    // when she is looking at what it counts.
+    const tabMarker = $('<span>', { class: 'sidekick-marker sidekick-marker-tab', hidden: true });
+
+    const paintMarkers = () => {
         const waiting = getState?.()?.queue?.length ?? 0;
-        marker.text(waiting > 0 ? String(waiting) : '');
-        marker.prop('hidden', waiting === 0);
-    };
-
-    let menuOpen = false;
-    const setMenu = (open) => {
-        menuOpen = open;
-        menu.prop('hidden', !open);
-        button.attr('aria-expanded', String(open));
-        if (!open) {
-            return;
+        for (const one of [marker, tabMarker]) {
+            one.text(waiting > 0 ? String(waiting) : '');
+            one.prop('hidden', waiting === 0);
         }
-
-        // Read in the same synchronous turn the menu is unhidden, so nothing
-        // flashes at a corner the measurement disagrees with.
-        showMarker();
-        const at = menuPlacement(geometry.button, viewport(), {
-            width: menu[0].offsetWidth,
-            height: menu[0].offsetHeight,
-        });
-        menu.css({ left: `${at.x}px`, top: `${at.y}px`, right: 'auto', bottom: 'auto' });
     };
 
-    const openSurface = (surface) => {
-        setMenu(false);
-        panel.empty();
+    const ids = SURFACES.map((surface) => surface.id);
+    const tabStorage = {
+        getStored: () => localStorage.getItem(tabKey()),
+        setStored: (key, value) => localStorage.setItem(key, value),
+    };
+    const tabButtons = new Map();
+    let active = readTab({ ...tabStorage, ids });
 
-        const strip = $('<div>', { class: 'sidekick-panel-strip' });
-        strip.append($('<strong>').text(surface.label));
-        strip.append($('<button>', {
-            type: 'button',
-            class: 'sidekick-panel-close',
-            'aria-label': 'Close',
-        }).text('×').on('click', () => panel.prop('hidden', true)));
-        panel.append(strip);
+    const markSelected = () => {
+        for (const [id, tab] of tabButtons) {
+            const selected = id === active;
+            tab.attr({ 'aria-selected': String(selected), tabindex: selected ? '0' : '-1' });
+        }
+    };
 
-        const body = $('<div>', { class: 'sidekick-panel-body' });
-        const render = surfaceRenderers.get(surface.id);
+    const renderActive = () => {
+        // A fresh class list every time: the Board marks its own body, and that
+        // mark must not follow her to the next tab.
+        body.empty().attr('class', 'sidekick-panel-body');
+        body.attr('aria-labelledby', `sidekick_tab_${active}`);
+
+        const render = surfaceRenderers.get(active);
         if (render) {
             render(body);
-        } else {
-            body.append($('<p>', { class: 'sidekick-panel-empty' })
-                .text(`${surface.label} is not built yet.`));
+            return;
         }
-        panel.append(body);
-        panel.append($('<div>', { class: 'sidekick-panel-grip', 'aria-hidden': 'true' }));
-        panel.prop('hidden', false);
+        const surface = SURFACES.find((one) => one.id === active);
+        body.append($('<p>', { class: 'sidekick-panel-empty' })
+            .text(`${surface.label} is not built yet.`));
+    };
+
+    const select = (id) => {
+        active = id;
+        writeTab(id, tabStorage);
+        markSelected();
+        renderActive();
+    };
+
+    // Left and Right walk the tabs, wrapping; Home and End jump to the ends.
+    const moveTab = (event, id) => {
+        let next;
+        if (event.key === 'Home') {
+            next = 0;
+        } else if (event.key === 'End') {
+            next = ids.length - 1;
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            const step = event.key === 'ArrowLeft' ? -1 : 1;
+            next = (ids.indexOf(id) + step + ids.length) % ids.length;
+        } else {
+            return;
+        }
+        event.preventDefault();
+        select(ids[next]);
+        tabButtons.get(ids[next])[0].focus();
     };
 
     for (const surface of SURFACES) {
-        const item = $('<button>', {
+        const tab = $('<button>', {
             type: 'button',
-            role: 'menuitem',
+            role: 'tab',
+            class: 'sidekick-tab',
+            id: `sidekick_tab_${surface.id}`,
+            'aria-controls': 'sidekick_panel',
             'data-surface': surface.id,
         }).text(surface.label);
-        item.on('click', () => openSurface(surface));
-        menu.append($('<li>').append(item));
+        if (surface.id === 'queue') {
+            tab.append(tabMarker);
+        }
+        tab.on('click', () => select(surface.id));
+        tab.on('keydown', (event) => moveTab(event, surface.id));
+        tabs.append(tab);
+        tabButtons.set(surface.id, tab);
     }
 
-    // The one thing the menu does rather than shows: a scan on demand.
-    //
-    // It used to be a typed command, which is a completion-era affordance—nobody
-    // types to run a pass when the button is already in front of them. The cadence
-    // ticker stays the automatic path; this is the manual one.
-    const scan = $('<button>', {
-        type: 'button',
-        role: 'menuitem',
-        'data-action': 'scan',
-    }).text('Run a scan');
-    scan.on('click', () => {
-        setMenu(false);
-        onScan?.();
-    });
-    menu.append($('<li>').append(scan));
+    // The button and the panel take turns: one is on screen at a time.
+    const openPanel = () => {
+        markSelected();
+        renderActive();
+        paintMarkers();
+        panel.prop('hidden', false);
+        button.prop('hidden', true).attr('aria-expanded', 'true');
+        tabButtons.get(active)[0].focus();
+    };
+    const closePanel = () => {
+        panel.prop('hidden', true);
+        button.prop('hidden', false).attr('aria-expanded', 'false');
+        button[0].focus();
+    };
+    close.on('click', closePanel);
+
+    chromeHooks = {
+        repaintMarkers: paintMarkers,
+        refresh: () => {
+            paintMarkers();
+            if (panel.prop('hidden') || active !== 'queue') {
+                return;
+            }
+            const editing = body.find('.sidekick-editor').filter((_, el) => !el.hidden).length > 0;
+            if (editing) {
+                return;
+            }
+            const top = body.prop('scrollTop');
+            renderActive();
+            body.prop('scrollTop', top);
+        },
+    };
 
     // The gesture. Capture is taken on the first move past the threshold rather
     // than on the press, so a tap never establishes it; the click a drag ends
-    // with is eaten here rather than opening the menu over the new position.
+    // with is eaten here rather than opening the panel over the new position.
     let press = null;
     let eatClick = false;
     button.on('pointerdown', (event) => {
@@ -435,24 +496,18 @@ export function mountChrome({ onScan, getState } = {}) {
     button.on('pointerup', rest);
     button.on('pointercancel', rest);
 
-    // The panel's two gestures: the strip drags it, the grip resizes it. They are
-    // delegated from the panel because openSurface rebuilds the strip and the grip
-    // every time a surface opens, and a handler bound to the old element would
-    // go with it. Same shape as the button's—a threshold, one write at rest—
-    // except that capture is taken on the press. The button waits for the first
-    // move to keep its click path clean; the strip and the grip have no click to
-    // protect, and a fast first move can jump clean off a 20px strip, in which
-    // case a listener that had not captured yet would never see the drag begin.
-    // The close button sits in the strip and is left out, so closing is never the
-    // start of a drag.
-    const panelGestures = {
-        '.sidekick-panel-strip': movePanel,
-        '.sidekick-panel-grip': resizePanel,
-    };
+    // The panel's two gestures: the strip drags it, the grip resizes it. Same
+    // shape as the button's—a threshold, one write at rest—except that capture is
+    // taken on the press. The button waits for the first move to keep its click
+    // path clean; the strip and the grip have no click to protect, and a fast
+    // first move can jump clean off a 20px strip, in which case a listener that
+    // had not captured yet would never see the drag begin. A button inside a
+    // handle (the close control) is left out, so pressing it is never the start
+    // of a drag.
     let panelPress = null;
-    for (const [selector, gesture] of Object.entries(panelGestures)) {
-        panel.on('pointerdown', selector, (event) => {
-            if (event.button !== 0 || $(event.target).closest('.sidekick-panel-close').length > 0) {
+    for (const [handle, gesture] of [[strip, movePanel], [grip, resizePanel]]) {
+        handle.on('pointerdown', (event) => {
+            if (event.button !== 0 || $(event.target).closest('button').length > 0) {
                 return;
             }
             panelPress = {
@@ -462,7 +517,7 @@ export function mountChrome({ onScan, getState } = {}) {
                 from: geometry.panel,
                 dragging: false,
             };
-            event.currentTarget.setPointerCapture?.(event.pointerId);
+            handle[0].setPointerCapture?.(event.pointerId);
         });
     }
     panel.on('pointermove', (event) => {
@@ -494,25 +549,16 @@ export function mountChrome({ onScan, getState } = {}) {
             eatClick = false;
             return;
         }
-        setMenu(!menuOpen);
+        openPanel();
     });
 
-    document.addEventListener('click', (event) => {
-        if (button[0].contains(event.target) || menu[0].contains(event.target)) {
-            return;
-        }
-        setMenu(false);
-    }, true);
-
-    // The marker's two reads. A new chat has its own queue, so a count left over
-    // from the last one names the wrong number, and the menu opening is the other
-    // moment the count is actually looked at. Between them it can be stale—a
-    // scan landing while she reads the board does not repaint it—which is the
-    // named residual; the fallback, if live testing shows it bothers her, is to
-    // move the count onto the menu's Review queue row.
+    // The marker's reads. A new chat has its own queue, so a count left over from
+    // the last one names the wrong number; a ruling repaints it through drawQueue,
+    // and a pass that files something repaints it through refreshChrome. Nothing
+    // is left to go stale, which retires the residual the button's badge carried.
     const { eventSource, event_types } = SillyTavern.getContext();
-    eventSource.on(event_types.CHAT_CHANGED, showMarker);
-    showMarker();
+    eventSource.on(event_types.CHAT_CHANGED, paintMarkers);
+    paintMarkers();
 
     window.addEventListener('resize', () => {
         geometry = clampRecord(geometry, viewport());
@@ -521,11 +567,11 @@ export function mountChrome({ onScan, getState } = {}) {
         writeGeometry(geometry, storage);
     });
 
-    $('body').append(button, menu, panel);
+    $('body').append(button, panel);
 }
 
 /**
- * Registers the review queue behind the button's Review queue entry.
+ * Registers the review queue as the Queue tab's surface.
  *
  * Every action re-reads the state and re-finds the entry by id: the store
  * holds the state by reference, so nothing captured when the panel was drawn
@@ -535,22 +581,64 @@ export function mountChrome({ onScan, getState } = {}) {
  * @param {object} options
  * @param {() => object|null} options.getState reads the live state
  * @param {(state: object) => Promise<void>} options.persist persists a mutated state
+ * @param {() => Promise<void>|void} [options.onScan] runs a scan because the DM
+ *     asked; the Queue carries the control, since scanning fills the queue
  * @returns {void}
  */
-export function mountQueue({ getState, persist }) {
+export function mountQueue({ getState, persist, onScan }) {
     registerSurface('queue', (body) => {
-        drawQueue(body, { getState, persist });
+        drawQueue(body, { getState, persist, onScan });
     });
+}
+
+/**
+ * The manual trigger, at the top of the Queue: scanning fills the queue, so the
+ * control sits where its result lands. It is disabled while it runs, so a second
+ * click cannot ask a guard that would only drop it. The outcome itself is still
+ * the toast the scan raises, and a failure of the trigger is logged rather than
+ * left to reject unseen.
+ *
+ * It used to be a typed command, which is a completion-era affordance—nobody
+ * types to run a pass when the control is already in front of them. The cadence
+ * ticker stays the automatic path; this is the manual one.
+ *
+ * @param {() => Promise<void>|void} onScan
+ * @returns {object} the control's row
+ */
+function scanControl(onScan) {
+    const run = $('<button>', { type: 'button', class: 'sidekick-scan-run' })
+        .text('Run a scan');
+
+    run.on('click', async () => {
+        run.prop('disabled', true).text('Scanning…');
+        try {
+            await onScan();
+        } catch (error) {
+            console.error('[Sidekick] the scan trigger failed', error);
+        } finally {
+            run.prop('disabled', false).text('Run a scan');
+        }
+    });
+
+    return $('<div>', { class: 'sidekick-scan' }).append(run);
 }
 
 /**
  * Draws the pending queue into a panel body, or says so when nothing waits.
  * @param {object} body jQuery panel body
- * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
+ * @param {{getState: () => object|null, persist: (state: object) => Promise<void>, onScan?: () => Promise<void>|void}} deps
  * @returns {void}
  */
 function drawQueue(body, deps) {
     body.empty();
+
+    // Every path that changes the queue ends in a redraw, so this is the one place
+    // the markers can be told without each caller having to remember to.
+    chromeHooks?.repaintMarkers();
+
+    if (deps.onScan) {
+        body.append(scanControl(deps.onScan));
+    }
 
     const state = deps.getState();
     const entries = state?.queue ?? [];
@@ -967,7 +1055,7 @@ function goneChip(reason) {
 }
 
 /**
- * Registers the hero sheet behind the button's Hero sheet entry.
+ * Registers the hero sheet as the Sheet tab's surface.
  *
  * Read-only on purpose: §3 lets nothing touch state without an explicit DM
  * action, and the review queue owns every mutation path. This is the ledger as
@@ -1170,7 +1258,7 @@ function arcSection(arc) {
 }
 
 /**
- * Registers the discussion board behind the button's Board entry.
+ * Registers the discussion board as the Board tab's surface.
  *
  * Unlike the sheet, the board writes: every change goes through applyProposal
  * on an explicit click, straight to history tagged origin 'discussion', and never

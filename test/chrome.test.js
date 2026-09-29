@@ -12,8 +12,11 @@ import {
     chromeKey,
     movePanel,
     readGeometry,
+    readTab,
     resizePanel,
+    tabKey,
     writeGeometry,
+    writeTab,
 } from '../src/chrome.js';
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -316,6 +319,78 @@ describe('writeGeometry', () => {
             readGeometry({ getStored: fake.getStored, viewport: VIEWPORT }),
             { v: 2, button: { x: 100, y: 200 }, panel: { x: 10, y: 20, w: 500, h: 400 } },
         );
+    });
+});
+
+describe('tabKey', () => {
+    it('is versioned and does not collide with the geometry key', () => {
+        assert.equal(tabKey(), 'sidekick_tab_v1');
+        assert.notEqual(tabKey(), chromeKey());
+    });
+});
+
+describe('readTab', () => {
+    const ids = ['sheet', 'queue', 'board'];
+
+    it('reads back the tab she left open', () => {
+        assert.equal(readTab({ getStored: () => 'board', ids }), 'board');
+    });
+
+    it('falls back to the first tab when nothing is stored', () => {
+        assert.equal(readTab({ getStored: () => null, ids }), 'sheet');
+    });
+
+    it('reads a tab that no longer exists as absent, not as a tab to show', () => {
+        assert.equal(readTab({ getStored: () => 'archive', ids }), 'sheet');
+        assert.equal(readTab({ getStored: () => 7, ids }), 'sheet');
+    });
+
+    it('swallows a storage that throws', () => {
+        const getStored = () => {
+            throw new Error('blocked');
+        };
+
+        assert.equal(readTab({ getStored, ids }), 'sheet');
+    });
+
+    it('falls back when there is no storage to read', () => {
+        assert.equal(readTab({ ids }), 'sheet');
+        assert.equal(readTab({ getStored: 'not a function', ids }), 'sheet');
+    });
+
+    it('answers null when there are no tabs at all', () => {
+        assert.equal(readTab({ getStored: () => 'board', ids: [] }), null);
+        assert.equal(readTab({ getStored: () => 'board' }), null);
+        assert.equal(readTab(), null);
+    });
+});
+
+describe('writeTab', () => {
+    it('hands the id over under the versioned key', () => {
+        const fake = store();
+
+        assert.equal(writeTab('queue', { setStored: fake.setStored }), true);
+        assert.deepEqual(fake.calls, [[tabKey(), 'queue']]);
+    });
+
+    it('swallows a storage that refuses, because switching tabs must not break on it', () => {
+        const setStored = () => {
+            throw new Error('quota exceeded');
+        };
+
+        assert.equal(writeTab('queue', { setStored }), false);
+    });
+
+    it('reports false when there is no storage to write to', () => {
+        assert.equal(writeTab('queue'), false);
+        assert.equal(writeTab('queue', {}), false);
+    });
+
+    it('round-trips: what it writes, readTab reads back', () => {
+        const fake = store();
+        writeTab('board', { setStored: fake.setStored });
+
+        assert.equal(readTab({ getStored: fake.getStored, ids: ['sheet', 'queue', 'board'] }), 'board');
     });
 });
 

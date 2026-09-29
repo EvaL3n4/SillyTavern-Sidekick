@@ -310,3 +310,63 @@ export function writeGeometry(record, { setStored } = {}) {
         return false;
     }
 }
+
+/** The last-tab record's shape version; its own key never moves the geometry's. */
+const TAB_VERSION = 1;
+
+/**
+ * The key the last-open tab is stored under. Versioned like the geometry's, for
+ * the same reason: a shape change reads as a missing record, and no migration is
+ * written.
+ *
+ * @returns {string}
+ */
+export function tabKey() {
+    return `sidekick_tab_v${TAB_VERSION}`;
+}
+
+/**
+ * The tab she left open last, or the first when nothing usable is stored. The
+ * panel always opens on the tab she used last, so a value that is not one of the
+ * tabs that exist (a removed surface, hand-edited storage, a storage that throws)
+ * reads as absent rather than as a tab nobody can show.
+ *
+ * @param {{getStored?: () => unknown, ids?: string[]}} [seam] `ids` are the tabs
+ *     that exist, in order
+ * @returns {string|null} a member of `ids`, or null when there are no tabs at all
+ */
+export function readTab({ getStored, ids } = {}) {
+    const tabs = Array.isArray(ids) ? ids : [];
+    let raw = null;
+
+    if (typeof getStored === 'function') {
+        try {
+            raw = getStored();
+        } catch {
+            raw = null;
+        }
+    }
+
+    return tabs.includes(raw) ? raw : (tabs[0] ?? null);
+}
+
+/**
+ * Writes the last-open tab through the injected seam. Best-effort like
+ * writeGeometry: a storage that refuses must never break switching tabs.
+ *
+ * @param {string} id
+ * @param {{setStored?: (key: string, value: string) => void}} [seam]
+ * @returns {boolean} true when the id was handed to storage
+ */
+export function writeTab(id, { setStored } = {}) {
+    if (typeof setStored !== 'function') {
+        return false;
+    }
+
+    try {
+        setStored(tabKey(), id);
+        return true;
+    } catch {
+        return false;
+    }
+}
