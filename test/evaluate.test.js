@@ -10,6 +10,7 @@ import {
     matchesSchema,
     runGeneration,
     sceneWindow,
+    toPendingChange,
     validateProposals,
 } from '../src/evaluate.js';
 
@@ -433,5 +434,103 @@ describe('validateProposals', () => {
 
         const item = { summary: 'anchored', changes: [{ path: 'a', to: 'b' }], evidence: [1] };
         assert.equal(matchesSchema(item, expanded.properties.proposals.items), false);
+    });
+});
+
+describe('toPendingChange', () => {
+    const meta = { counter: 3, now: 1700000000000 };
+
+    it('builds the whole §6 shape from a validated proposal', () => {
+        assert.deepEqual(toPendingChange(proposal(), meta), {
+            id: 'pc-the-spark-has-a-second-limit-3',
+            origin: 'evaluation',
+            summary: proposal().summary,
+            changes: [{
+                path: 'powers.the-spark.limits.0',
+                from: 'no control',
+                to: 'unfocused it takes everything from the waist down',
+            }],
+            evidence: proposal().evidence,
+            status: 'pending',
+            createdAt: 1700000000000,
+        });
+    });
+
+    it("takes origin from §2's provenance vocabulary, not from the proposal", () => {
+        // the scan is the only caller, so this never varies today; naming it
+        // here keeps a future discussion-sourced entry from inheriting it
+        assert.equal(toPendingChange(proposal({ origin: 'discussion' }), meta).origin,
+            'evaluation');
+    });
+
+    it("arrives pending, because applied and dismissed are the DM's", () => {
+        // the queue's other two statuses are set by the DM acting on it, which
+        // is review-queue work; nothing the scan produces can self-apply
+        assert.equal(toPendingChange(proposal(), meta).status, 'pending');
+    });
+
+    it('carries an id the UI can read, not a bare queue index', () => {
+        const id = toPendingChange(proposal(), meta).id;
+        assert.match(id, /^pc-the-spark-has-a-second-limit-3$/);
+    });
+
+    it('slugs a summary down to url-safe, and trims what it cut', () => {
+        const messy = toPendingChange(proposal({ summary: "She Won't  Let Go!" }), meta);
+        assert.equal(messy.id, 'pc-she-won-t-let-go-3');
+
+        const long = 'x'.repeat(80);
+        const trimmed = toPendingChange(proposal({ summary: long }), meta);
+        assert.equal(trimmed.id, `pc-${'x'.repeat(40)}-3`);
+    });
+
+    it('falls back to a plain slug when a summary slugs to nothing', () => {
+        // non-blank is all isActionable demands, and '***' is non-blank;
+        // without this the id would read 'pc--0'
+        const id = toPendingChange(proposal({ summary: '***' }), meta).id;
+        assert.equal(id, 'pc-proposal-3');
+    });
+
+    it('numbers two proposals from one pass distinctly', () => {
+        // the fallback counter is the only uniqueness guarantee, because the
+        // slug alone collides as soon as one pass touches the same thing twice
+        const first = toPendingChange(proposal(), {});
+        const second = toPendingChange(proposal(), {});
+        assert.notEqual(first.id, second.id);
+        assert.ok(first.id.endsWith('-' + second.id.split('-').pop()) === false);
+    });
+
+    it('reads createdAt from meta, falling back to the clock', () => {
+        assert.equal(toPendingChange(proposal(), meta).createdAt, 1700000000000);
+        const before = Date.now();
+        assert.ok(toPendingChange(proposal(), {}).createdAt >= before);
+    });
+
+    it('records an absent from as an empty string, not undefined', () => {
+        // §6 declares from required and PROPOSAL_SCHEMA does not, because a
+        // proposal that inserts into an empty list has nothing to cite. Same
+        // call applyProposal makes: every entry then carries a string.
+        const [change] = toPendingChange(proposal({
+            changes: [{ path: 'hero.name', to: 'Hailey Kogami Green' }],
+        }), meta).changes;
+
+        assert.deepEqual(change, {
+            path: 'hero.name',
+            from: '',
+            to: 'Hailey Kogami Green',
+        });
+    });
+
+
+    it('keeps no reference into the proposal it came from', () => {
+        // the queue is persisted; an entry aliasing the response would change
+        // when the response did
+        const source = proposal();
+        const entry = toPendingChange(source, meta);
+
+        source.evidence.push(99);
+        source.changes.push({ path: 'hero.name', to: 'elsewhere' });
+
+        assert.deepEqual(entry.evidence, proposal().evidence);
+        assert.equal(entry.changes.length, 1);
     });
 });

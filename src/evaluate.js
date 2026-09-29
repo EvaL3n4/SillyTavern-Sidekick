@@ -318,6 +318,81 @@ export function validateProposals(response) {
     // being unreliable, not half of a verdict worth keeping.
     return response.proposals.every(isActionable) ? response.proposals : [];
 }
+
+const ID_PREFIX = 'pc';
+const ID_SLUG_LIMIT = 40;
+
+/**
+ * A summary becomes a url-safe slug: lowercase, every run of non-alphanumerics
+ * collapsed to one hyphen, no leading or trailing hyphen.
+ */
+function slugify(summary) {
+    return String(summary ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, ID_SLUG_LIMIT)
+        .replace(/-+$/g, '');
+}
+
+/**
+ * A module counter for a caller that does not know its queue's position, which is
+ * how tests and one-off callers arrive. Monotonic, so two proposals from the
+ * same pass still get distinct ids.
+ *
+ * It resets on reload, so a caller that persists the queue injects the counter
+ * instead. `queue.length` is the wrong counter to pass: dismissing an entry
+ * shifts every later id onto one already used, and §3's ruling log would then
+ * cite a change that is no longer the one it ruled on.
+ */
+let fallbackCounter = 0;
+
+/**
+ * §6: a PendingChange is what the DM acts on, and this is where a validated
+ * proposal becomes one.
+ *
+ * PROPOSAL_SCHEMA describes only summary, changes and evidence. Everything
+ * else on §6's shape—id, origin, status, createdAt—is ours to supply, and
+ * supplying it here rather than at the call site keeps the queue's shape in one
+ * place.
+ *
+ * `from` is the seam worth naming. The schema marks it optional because a
+ * proposal that inserts into an empty list has nothing to cite, while §6 declares
+ * it required. Resolving it needs the ledger and this function never sees it, so
+ * an absent `from` records ''—the same call applyProposal makes, for the same
+ * reason: every entry then carries a string, and a change the DM never gated
+ * cannot read as free.
+ *
+ * @param {object} proposal a proposal that passed validateProposals
+ * @param {object} meta
+ * @param {number} [meta.counter] the queue's position counter
+ * @param {number} [meta.now] createdAt, injectable so tests stay deterministic
+ * @returns {object} a §6 PendingChange, plain data with no reference into the
+ * proposal it came from
+ */
+export function toPendingChange(proposal, meta = {}) {
+    const counter = meta.counter ?? fallbackCounter++;
+
+    return {
+        id: `${ID_PREFIX}-${slugify(proposal.summary) || 'proposal'}-${counter}`,
+        origin: 'evaluation',
+        summary: proposal.summary,
+        // changes and evidence are what PROPOSAL_SCHEMA requires and what
+        // isActionable then checks for content, so this is the one place in the
+        // module that does not need to re-guard them. The arrays are copied
+        // rather than aliased: the queue is persisted, and an entry that shares
+        // a reference with the response it came from changes when the response
+        // does.
+        changes: proposal.changes.map((change) => ({
+            path: change.path,
+            from: change.from ?? '',
+            to: change.to,
+        })),
+        evidence: [...proposal.evidence],
+        status: 'pending',
+        createdAt: meta.now ?? Date.now(),
+    };
+}
 /**
  * §3: one quiet pass. One API call, nothing written, nothing rendered.
  *
