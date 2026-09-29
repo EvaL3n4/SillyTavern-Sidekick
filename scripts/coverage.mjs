@@ -10,15 +10,15 @@
  *
  * A floor of 95% on every src file, 90% on branches. Anything the browser-only
  * modules keep out of reach (index.js, ui.js, board.js) is excluded by
- * name rather than silently dragging the number down.
+ * modules keep out of reach (index.js, ui.js) is excluded by name rather
  */
 import { spawnSync } from 'node:child_process';
 
 const LINE_FLOOR = 95;
 const BRANCH_FLOOR = 90;
 
-/** Browser-only or not-yet-built modules that no test file imports. */
-const UNTESTED_BY_DESIGN = ['index.js', 'ui.js', 'board.js'];
+/** Browser-only modules that no test file imports. */
+const UNTESTED_BY_DESIGN = ['index.js', 'ui.js'];
 
 const RUNNER = ['--test', '--experimental-test-coverage', '--test-reporter=tap', 'test/*.test.js'];
 
