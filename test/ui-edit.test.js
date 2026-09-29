@@ -171,7 +171,7 @@ describe('brokenEdits', () => {
 
         assert.deepEqual(brokenEdits(state, live, read(live, {
             changes: [{ from: 'no control at all' }],
-        })), ['powers.the-spark.limits.0 no longer reads what from says']);
+        })), ['the Spark · Limit 1 no longer reads what from says']);
     });
 
     it('names a from she cleared on a change that had one', () => {
@@ -180,7 +180,7 @@ describe('brokenEdits', () => {
 
         assert.deepEqual(brokenEdits(state, live, read(live, {
             changes: [{ from: '' }],
-        })), ['powers.the-spark.limits.0 lost its from check']);
+        })), ['the Spark · Limit 1 lost its from check']);
     });
 
     it('says nothing about a from that was never there to clear', () => {
@@ -198,7 +198,7 @@ describe('brokenEdits', () => {
 
         assert.deepEqual(brokenEdits(state, live, read(live, {
             changes: [{ to: '' }],
-        })), ['powers.the-spark.limits.0 would be emptied']);
+        })), ['the Spark · Limit 1 would be emptied']);
     });
 
     it('agrees with the gate when a from she typed does match', () => {
@@ -224,8 +224,8 @@ describe('brokenEdits', () => {
         assert.deepEqual(brokenEdits(state, live, read(live, {
             changes: [{ to: 'she cannot aim it' }, { from: 'it takes everything from the waist down', to: '' }],
         })), [
-            'powers.the-spark.limits.1 no longer reads what from says',
-            'powers.the-spark.limits.1 would be emptied',
+            'the Spark · Limit 2 no longer reads what from says',
+            'the Spark · Limit 2 would be emptied',
         ]);
     });
 

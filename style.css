@@ -216,15 +216,35 @@ body.no-blur {
     font-size: 0.9em;
 }
 
+/* One change, read as a field and its value: the label she would say, the value it
+   replaces struck through, then the new one (§7, The Queue's words). The values are
+   facts in mono; the label is a quiet caption above them. */
 .sidekick-diff {
-    margin: 4px 0;
-    color: var(--sidekick-muted);
+    margin: 8px 0;
     font-family: var(--sidekick-mono);
     font-variant-numeric: tabular-nums;
     white-space: pre-wrap;
-    /* A path has no spaces to wrap at, and the panel can now be sized narrower
-       than one. */
     overflow-wrap: anywhere;
+}
+
+.sidekick-diff > span {
+    display: block;
+}
+
+.sidekick-diff-label {
+    margin-bottom: 2px;
+    color: var(--sidekick-muted);
+    font-family: inherit;
+    font-size: 0.8em;
+}
+
+.sidekick-diff-from {
+    color: var(--sidekick-muted);
+    text-decoration: line-through;
+}
+
+.sidekick-diff-to {
+    color: var(--sidekick-fg);
 }
 
 /* The floating window a surface opens into. Its place and size are inline, from
@@ -603,10 +623,9 @@ body.no-blur {
     display: block;
     color: var(--sidekick-muted);
     font-family: var(--sidekick-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.9em;
-    /* A path is longer than the panel. It is read, not typed, so wrapping it
-       whole beats truncating a field the edit depends on. */
+    font-size: 0.8em;
+    /* A label can carry a long thread or power name. It is read, not typed, so
+       wrapping it whole beats truncating a field the edit depends on. */
     overflow-wrap: anywhere;
 }
 

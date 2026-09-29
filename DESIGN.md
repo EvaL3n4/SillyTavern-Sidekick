@@ -325,6 +325,7 @@ src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live 
 src/evaluate.js    evaluator jsonSchema + validation, cadence policy
 src/scan-prompt.js the scan's prose, in one file the DM edits herself
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
+src/labels.js      a change's path as the words the DM would use (the Queue's words)
 src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the panel
                     renders it

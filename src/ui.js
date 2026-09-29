@@ -8,6 +8,7 @@
 
 import { applyProposal, getPath, recordRuling } from './state.js';
 import { resolveCitation } from './citations.js';
+import { labelChange } from './labels.js';
 import { appendTurn } from './board.js';
 import {
     BUTTON_SIZE,
@@ -682,9 +683,9 @@ function liveEntry(deps, entry) {
  * scan's phrasing whole or lose the entry, and nothing in between.
  *
  * Per change rather than one blob, because the paths are unrelated and a single
- * field would invite cross-contamination. The path itself is not editable:
- * applyProposal addresses the ledger by it, and she came to reword a value, not
- * to move one.
+ * field would invite cross-contamination. The path itself is not editable, and is
+ * not shown: applyProposal addresses the ledger by it, and she came to reword a
+ * value, not to move one, so each change wears the label §7 gives its field.
  *
  * `read` is the only way out of the panel. It returns strings, and an emptied
  * `from` is left ambiguous on purpose—`editedProposal` decides what it means,
@@ -692,9 +693,10 @@ function liveEntry(deps, entry) {
  * the provenance gate.
  *
  * @param {object} entry a PendingChange
+ * @param {object|null} state the ledger, which names a power for its label
  * @returns {{panel: object, read: () => {summary: string, changes: Array<{from: string, to: string}>}}}
  */
-function editPanel(entry) {
+function editPanel(entry, state) {
     const panel = $('<div>', { class: 'sidekick-editor', hidden: true });
 
     panel.append($('<label>', { class: 'sidekick-editor-label' })
@@ -711,7 +713,8 @@ function editPanel(entry) {
     for (const change of entry.changes ?? []) {
         const row = $('<div>', { class: 'sidekick-edit-change' });
 
-        row.append($('<span>', { class: 'sidekick-edit-path' }).text(change.path));
+        row.append($('<span>', { class: 'sidekick-edit-path' })
+            .text(labelChange(state, change, entry.changes)));
 
         const pair = $('<div>', { class: 'sidekick-edit-fields' });
         const from = $('<input>', {
@@ -819,18 +822,20 @@ export function brokenEdits(state, live, read) {
             return;
         }
 
+        // She reads these, so a field goes by its label and not its path (§7).
+        const name = labelChange(state, change, live.changes);
         if (!field.from) {
             if (change.from !== undefined) {
-                reasons.push(`${change.path} lost its from check`);
+                reasons.push(`${name} lost its from check`);
             }
         } else if (getPath(state, change.path) !== field.from) {
-            reasons.push(`${change.path} no longer reads what from says`);
+            reasons.push(`${name} no longer reads what from says`);
         }
 
         if (!field.to) {
             // `to` carries no gate at all, and a blank one would write a hole in
             // her ledger that reads as a decision.
-            reasons.push(`${change.path} would be emptied`);
+            reasons.push(`${name} would be emptied`);
         }
     });
 
@@ -849,9 +854,18 @@ function proposalBody(entry, deps) {
     root.append($('<div>', { class: 'sidekick-summary' })
         .append($('<strong>').text(entry.summary || '(no summary)')));
 
+    // §7, The Queue's words: a field she can read, the value it replaces struck
+    // through, then the new one. The path stays in the record and the console.
+    const state = deps.getState();
     for (const change of entry.changes ?? []) {
-        root.append($('<div>', { class: 'sidekick-diff' })
-            .text(`${change.path}: ${change.from || '(nothing)'} → ${change.to}`));
+        const diff = $('<div>', { class: 'sidekick-diff' });
+        diff.append($('<span>', { class: 'sidekick-diff-label' })
+            .text(labelChange(state, change, entry.changes)));
+        if (change.from) {
+            diff.append($('<span>', { class: 'sidekick-diff-from' }).text(change.from));
+        }
+        diff.append($('<span>', { class: 'sidekick-diff-to' }).text(change.to ?? ''));
+        root.append(diff);
     }
 
     // A proposal that begins the ledger from the character card cites no message
@@ -877,7 +891,7 @@ function proposalBody(entry, deps) {
     }
     root.append(evidence);
 
-    const { panel, read } = editPanel(entry);
+    const { panel, read } = editPanel(entry, state);
     root.append(panel);
 
     // Where an edit that will not apply as intended says so, before the click
