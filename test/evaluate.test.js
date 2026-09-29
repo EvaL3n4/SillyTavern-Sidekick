@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { isDigestMessage } from '../src/inject.js';
-import { renderDigest } from '../src/grammar.js';
+import { estimateTokens, renderDigest } from '../src/grammar.js';
 import {
     PROPOSAL_SCHEMA,
+    SCENE_PROMPT_BUDGET,
     SCENE_WINDOW,
     buildPrompt,
     matchesSchema,
@@ -201,6 +202,43 @@ describe('buildPrompt', () => {
 
         assert.ok(!user.includes('stopped holding back'));
         assert.ok(!user.includes('rulings'));
+    });
+
+    it('trims the scene oldest-first when the prompt overruns the budget', () => {
+        // sk-zv2: a window of long IC posts overruns the budget on its own,
+        // and an oversized prompt errors the call into a silent no-op. The
+        // oldest entries go first because the recent scene is what justifies
+        // a proposal.
+        const many = sceneWindow([
+            mes('Hailey', 'the first thing that happened'),
+            mes('Alyssa', 'the second thing that happened', false),
+            mes('Hailey', 'the third thing that happened'),
+            mes('Alyssa', 'the fourth thing that happened', false),
+        ]);
+        const { user } = buildPrompt(ledger(), many, { budget: 120 });
+
+        assert.ok(!user.includes('the first thing'), 'the oldest entry is dropped first');
+        assert.match(user, /the fourth thing that happened/);
+    });
+
+    it('keeps the last scene entry even past the budget', () => {
+        // The floor is one entry, not zero: an empty scene reads as '(no scene
+        // yet)' and the pass is worthless without one.
+        const one = sceneWindow([mes('Hailey', 'the only scene')]);
+        const { user } = buildPrompt(ledger(), one, { budget: 1 });
+
+        assert.match(user, /\[0\] Hailey: the only scene/);
+    });
+
+    it('does not trim a prompt that already fits', () => {
+        const base = buildPrompt(ledger(), scene);
+        const roomier = buildPrompt(ledger(), scene, { budget: 100000 });
+
+        assert.equal(roomier.user, base.user);
+        assert.ok(
+            estimateTokens(base.system + base.user) <= SCENE_PROMPT_BUDGET,
+            'the fixture scene must fit the default budget for this to mean anything',
+        );
     });
 });
 

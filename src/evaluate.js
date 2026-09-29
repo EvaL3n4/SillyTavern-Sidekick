@@ -7,8 +7,8 @@
  * construction, and a scan that reads it back gets over-persuaded by our own
  * prose and proposes deltas that merely restate the render.
  */
-import { hasState } from './grammar.js';
 import { isDigestMessage } from './inject.js';
+import { estimateTokens, hasState } from './grammar.js';
 
 /** §3: fixed, configurable cadence. Matches LocalSettings.evaluationCadence. */
 export const DEFAULT_CADENCE = 15;
@@ -131,6 +131,19 @@ function renderScene(scene) {
 }
 
 /**
+ * §3: the assembled prompt runs under this many tokens.
+ *
+ * A constant, not a third LocalSettings field: §6 carries only
+ * evaluationCadence and digestBudgetTokens, so a new setting is a §6
+ * change. The digest budget is not reused either—§5's governs the render,
+ * and coupling the two would make one knob move two unrelated things.
+ *
+ * The estimate is grammar.js's (1 token ≈ 4 chars): crude but monotonic,
+ * and already trusted by the digest's own budget loop.
+ */
+export const SCENE_PROMPT_BUDGET = 4000;
+
+/**
  * §3: the pass, as prompt text.
  *
  * The one-way valve in force. Built from state fields and the scene window,
@@ -138,28 +151,44 @@ function renderScene(scene) {
  * prompt quoting the render would over-persuade the scan and cost the only
  * reader positioned to notice a render drifting from the DM's rulings.
  *
+ * §3's scene window bounds the prompt by message count; the budget bounds it
+ * by size, because a window of long IC posts overruns on its own. Trimming
+ * is oldest-first and never past the last entry—an empty scene reads as
+ * '(no scene yet)' and the pass is worthless without one. The ledger half is
+ * never trimmed: it is what the scan reads, and a ledger that alone exceeds
+ * the budget errors the call exactly as it did before.
+ *
  * @param {object|null} state a SidekickState (§6)
  * @param {object[]} scene entries from sceneWindow
+ * @param {object} [options]
+ * @param {number} [options.budget] token cap, defaults to SCENE_PROMPT_BUDGET
  * @returns {{system: string, user: string}}
  */
-export function buildPrompt(state, scene) {
-    return {
-        system: SYSTEM_PROMPT,
-        user: [
-            '## The ledger',
-            '',
-            renderState(state),
-            '',
-            '## The scene',
-            '',
-            renderScene(scene),
-            '',
-            '## What to return',
-            '',
-            'Proposals as JSON. Only what the scene justifies; when nothing',
-            'qualifies, return {"proposals": []}.',
-        ].join('\n'),
-    };
+export function buildPrompt(state, scene, { budget = SCENE_PROMPT_BUDGET } = {}) {
+    const entries = Array.isArray(scene) ? scene : [];
+    const ledger = renderState(state);
+    const userFor = (window) => [
+        '## The ledger',
+        '',
+        ledger,
+        '',
+        '## The scene',
+        '',
+        renderScene(window),
+        '',
+        '## What to return',
+        '',
+        'Proposals as JSON. Only what the scene justifies; when nothing',
+        'qualifies, return {"proposals": []}.',
+    ].join('\n');
+
+    const systemTokens = estimateTokens(SYSTEM_PROMPT);
+    let kept = entries;
+    while (kept.length > 1 && systemTokens + estimateTokens(userFor(kept)) > budget) {
+        kept = kept.slice(1);
+    }
+
+    return { system: SYSTEM_PROMPT, user: userFor(kept) };
 }
 
 /**
