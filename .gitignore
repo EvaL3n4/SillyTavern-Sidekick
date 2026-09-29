@@ -2,6 +2,10 @@
 .pi/
 AGENTS.md
 
+# Claude
+CLAUDE.md
+.claude/
+
 # Beads
 .beads*
 
