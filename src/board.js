@@ -261,7 +261,3 @@ export async function runBoardTurn(state, board, { generate, at = Date.now() }) 
     appendTurn(board, turn);
     return turn;
 }
-/** @throws {Error} not implemented yet */
-export async function openBoard() {
-    throw new Error('Sidekick: the discussion board is not implemented yet');
-}

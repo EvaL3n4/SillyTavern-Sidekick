@@ -59,8 +59,8 @@ markdown-linted before anything lands.
 | `src/grammar.js` | The digest renderer: state → lean prose (the dosage rules) |
 | `src/inject.js` | The `generate_interceptor` and budget policy |
 | `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence policy |
-| `src/board.js` | Discussion board (separate chat, own system prompt) |
-| `src/ui.js` | FAB menu; the extensions drawer holds settings only |
+| `src/board.js` | The board's store, prompt and tool-call protocol |
+| `src/ui.js` | FAB menu and the hero sheet, review queue and board surfaces |
 | `style.css` | Near-mono palette with a single warm accent |
 | `templates/` | Handlebars templates |
 
@@ -69,7 +69,10 @@ markdown-linted before anything lands.
 The scaffold is landed. `src/state.js` and `src/grammar.js` are complete and tested.
 The evaluator scan's chain is complete and tested—scene window, prompt,
 generation, validation, queue assembly—and `index.js` wires it to the cadence and
-the slash command. The review queue that applies a queued proposal is next.
+the slash command. The three FAB surfaces are built: the hero sheet, the review queue that
+rules on a queued proposal, and the discussion board, which turns the DM's own thinking
+into a change through one click. Citations survive deletion and re-roll, and the scan's
+evidence is fingerprinted at intake.
 
 ## License
 

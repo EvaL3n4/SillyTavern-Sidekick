@@ -9,8 +9,9 @@ import { createInterceptor, registerInterceptor } from './src/inject.js';
 import { renderDigest } from './src/grammar.js';
 import { startEvaluation, shouldEvaluate } from './src/evaluate.js';
 import { reanchorCitations } from './src/citations.js';
-import { mountSettings, mountFab, mountQueue, mountSheet } from './src/ui.js';
+import { mountSettings, mountFab, mountQueue, mountSheet, mountBoard } from './src/ui.js';
 import { loadState } from './src/state.js';
+import { BOARD_KEY, readBoard, runBoardTurn } from './src/board.js';
 
 /** The folder SillyTavern mounts us under. Used for template lookups. */
 export const EXTENSION_FOLDER = 'third-party/SillyTavern-Sidekick';
@@ -88,6 +89,52 @@ export async function persistState(state) {
     await saveMetadata();
 }
 
+/**
+ * Reads this chat's board conversation.
+ *
+ * chatMetadata is rebound on CHAT_CHANGED, so this reads it fresh exactly as
+ * readState does. readBoard never throws: a chat that has never opened the board,
+ * or one whose board was mangled by hand, reads as an empty conversation rather
+ * than something the pane has to defend against.
+ *
+ * @returns {object} this chat's board
+ */
+export function readBoardState() {
+    const { chatMetadata } = context();
+    return readBoard(chatMetadata);
+}
+
+/**
+ * Files this chat's board.
+ *
+ * The metadata pointer is checked by identity rather than compared for
+ * equality, the same guard evaluateNow uses, because a board turn is a quiet
+ * generation that can run for seconds and CHAT_CHANGED reassigns SillyTavern's
+ * chatMetadata while it does—writing after a switch would file this chat's
+ * conversation inside another chat, silently. The caller captures the pointer in
+ * the synchronous turn that starts the work, which leaves no window between
+ * capturing and checking it.
+ *
+ * @param {object} board
+ * @param {object} [captured] the chatMetadata this work started under
+ * @returns {Promise<boolean>} false when the chat moved, or the save itself failed
+ */
+export async function saveBoardState(board, captured) {
+    if (captured && context().chatMetadata !== captured) {
+        console.error('[Sidekick] the chat changed during the board turn—nothing was persisted');
+        return false;
+    }
+
+    try {
+        const { chatMetadata, saveMetadata } = context();
+        chatMetadata[BOARD_KEY] = board;
+        await saveMetadata();
+        return true;
+    } catch (error) {
+        console.error('[Sidekick] could not persist the board', error);
+        return false;
+    }
+}
 /** `/hero digest` — renders and reports, generating nothing (§5). */
 function previewDigest() {
     const state = readState();
@@ -220,6 +267,16 @@ async function onAppReady() {
     mountFab();
     mountQueue({ getState: readState, persist: persistState });
     mountSheet({ getState: readState });
+    mountBoard({
+        getState: readState,
+        persist: persistState,
+        loadBoard: readBoardState,
+        saveBoard: saveBoardState,
+        // Injected the way evaluateNow injects it, so the board module stays
+        // node-testable and the generation function is resolved from the live
+        // context on every turn rather than captured once at setup.
+        runTurn: (state, board) => runBoardTurn(state, board, { generate: context().generateRaw }),
+    });
 }
 
 try {
@@ -231,8 +288,11 @@ try {
 /** `clean` hook: clears stored hero data for this chat (§8). */
 export async function onClean() {
     const { chatMetadata, saveMetadata } = context();
-    if (chatMetadata && Object.hasOwn(chatMetadata, STORAGE_KEY)) {
+    if (chatMetadata && (Object.hasOwn(chatMetadata, STORAGE_KEY) || Object.hasOwn(chatMetadata, BOARD_KEY))) {
         delete chatMetadata[STORAGE_KEY];
+        // The board is chat-specific too, so it goes with the ledger: leaving it
+        // behind would orphan a conversation nobody can open.
+        delete chatMetadata[BOARD_KEY];
         await saveMetadata();
     }
 }

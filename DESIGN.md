@@ -288,8 +288,9 @@ src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
 src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
-src/board.js       discussion board UI (separate generateRaw chat, own system prompt)
-src/ui.js          FAB menu: hero sheet, review queue, board; drawer = settings
+src/board.js       the board's store, prompt and tool-call protocol; the FAB renders it
+src/ui.js          FAB menu: hero sheet, review queue, board; drawer = settings; the board's
+                   surface applies a change to history on the DM's click, not on generation
 style.css          near-mono palette + single warm accent
 ```
 
