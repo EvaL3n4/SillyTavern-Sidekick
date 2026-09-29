@@ -127,7 +127,7 @@
     right: 20px;
     bottom: 76px;
     z-index: 2998;
-    width: 300px;
+    width: 340px;
     max-height: 60vh;
     overflow: auto;
     padding: 12px;
@@ -154,4 +154,44 @@
 
 .sidekick-pane-empty {
     color: var(--sidekick-muted);
+}
+
+/* One proposal's rulings: quiet buttons, the same as the menu's. */
+.sidekick-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.sidekick-actions button {
+    padding: 4px 8px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: var(--sidekick-radius);
+    background: transparent;
+    color: var(--sidekick-fg);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-actions button:hover {
+    background: var(--sidekick-line);
+}
+
+.sidekick-edit {
+    width: 100%;
+    margin-top: 6px;
+}
+
+/* Evidence is the one accent inside the pane: it is what the DM acts on. */
+.sidekick-jump {
+    border: none;
+    background: transparent;
+    color: var(--sidekick-accent);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.sidekick-flash {
+    outline: 1px solid var(--sidekick-accent);
 }
