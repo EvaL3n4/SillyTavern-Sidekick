@@ -72,6 +72,21 @@ always available), a quiet generation—never rendered in the campaign chat—re
 recent scene window and returns structured observations and candidate deltas. Output is
 schema-constrained and validated on receipt; a failed pass is a silent no-op, never a
 state mutation.
+
+**Beginning a ledger.** A chat starts with no ledger, and the scan is how one begins.
+Run on an empty ledger it reads the character card—description, personality,
+scenario—beside the scene and proposes the first entries: the hero, the powers the
+card already names (even ones the story has not introduced yet), and what the scene
+shows of the arc. She rules on each through the queue like any other proposal, and a
+card with no powers simply yields fewer. The card is context only while the ledger is
+empty: once she has ruled, the ledger is the record and the card stops being read. The
+cosmology stays hers, and the scan never proposes a vocabulary. The cadence never
+starts a scan on an empty ledger: the first is always hers to press, because a hero
+filed unasked every fifteen messages is noise. A group chat has no single card, so it
+reads the scene alone. A proposal that comes from the card cites no message; it says
+so (`source: "card"`), and the queue shows "from the character card" where the
+evidence would be.
+
 **The digest is a one-way valve.** The scan reads raw scenes and structured state, never
 the digest render. State renders into the digest, the digest enters generation, and
 nothing downstream of it writes back upstream. Our own prose is persuasive by
@@ -270,6 +285,16 @@ interface Ruling {
 
 interface LocalSettings { evaluationCadence: number; digestBudgetTokens: number; }
 ```
+
+**Paths.** A change names one field by a dot path from the ledger's root
+(`hero.name`, `powers.the-spark.limits.0`, `arc.threads.t1.text`). On a list, a segment
+that is not an index is an id. A new entry is created by writing its first field: an id
+under `powers` or `arc.threads` that does not exist yet makes the entry with every
+other field empty, and the next index of `limits`, `costs`, `arc.pressures` or
+`arc.linesCrossed` appends. Nothing else is created: any other missing segment is a
+dead path and the change is refused. A creation is not stale: a change whose `from` is
+empty matches a field that does not exist yet. A thread, pressure or line created this
+way is stamped with the newest message it cites.
 
 Hygiene: never hold a long-lived reference to `chatMetadata` (the reference changes on
 `CHAT_CHANGED`); fetch via `SillyTavern.getContext().chatMetadata`, persist with

@@ -128,7 +128,120 @@ describe('paths', () => {
 
     it('throws on a dead segment instead of silently no-opting', () => {
         const state = createState();
-        assert.throws(() => setPath(state, 'powers.ghost.limits.0', 'x'), /dead path segment/);
+        assert.throws(() => setPath(state, 'hero.ghost.name', 'x'), /dead path segment/);
+        assert.throws(() => setPath(state, 'arc.ghost.threads.0', 'x'), /dead path segment/);
+    });
+});
+
+describe('creating entries by path (§6 Paths)', () => {
+    it('makes a power from the first field written under a new id', () => {
+        const state = createState();
+        setPath(state, 'powers.the-spark.name', 'the Spark');
+
+        assert.deepEqual(state.powers, [{
+            id: 'the-spark',
+            name: 'the Spark',
+            capability: '',
+            limits: [],
+            costs: [],
+            stage: '',
+            history: [],
+        }]);
+    });
+
+    it('fills a new power through the same ids and the next index', () => {
+        const state = createState();
+        setPath(state, 'powers.the-spark.limits.0', 'no control');
+        setPath(state, 'powers.the-spark.limits.1', 'daylight only');
+        setPath(state, 'powers.the-spark.costs.0', 'strain');
+
+        assert.deepEqual(state.powers[0].limits, ['no control', 'daylight only']);
+        assert.deepEqual(state.powers[0].costs, ['strain']);
+        assert.equal(state.powers.length, 1);
+    });
+
+    it('never leaves a hole in a list: an index past the end appends', () => {
+        const state = createState({ powers: [{ id: 'p', limits: [] }] });
+        setPath(state, 'powers.p.limits.5', 'x');
+        assert.deepEqual(state.powers[0].limits, ['x']);
+    });
+
+    it('stamps a thread with the message it was born at', () => {
+        const state = createState();
+        const citation = { index: 14, send_date: 'then' };
+        setPath(state, 'arc.threads.the-door.text', 'who locked it', { at: 14, citation });
+
+        assert.deepEqual(state.arc.threads, [{ id: 'the-door', text: 'who locked it', bornAt: 14, lastTouched: 14 }]);
+    });
+
+    it('appends a pressure or a line only at the next index', () => {
+        const state = createState();
+        const citation = { index: 3, send_date: 'then' };
+        setPath(state, 'arc.pressures.0.text', 'the sponsor calls', { at: 3, citation });
+        setPath(state, 'arc.linesCrossed.0.line', 'lied to the handler', { at: 3, citation });
+
+        assert.deepEqual(state.arc.pressures, [{ text: 'the sponsor calls', since: 3, denialCount: 0 }]);
+        assert.deepEqual(state.arc.linesCrossed, [{ line: 'lied to the handler', provides: '', cost: '', msgId: citation }]);
+        assert.throws(() => setPath(state, 'arc.pressures.4.text', 'x'), /dead path segment/);
+    });
+
+    it('creates nothing outside the four lists', () => {
+        const state = createState();
+        assert.throws(() => setPath(state, 'cosmology.sources.0.name', 'x'), /dead path segment/);
+        assert.throws(() => setPath(state, 'history.ghost.summary', 'x'), /dead path segment/);
+        assert.deepEqual(state.cosmology.sources, []);
+    });
+
+    it('applies a whole new power from a proposal, born at its evidence', () => {
+        const state = createState();
+        const citation = { index: 7, send_date: 'then' };
+        const applied = applyProposal(state, {
+            origin: 'evaluation',
+            summary: 'the card names a power',
+            evidence: [citation],
+            changes: [
+                { path: 'hero.name', from: '', to: 'Hailey' },
+                { path: 'powers.the-spark.name', from: '', to: 'the Spark' },
+                { path: 'powers.the-spark.capability', to: 'throws light' },
+                { path: 'arc.threads.t1.text', to: 'what fired it' },
+            ],
+        }, { at: 1 });
+
+        assert.equal(applied.length, 4);
+        assert.equal(state.hero.name, 'Hailey');
+        assert.equal(state.powers[0].name, 'the Spark');
+        assert.equal(state.powers[0].capability, 'throws light');
+        assert.equal(state.arc.threads[0].bornAt, 7);
+        // the creation's history follows the power it made
+        assert.equal(state.powers[0].history.length, 2);
+    });
+
+    it('reads an empty from as matching a field that does not exist yet, and nothing else', () => {
+        const state = createState({ powers: [theSpark()] });
+        const applied = applyProposal(state, {
+            origin: 'evaluation',
+            summary: 'a second power',
+            changes: [
+                { path: 'powers.the-flare.name', from: '', to: 'the Flare' },
+                { path: 'powers.the-spark.name', from: '', to: 'stale: it already has one' },
+            ],
+        }, { at: 1 });
+
+        assert.equal(applied.length, 1);
+        assert.equal(state.powers.find((power) => power.id === 'the-flare').name, 'the Flare');
+        assert.notEqual(state.powers[0].name, 'stale: it already has one');
+    });
+
+    it('reads a bare-number citation as a birthplace without a locator', () => {
+        const state = createState();
+        applyProposal(state, {
+            origin: 'evaluation',
+            summary: 'older caller',
+            evidence: [3, 9],
+            changes: [{ path: 'arc.linesCrossed.0.line', to: 'crossed' }],
+        }, { at: 1 });
+
+        assert.equal(state.arc.linesCrossed[0].msgId, null);
     });
 });
 

@@ -145,20 +145,75 @@ export function getPath(root, path) {
     return splitPath(path).reduce((node, key) => step(node, key), root);
 }
 
-export function setPath(root, path, value) {
+/**
+ * The lists whose entries a path can bring into being (§6 Paths), keyed by the
+ * list's own path. `byId` lists take a slug the writer chooses; the rest append at
+ * the next index. `at` is the newest message the proposal cites and `citation` is
+ * that message's locator, so a thread, pressure or line is stamped with where it
+ * was born rather than with a guess.
+ */
+const CREATABLE = {
+    powers: {
+        byId: true,
+        make: (id) => ({ id, name: '', capability: '', limits: [], costs: [], stage: '', history: [] }),
+    },
+    'arc.threads': {
+        byId: true,
+        make: (id, { at }) => ({ id, text: '', bornAt: at, lastTouched: at }),
+    },
+    'arc.pressures': {
+        byId: false,
+        make: (_id, { at }) => ({ text: '', since: at, denialCount: 0 }),
+    },
+    'arc.linesCrossed': {
+        byId: false,
+        make: (_id, { citation }) => ({ line: '', provides: '', cost: '', msgId: citation }),
+    },
+};
+
+/** A new entry for `key` in the list at `listPath`, or null when the path may not make one. */
+function createEntry(list, listPath, key, context) {
+    const kind = CREATABLE[listPath];
+    if (!kind || !Array.isArray(list)) {
+        return null;
+    }
+    // An id is a slug she or the scan chose; an index may only be the next one, so
+    // a list never grows a hole.
+    const allowed = kind.byId ? Number.isNaN(Number(key)) : Number(key) === list.length;
+    if (!allowed) {
+        return null;
+    }
+    const entry = kind.make(key, context);
+    list.push(entry);
+    return entry;
+}
+
+/**
+ * Writes `value` at `path`, creating the one entry a proposal is allowed to create
+ * on the way (§6 Paths). Any other missing segment is a dead path and throws.
+ *
+ * @param {object} root the state
+ * @param {string} path dot path from the root
+ * @param {*} value what to write
+ * @param {{at?: number, citation?: object|null}} [context] where a created thread,
+ *     pressure or line was born
+ */
+export function setPath(root, path, value, { at = 0, citation = null } = {}) {
     const keys = splitPath(path);
     let node = root;
 
     for (let i = 0; i < keys.length - 1; i += 1) {
-        node = step(node, keys[i]);
-        if (node === null || node === undefined) {
+        const next = step(node, keys[i]) ?? createEntry(node, keys.slice(0, i).join('.'), keys[i], { at, citation });
+        if (next === null || next === undefined) {
             throw new Error(`Sidekick: dead path segment "${keys.slice(0, i + 1).join('.')}" in "${path}"`);
         }
+        node = next;
     }
 
     const last = keys.at(-1);
     if (Array.isArray(node) && Number.isInteger(Number(last))) {
-        node[Number(last)] = value;
+        // Past the end is the end: a list never grows a hole.
+        node[Math.min(Number(last), node.length)] = value;
     } else {
         node[last] = value;
     }
@@ -185,14 +240,28 @@ export function applyProposal(state, proposal, meta = {}) {
     const applied = [];
     const at = meta.at ?? Date.now();
 
+    // The newest message the proposal cites is where anything it creates was born.
+    // A citation is {index, send_date}; a bare index from an older caller still counts.
+    const indexOf = (citation) => (Number.isInteger(citation) ? citation : citation?.index);
+    const newest = (proposal.evidence ?? [])
+        .filter((citation) => Number.isInteger(indexOf(citation)))
+        .reduce((best, citation) => (best === null || indexOf(citation) > indexOf(best) ? citation : best), null);
+    const born = {
+        at: newest === null ? 0 : indexOf(newest),
+        citation: newest === null || Number.isInteger(newest) ? null : newest,
+    };
+
     for (const change of proposal.changes ?? []) {
         const current = getPath(state, change.path);
         const expect = change.from === undefined ? undefined : change.from;
-        if (expect !== undefined && expect !== current) {
+        // An empty `from` matches a field that does not exist yet: a creation is
+        // not a stale proposal (§6 Paths).
+        const matches = expect === undefined || expect === current || (expect === '' && current === undefined);
+        if (!matches) {
             continue;
         }
 
-        setPath(state, change.path, change.to);
+        setPath(state, change.path, change.to, born);
 
         const event = {
             summary: proposal.summary,
