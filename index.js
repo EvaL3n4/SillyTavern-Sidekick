@@ -38,7 +38,13 @@ function bindState() {
     messagesSince = 0;
 }
 
-/** Persists a migrated state. Callers pass a state they already hold. */
+/**
+ * Persists a migrated state. Callers pass a state they already hold.
+ *
+ * The store keeps the state object by reference, so anything that mutates it
+ * after this call changes what chatMetadata holds without any flush; a path that
+ * mutates state must persist again explicitly.
+ */
 export async function persistState(state) {
     const { chatMetadata, saveMetadata } = context();
     chatMetadata[STORAGE_KEY] = state;
@@ -75,16 +81,24 @@ async function evaluateNow(state) {
         return null;
     }
 
+    let queued;
     try {
-        const queued = await started;
-        if (queued.length > 0) {
-            await persistState(state);
-        }
-        return queued;
+        queued = await started;
     } catch (error) {
         console.error('[Sidekick] evaluation pass failed', error);
         return null;
     }
+
+    if (queued.length > 0) {
+        try {
+            await persistState(state);
+        } catch (error) {
+            // The entries are real and in memory; the chat just never learned
+            // them. Naming the phase keeps the next debug pass off the pass.
+            console.error('[Sidekick] could not persist the scan queue', error);
+        }
+    }
+    return queued;
 }
 
 function registerSlashCommands() {
@@ -102,6 +116,11 @@ function registerSlashCommands() {
             const queued = await evaluateNow(readState());
             if (queued) {
                 toastr.info(`Scan complete—${queued.length} proposal(s) queued.`);
+            } else {
+                // null, not []: the in-flight guard dropped this trigger, which
+                // would otherwise be indistinguishable from a pass that found
+                // nothing at all.
+                toastr.info('A scan is already running—this trigger was dropped. Try again when it finishes.');
             }
             return '';
         },

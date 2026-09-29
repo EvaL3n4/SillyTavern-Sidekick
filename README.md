@@ -41,7 +41,7 @@ Requires Node 20 or newer.
 
 ```bash
 npm install      # install dev dependencies and prepare the git hook
-npm test         # node --test over src/state.js and src/grammar.js
+npm test         # node --test over test/, then the coverage floor
 npm run lint     # eslint
 npm run lint:md  # markdownlint-cli2 over DESIGN.md
 ```
@@ -58,7 +58,7 @@ markdown-linted before anything lands.
 | `src/state.js` | State load/migrate/save, provenance-gated mutations, ruling log |
 | `src/grammar.js` | The digest renderer: state → lean prose (the dosage rules) |
 | `src/inject.js` | The `generate_interceptor` and budget policy |
-| `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence ticker |
+| `src/evaluate.js` | Evaluator prompt, jsonSchema, cadence policy |
 | `src/board.js` | Discussion board (separate chat, own system prompt) |
 | `src/ui.js` | FAB menu; the extensions drawer holds settings only |
 | `style.css` | Near-mono palette with a single warm accent |

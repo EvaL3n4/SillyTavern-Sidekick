@@ -398,6 +398,12 @@ describe('validateProposals', () => {
         assert.deepEqual(validateProposals(scanPass([withoutKeys(proposal(), 'evidence')])), []);
     });
 
+    it('rejects an empty evidence array, which is present and cites nothing', () => {
+        // present is not the whole rule: an empty array is schema-conforming
+        // and the proposal it rides on traces to no message
+        assert.deepEqual(validateProposals(scanPass([proposal({ evidence: [] })])), []);
+    });
+
     it('voids the whole pass when a single proposal is malformed', () => {
         // one malformed entry never reaches the per-item rules: the schema walk
         // rejects the array through .items first, so the good ones go with it
@@ -576,6 +582,9 @@ describe('runEvaluation', () => {
         assert.equal(generate.calls[0].jsonSchema, PROPOSAL_SCHEMA);
         assert.match(generate.calls[0].prompt, /\[0\] Dungeon Master: the hall is quiet/);
         assert.match(generate.calls[0].prompt, /\[1\] Hero: she checks her gear/);
+        // the ledger half: the scene lines above prove the chat reached the
+        // call, and this proves the ledger did too
+        assert.match(generate.calls[0].prompt, /Hailey Kogami Green/);
     });
 
     it('never leaks the render into the pass', async () => {
@@ -669,6 +678,7 @@ describe('runEvaluation', () => {
 
         assert.notEqual(queued[0].id, queued[1].id);
         assert.ok(queued[1].id.endsWith('-1'), queued[1].id);
+        assert.equal(state.queue.length, 2);
     });
 });
 

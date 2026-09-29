@@ -278,7 +278,7 @@ index.js           entry point; activates on APP_READY
 src/state.js       state load/migrate/save, provenance-gated mutations, ruling log
 src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
-src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence ticker
+src/evaluate.js    evaluator prompt + jsonSchema + validation, cadence policy
 src/board.js       discussion board UI (separate generateRaw chat, own system prompt)
 src/ui.js          FAB menu: hero sheet, review queue, board; drawer = settings
 style.css          near-mono palette + single warm accent

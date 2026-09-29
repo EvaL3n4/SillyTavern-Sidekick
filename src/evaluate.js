@@ -295,7 +295,7 @@ function isActionable(proposal) {
         typeof proposal.summary === 'string' &&
         proposal.summary.trim().length > 0 &&
         proposal.changes.length > 0 &&
-        Array.isArray(proposal.evidence)
+        Array.isArray(proposal.evidence) && proposal.evidence.length > 0
     );
 }
 
@@ -537,8 +537,8 @@ let inFlight = null;
 /**
  * Starts a pass unless one is already running.
  *
- * §7 names GENERATION_ENDED as the overlap guard and a quiet pass cannot use
- * it: that event is emitted from hideStopButton (script.js:3510), inside
+ * §7 explains why a quiet pass cannot use GENERATION_ENDED as its overlap guard:
+ * that event is emitted from hideStopButton (script.js:3510), inside
  * interactive generations only, while this scan's pass is generateRaw's quiet
  * call, which emits nothing when it ends. A listener would then be released
  * by the DM's next reply rather than by the pass it guards.
