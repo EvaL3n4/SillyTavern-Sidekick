@@ -266,6 +266,8 @@ interface PendingChange {
   source?: 'card';                       // rests on the character card, cites no scene
   status: 'pending' | 'applied' | 'dismissed';
   createdAt: number;
+  filedAt?: number;                      // chat length when filed; ages it (§7). Absent
+                                         // on older proposals, which never age
 }
 
 interface ChangeEvent {
@@ -279,8 +281,12 @@ interface ChangeEvent {
 interface Ruling {
   proposalId: string;                    // what was proposed
   summary: string;                       // frozen at ruling time; survives pruning
-  action: 'applied' | 'edited' | 'dismissed';
+  action: 'applied' | 'edited' | 'dismissed' | 'stale' | 'written';
+                                         // stale: every change was gated, or she cleared
+                                         // it old; she decided nothing, it teaches
+                                         // nothing. written: she wrote the field herself
   edit?: string;                         // how the DM reworded it, if they did
+  path?: string;                         // written only: the field, one open ruling each
   at: number;
 }
 
@@ -394,8 +400,10 @@ combined into one system in Modus's `docs/ux-concept.md` §6:
 - **Mono for facts.** Every number, id, turn count and state value in mono with tabular
   figures; micro-labels 10–11px, uppercase where scannable.
 - **Structure by hairlines, not stacked cards.** A panel is a border plus one
-  background step. Controls are pills with at most one inverted primary per context;
-  icons thin and small. The one exception is the button, which is a disc.
+  background step, and a Sheet card (below) is that same border and step and nothing
+  more: the rule is against depth, not against grouping. Controls are pills with at
+  most one inverted primary per context; icons thin and small. The one exception is
+  the button, which is a disc.
 - **Frosted and matte, never glossy.** The button and the panel are a translucent
   fill with a blur behind it, so SillyTavern moving underneath stays visible, and
   matte: no gradient, highlight or shadow. Translucency follows the principle below.
@@ -435,6 +443,75 @@ because it is the one thing the old implementation got right and she is used to 
 What changes is its surface: a hairline, frosted and matte, the glyph in the text
 colour, and the accent spent only on the marker that straddles its rim. The glyph is
 a thin four-point spark, drawn in CSS, never a letter.
+
+**The Sheet's shape.** The Sheet reads as cards, not a list of text. A card is a
+hairline-bordered group with one background step and no shadow, and cards never sit
+on one another. There is a card for the hero (name and codename as its header, the
+status quo beneath), one for each power (the name, its stage as a mono micro-label,
+the capability, then limits and costs as short lines under their own micro-labels),
+one for each thread, pressure and crossed line, and one for the cosmology. The
+cosmology is the one card the scan can never fill, because the setting's vocabulary
+is hers to write (§3): by hand is the only way in, so the Sheet has to offer it.
+
+**Empty fields collapse; they do not vanish.** An empty field is one faint "+ limit",
+"+ cost" or "+ stage" line, not a row that says nothing is written. A power without
+limits stays noticeable, which is what §2 wants, at the price of a line instead of a
+row per field. It is also the way in: a collapsed field is a real, addressable slot,
+and choosing it opens the same edit a filled field opens. A card with nothing under a
+heading shows that heading's "+" and nothing else. The Sheet offers exactly the slots
+§6's Paths allow, so it never offers one that would be a dead path.
+
+**Writing by hand.** Choosing a field turns it into an input in place. Enter or
+leaving the field commits it and Esc cancels; nothing saves as she types, so half a
+word never reaches the ledger or the digest. A commit writes the ledger at once,
+through the same `setPath` a queue apply uses, and records a `ChangeEvent` with origin
+`manual`. It reaches every field the Sheet shows, the cosmology included. A limit, a
+cost or a whole card is removed by a quiet × that asks once, in place. Her hand is
+never provenance-gated: the gate exists to keep the scan honest, and she is not the
+scan.
+
+**Her hand is a ruling.** What she writes herself is the strongest thing she tells the
+scan, so it is a ruling with action `written`, keyed by its path. The first commit on
+a field writes the ruling at once and keeps, in memory, the field's value from before
+it. While that ruling is open, a later commit on the same field amends it instead of
+adding another, and if the value comes back to what it was before the first commit the
+ruling is removed, because the net change is nothing. A ruling closes when the field
+has been idle for about twenty seconds, or when the panel closes, the tab changes or
+the chat changes; the next commit on that field is then a new ruling, because she
+changed her mind. Nothing waits to be written. The ruling exists from the first
+commit, so an interrupted session can leave it unamended and never lost, and no timer
+reaches into a chat other than the one it started in (§6's hygiene line). The idle
+window is real time, unlike the queue's shelf life below, because it measures her
+editing and not the story. The scan reads `written` as "she wrote it herself"; when a
+written ruling and an applied one disagree about a path, the newest wins, as §3
+already says.
+
+**The Queue's words.** A proposal never shows its path. Each change reads as labels,
+made from the path and the ledger: `hero.statusQuo` is "Hero · Status quo",
+`powers.the-spark.limits.0` is "The Spark · Limit 1" (the power's name, never its
+slug), and an entry the change creates is "New power: …", "New thread: …". Beneath the
+label the value it replaces sits struck through and the new value under it, in mono,
+with no arrow between them. The raw path stays in the record and the console.
+
+**Shelf life.** A proposal ages in messages, never in days: she moves between chats,
+and no time passes in the story while she does. Filing stamps the chat's length as
+`filedAt`. A proposal is old once the chat has grown by a scene window's worth of
+messages (`SCENE_WINDOW`, 30) since then, which is when the scan itself would no
+longer read the scene it rests on. A proposal that rests on the character card never
+ages, because the card does not move with the story. An old proposal stays in the
+Queue, marked and set below the current ones, and the markers count only what is not
+old: the marker means something is waiting on her, and an old proposal is not urgent.
+One action, Clear old, records every old proposal as `stale` and removes it; she
+decided nothing, so it teaches the scan nothing. Nothing leaves the queue unless she
+clicks. A proposal filed before `filedAt` existed has no age and is never old.
+
+**Panel size.** The default is 440 by 560, not 340 by 420: a panel that narrow reads
+as a column of wrapped fragments and does not sit in SillyTavern's own gutters. The
+number is a guide until the gutter widths are measured in the bench, and the measured
+ones replace it here. On a wide viewport the panel opens docked against the right
+gutter; on a narrow one it opens as a near-full-width sheet from the bottom. The
+minimum stays 280 and a saved geometry always wins, so raising the default moves
+nobody who has already placed the panel.
 
 ## 8. 1.0.0 scope / non-goals
 
