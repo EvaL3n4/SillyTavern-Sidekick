@@ -8,12 +8,63 @@
 
 :root {
     --sidekick-accent: #c2703d;
-    --sidekick-accent-dim: #8d4f2b;
     --sidekick-bg: #1a1a1a;
     --sidekick-fg: #d8d4cf;
     --sidekick-muted: #8a8580;
     --sidekick-line: #2e2c2a;
     --sidekick-radius: 4px;
+    --sidekick-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+    /* Motion: 150-300ms, ease-out, and only for opening, closing and a change of
+       state. The button's left and top never carry a transition, because easing
+       what follows a hand makes it lag. */
+    --sidekick-time: 200ms;
+    --sidekick-ease: ease-out;
+
+    /* Frosted and matte: a translucent fill and a blur, no gradient, highlight or
+       shadow. The button is glance-and-away, so it is the more see-through; the
+       panel is a reading surface, dense enough that chat text behind it never
+       competes with text on it. These are the values to tune. */
+    --sidekick-button-fill: rgb(26 26 26 / 0.4);
+    --sidekick-button-fill-hover: rgb(26 26 26 / 0.55);
+    --sidekick-button-blur: 8px;
+    --sidekick-panel-fill: rgb(26 26 26 / 0.82);
+    --sidekick-panel-blur: 16px;
+}
+
+/* Where the blur is unsupported, or transparency is declined, both surfaces fall
+   back to the opaque token: nothing here depends on the blur to be legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root {
+        --sidekick-button-fill: var(--sidekick-bg);
+        --sidekick-button-fill-hover: var(--sidekick-bg);
+        --sidekick-panel-fill: var(--sidekick-bg);
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    :root {
+        --sidekick-button-fill: var(--sidekick-bg);
+        --sidekick-button-fill-hover: var(--sidekick-bg);
+        --sidekick-button-blur: 0px;
+        --sidekick-panel-fill: var(--sidekick-bg);
+        --sidekick-panel-blur: 0px;
+    }
+}
+
+/* SillyTavern's own "reduce UI effects" mode (on by default in a new install)
+   strips backdrop-filter from everything with !important, so a translucent fill
+   would show the chat straight through the panel. Same fallback: opaque. */
+body.no-blur {
+    --sidekick-button-fill: var(--sidekick-bg);
+    --sidekick-button-fill-hover: var(--sidekick-bg);
+    --sidekick-panel-fill: var(--sidekick-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --sidekick-time: 0s;
+    }
 }
 
 .sidekick-settings {
@@ -39,23 +90,49 @@
 
 /* The button and everything behind it. */
 .sidekick-button {
+    /* The four-point spark, drawn as a mask so it takes the text colour. */
+    --sidekick-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C12.4 9.6 14.4 11.6 22 12C14.4 12.4 12.4 14.4 12 22C11.6 14.4 9.6 12.4 2 12C9.6 11.6 11.6 9.6 12 2Z'/%3E%3C/svg%3E");
+
     position: fixed;
     z-index: 3000;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
     width: 48px;
     height: 48px;
-    border: none;
+    padding: 0;
+    border: 1px solid var(--sidekick-line);
     border-radius: 50%;
-    background: var(--sidekick-accent);
-    color: var(--sidekick-bg);
-    font-size: 18px;
+    background: var(--sidekick-button-fill);
+    -webkit-backdrop-filter: blur(var(--sidekick-button-blur));
+    backdrop-filter: blur(var(--sidekick-button-blur));
+    color: var(--sidekick-fg);
     cursor: pointer;
     /* The drag is this module's own gesture; a touch-drag must not scroll the
        chat out from under the press. */
     touch-action: none;
+    /* Resting and pressed are the only states that ease. Never left or top. */
+    transition:
+        background-color var(--sidekick-time) var(--sidekick-ease),
+        border-color var(--sidekick-time) var(--sidekick-ease),
+        opacity var(--sidekick-time) var(--sidekick-ease),
+        display var(--sidekick-time) allow-discrete;
 }
 
-.sidekick-button:hover {
-    background: var(--sidekick-accent-dim);
+.sidekick-button::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    background: currentcolor;
+    -webkit-mask: var(--sidekick-glyph) center / contain no-repeat;
+    mask: var(--sidekick-glyph) center / contain no-repeat;
+}
+
+/* Pressed is also being dragged: the pointer stays down for the whole gesture. */
+.sidekick-button:hover,
+.sidekick-button:active {
+    border-color: var(--sidekick-muted);
+    background: var(--sidekick-button-fill-hover);
 }
 
 .sidekick-button:focus-visible {
@@ -63,21 +140,26 @@
     outline-offset: 2px;
 }
 
-/* Waiting on you, and nothing else: how many proposals hold a ruling. */
+/* Waiting on you, and nothing else: how many proposals hold a ruling. It sits on
+   the button's rim, half on the disc and half off: centred on the 45-degree point
+   of a 24px radius, which puts an 18px marker's corner box at -3px. */
 .sidekick-marker {
     position: absolute;
-    top: -2px;
-    right: -2px;
-    min-width: 16px;
+    top: -3px;
+    right: -3px;
+    box-sizing: border-box;
+    min-width: 18px;
+    height: 18px;
     padding: 0 4px;
     border: 1px solid var(--sidekick-accent);
     border-radius: 999px;
     background: var(--sidekick-bg);
     color: var(--sidekick-accent);
-    font-family: monospace;
-    font-size: 10px;
+    font-family: var(--sidekick-mono);
+    font-size: 11px;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
-    line-height: 14px;
+    line-height: 16px;
     text-align: center;
 }
 
@@ -85,17 +167,32 @@
     display: none;
 }
 
-/* The button steps aside while the panel is open. */
+/* The button steps aside while the panel is open, and comes back the same way. */
 .sidekick-button[hidden] {
     display: none;
+    opacity: 0;
+    pointer-events: none;
 }
 
-/* The Queue tab's counterpart: the same count, inline with the tab's name. */
+@starting-style {
+    .sidekick-button {
+        opacity: 0;
+    }
+}
+
+/* The Queue tab's counterpart: the same count, smaller, inline with the name. */
 .sidekick-marker-tab {
     position: static;
     display: inline-block;
+    min-width: 14px;
+    height: 14px;
     margin-left: 6px;
-    vertical-align: baseline;
+    padding: 0 3px;
+    font-size: 9px;
+    letter-spacing: 0;
+    line-height: 12px;
+    text-transform: none;
+    vertical-align: 1px;
 }
 
 .sidekick-marker-tab[hidden] {
@@ -122,7 +219,8 @@
 .sidekick-diff {
     margin: 4px 0;
     color: var(--sidekick-muted);
-    font-family: monospace;
+    font-family: var(--sidekick-mono);
+    font-variant-numeric: tabular-nums;
     white-space: pre-wrap;
     /* A path has no spaces to wrap at, and the panel can now be sized narrower
        than one. */
@@ -145,16 +243,36 @@
     padding: 12px 12px 16px;
     border: 1px solid var(--sidekick-line);
     border-radius: var(--sidekick-radius);
-    background: var(--sidekick-bg);
+    background: var(--sidekick-panel-fill);
+    -webkit-backdrop-filter: blur(var(--sidekick-panel-blur));
+    backdrop-filter: blur(var(--sidekick-panel-blur));
     color: var(--sidekick-fg);
+    /* Opening and closing ease; her drag and resize set left, top, width and
+       height inline and never transition. */
+    transition:
+        opacity var(--sidekick-time) var(--sidekick-ease),
+        transform var(--sidekick-time) var(--sidekick-ease),
+        display var(--sidekick-time) allow-discrete;
 }
 
+/* Hidden is the closed end of the same transition: it fades and settles 6px down,
+   and cannot be clicked while it does. */
 .sidekick-panel[hidden] {
     display: none;
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
 }
 
-/* The whole strip is the grab handle, so it is not a scroll region. It holds only
-   the close control, and stays tall enough to grab comfortably. */
+@starting-style {
+    .sidekick-panel {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+/* The whole strip is the grab handle, so it is not a scroll region. It holds the
+   close control and a micro-label, and stays tall enough to grab comfortably. */
 .sidekick-panel-strip {
     display: flex;
     flex: none;
@@ -166,6 +284,16 @@
     /* The drag is this module's own gesture; a touch-drag must not scroll the
        chat out from under the press. */
     touch-action: none;
+}
+
+.sidekick-panel-strip::before {
+    content: "Sidekick";
+    margin-right: auto;
+    color: var(--sidekick-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 /* The body takes what the strip and the tabs leave and scrolls inside it.
@@ -205,35 +333,56 @@
 }
 
 .sidekick-panel-close {
+    width: 22px;
+    height: 22px;
+    padding: 0;
     border: none;
+    border-radius: 999px;
     background: transparent;
     color: var(--sidekick-muted);
     font: inherit;
+    line-height: 1;
     cursor: pointer;
+    transition:
+        color var(--sidekick-time) var(--sidekick-ease),
+        background-color var(--sidekick-time) var(--sidekick-ease);
+}
+
+.sidekick-panel-close:hover {
+    background: var(--sidekick-line);
+    color: var(--sidekick-fg);
 }
 
 .sidekick-panel-empty {
     color: var(--sidekick-muted);
 }
 
-/* The tabs: one row under the strip, Sheet, Queue, Board. The selected tab is
-   marked in the text colour, not the accent, which stays for what waits on her. */
+/* The tabs: one row under the strip, Sheet, Queue, Board, as pills in micro-label
+   type. The selected tab is one background step up, in the text colour and not the
+   accent, which stays for what waits on her. */
 .sidekick-panel-tabs {
     display: flex;
     flex: none;
     gap: 4px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--sidekick-line);
+    margin-bottom: 10px;
 }
 
 .sidekick-tab {
-    padding: 4px 10px;
-    border: none;
-    border-bottom: 2px solid transparent;
+    padding: 3px 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
     background: transparent;
     color: var(--sidekick-muted);
     font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     cursor: pointer;
+    transition:
+        color var(--sidekick-time) var(--sidekick-ease),
+        background-color var(--sidekick-time) var(--sidekick-ease),
+        border-color var(--sidekick-time) var(--sidekick-ease);
 }
 
 .sidekick-tab:hover {
@@ -241,13 +390,14 @@
 }
 
 .sidekick-tab[aria-selected="true"] {
-    border-bottom-color: var(--sidekick-fg);
+    border-color: var(--sidekick-line);
+    background: var(--sidekick-line);
     color: var(--sidekick-fg);
 }
 
 .sidekick-tab:focus-visible {
     outline: 2px solid var(--sidekick-fg);
-    outline-offset: -2px;
+    outline-offset: 1px;
 }
 
 /* Run a scan, at the top of the Queue. */
@@ -255,17 +405,25 @@
     margin-bottom: 8px;
 }
 
-.sidekick-scan-run {
-    padding: 4px 10px;
+.sidekick-scan-run,
+.sidekick-actions button,
+.sidekick-send {
+    padding: 3px 12px;
     border: 1px solid var(--sidekick-line);
-    border-radius: var(--sidekick-radius);
+    border-radius: 999px;
     background: transparent;
     color: var(--sidekick-fg);
     font: inherit;
+    font-size: 12px;
     cursor: pointer;
+    transition:
+        color var(--sidekick-time) var(--sidekick-ease),
+        background-color var(--sidekick-time) var(--sidekick-ease),
+        border-color var(--sidekick-time) var(--sidekick-ease);
 }
 
-.sidekick-scan-run:hover:not(:disabled) {
+.sidekick-scan-run:hover:not(:disabled),
+.sidekick-actions button:hover {
     background: var(--sidekick-line);
 }
 
@@ -274,25 +432,11 @@
     cursor: default;
 }
 
-/* One proposal's rulings: quiet buttons, the same as the tabs'. */
+/* One proposal's rulings: quiet pills, the same as the tabs'. */
 .sidekick-actions {
     display: flex;
     gap: 4px;
     margin-top: 8px;
-}
-
-.sidekick-actions button {
-    padding: 4px 8px;
-    border: 1px solid var(--sidekick-line);
-    border-radius: var(--sidekick-radius);
-    background: transparent;
-    color: var(--sidekick-fg);
-    font: inherit;
-    cursor: pointer;
-}
-
-.sidekick-actions button:hover {
-    background: var(--sidekick-line);
 }
 /* Evidence is the one accent inside the panel: it is what the DM acts on. */
 .sidekick-jump {
@@ -391,21 +535,21 @@
     font: inherit;
 }
 
+/* The board's one inverted primary: the composer's Send. */
 .sidekick-send {
-    padding: 4px 8px;
-    border: 1px solid var(--sidekick-line);
-    border-radius: var(--sidekick-radius);
-    background: transparent;
-    color: var(--sidekick-fg);
-    font: inherit;
-    cursor: pointer;
+    border-color: var(--sidekick-fg);
+    background: var(--sidekick-fg);
+    color: var(--sidekick-bg);
 }
 
 .sidekick-send:hover:not(:disabled) {
-    background: var(--sidekick-line);
+    background: transparent;
+    color: var(--sidekick-fg);
 }
 
 .sidekick-send:disabled {
+    border-color: var(--sidekick-line);
+    background: transparent;
     color: var(--sidekick-muted);
     cursor: default;
 }
@@ -458,7 +602,8 @@
 .sidekick-edit-path {
     display: block;
     color: var(--sidekick-muted);
-    font-family: monospace;
+    font-family: var(--sidekick-mono);
+    font-variant-numeric: tabular-nums;
     font-size: 0.9em;
     /* A path is longer than the panel. It is read, not typed, so wrapping it
        whole beats truncating a field the edit depends on. */

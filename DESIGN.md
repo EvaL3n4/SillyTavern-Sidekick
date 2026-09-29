@@ -375,6 +375,9 @@ combined into one system in Modus's `docs/ux-concept.md` §6:
   The button is glance-and-away and the most see-through; the panel is a reading
   surface and dense enough that text behind it never competes with text on it. Where
   blur or transparency is unavailable or declined, both fall back to the opaque token.
+  That includes SillyTavern's own "reduce UI effects" mode, which is on by default in
+  a new install and strips every backdrop blur: a translucent fill with no blur would
+  show the chat straight through the panel.
 - **Motion 150–300ms, ease-out.** Surfaces slide in and settle; nothing else moves.
   The button's position tracks the pointer one to one and is never eased, because
   easing what follows a hand makes it lag; only its state, resting or being dragged,
@@ -403,7 +406,8 @@ The idiom went; the shape stayed. The scaffold shipped a Material button—a fla
 solid accent fill—and nobody asked for it; it does not come back. The disc stays,
 because it is the one thing the old implementation got right and she is used to it.
 What changes is its surface: a hairline, frosted and matte, the glyph in the text
-colour, and the accent spent only on the marker that straddles its rim.
+colour, and the accent spent only on the marker that straddles its rim. The glyph is
+a thin four-point spark, drawn in CSS, never a letter.
 
 ## 8. 1.0.0 scope / non-goals
 
