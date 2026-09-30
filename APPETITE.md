@@ -136,10 +136,11 @@ it constantly in motion is not the appetite pass's job.
 
 ## Preparing impulses between generations
 
-After a settled character generation, one background assessment reads the relevant
-scene, approved appetite and active impulse. It checks what happened and whether the
-impulse still fits. It can retain the impulse, recognize its satisfaction or replace
-it when the circumstances call for another concrete want. Retaining a fitting
+After a successful, settled character generation, one background assessment reads
+the relevant scene, approved appetite and active impulse. It checks what happened
+and whether the impulse still fits. It can retain the impulse, recognize its
+satisfaction or replace it when circumstances call for another concrete want.
+Retaining a fitting
 impulse across replies is valid; changing it on every reply is not a requirement.
 
 This assessment runs off the prompt path. Injection reads the prepared state; it
@@ -159,10 +160,19 @@ Recheck before storing a result, and coalesce pending work toward the latest sce
 instead of dropping every request that arrives during an active pass. Old results
 must not overwrite an impulse prepared from newer material.
 
-The next DM turn can introduce circumstances the background pass has not seen. An
-unfinished pass also leaves injection without a fresh result. The freshness policy
-for these cases remains open; moving another model check onto the prompt path would
-contradict the agreed timing.
+If the next generation begins while assessment is still running, injection keeps
+using the last valid scene impulse. It does not wait for the pass or omit that
+impulse merely because a replacement is unfinished. Existing invalidation checks
+still apply; this choice does not make a stale result or another chat's impulse valid.
+
+Stopped or failed character-generation attempts do not trigger impulse assessment,
+even when SillyTavern retains partial text. Their end signals must not satisfy,
+replace or retire the active impulse. A failed background assessment likewise
+leaves the last valid impulse in place.
+
+The next DM turn can introduce circumstances the background pass has not seen.
+Handling a scene change before a prepared impulse is used still needs design.
+Moving another model check onto the prompt path would contradict the agreed timing.
 
 ## What the digest must do
 
@@ -254,8 +264,11 @@ streaming errors also emit events that resemble completion.
 
 `GENERATION_ENDED` marks the Stop button being hidden, not a guarantee of successful
 generation. Combine a received-message marker with deferred end scheduling and
-validate the retained message. Sidekick's `generateRaw` path emits neither character
-lifecycle event, so that path does not itself trigger another impulse assessment.
+verify successful completion before starting assessment; retained text alone does
+not prove success. The scheduler must demonstrate reliable detection of stopped and
+failed attempts rather than assuming this event pair is sufficient. Sidekick's
+`generateRaw` path emits neither character lifecycle event, so that path does not
+itself trigger another impulse assessment.
 It still emits prompt-ready events and listens for Stop; the actual scheduler needs
 regression coverage for those interactions.
 
@@ -264,9 +277,10 @@ automatic impulse selection, background maintenance and configurable digest
 injection. Prove that path with constructed scenes and a mock provider before
 expanding source intake. This describes planned work, not an implemented feature.
 
-Remaining decisions concern retained partial replies after Stop or failure, and
-what injection does when background work is unfinished or the scene changes before
-its result can be used. Representation, migration, authoring controls and source
-selection also need concrete designs. Present new UI structure to the DM before
-implementing it; storage details and routine implementation choices can be resolved
+The unfinished-pass and partial-reply policies are settled: keep the last valid
+impulse during background work, and skip stopped or failed character attempts.
+Handling a scene change before a prepared result is used still needs design.
+Representation, migration, authoring controls and source selection also need
+concrete designs. Present new UI structure to the DM before implementing it;
+storage details and routine implementation choices can be resolved
 within the agreed behavior.

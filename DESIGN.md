@@ -143,7 +143,10 @@ in approved appetite and the scene, and maintained by one background assessment
 after character generation. A fitting impulse can persist across several replies;
 satiated impulses support downtime. Injection performs no model assessment and has
 configurable depth and message role. APPETITE.md records the completion-hook findings
-and the remaining freshness and partial-reply decisions.
+and the remaining scene-change design question. While assessment runs, injection
+keeps the last valid impulse; stopped or failed character attempts are not assessed,
+even if the host retains partial text. Successful completion needs a reliable check
+beyond the host's end signal.
 
 **The grammar rules.** These are the spec, derived from the reroll evidence—the same
 beat rerolled until the difference between tether-writing and springboard-writing was
