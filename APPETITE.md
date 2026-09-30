@@ -1,4 +1,4 @@
-# Sidekick — Appetite
+# Sidekick—Appetite
 
 Appetite is Sidekick's backbone. It carries what draws a character toward more of
 what nurtures them, so their history shapes what they notice, pursue and do. The
