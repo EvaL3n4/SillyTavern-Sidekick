@@ -125,30 +125,19 @@ she refuses. What is not, yet: acting on it—ranking proposals from that histor
 
 ## 4. The appetite layer — digest grammar
 
-The rendering layer. It turns state into leans the model acts through, and it is where
-the anti-flatness dosage is actually delivered.
+[APPETITE.md](APPETITE.md) is the design reference for Sidekick's backbone: first
+taste, appetite, hunger and starvation, shame, and movement toward what nurtures.
+The digest turns that approved character material into leans the model acts through.
 
-The lifecycle from the Trellis era survives, mapped onto state rather than stored
-alongside it:
+A first taste can be vicarious and precede play: growing up watching heroes and
+wishing to become their ideal. Appetite carries that attraction forward; later
+experience can nourish, deny or transform it. Shame affects how the character
+permits the wanting to appear, including the actions that conceal it.
 
-- **Taste** — first contact with a hunger. In state: a scene that becomes a power's
-  origin, or the moment a thread is born. The ledger holds it so the want has a
-  birthplace.
-- **Pressure** — stress carried by the character and by the DM alike; `pressures[]`
-  records the tolerance, and a want comes due when the DM digs in—not when a new
-  issue wanders in.
-- **Reckoning** — the want breaks into action: sated, starved, or transformed. In state:
-  a thread resolving into a turn, a power changing stage, a line crossed.
-- **Residue** — what reckoning leaves. In state: `linesCrossed[]`, history entries,
-  inherited into the next taste.
-
-**Shame decides visibility.** A shamed want doesn't
-collide openly—it hides, and hiding is an action: the side step, the arranged
-situation, the concealment that costs. The shamed character's most consequential
-external acts are the ones that maintain the disguise, not the ones that feed the want.
-Pressure on a hidden want accrues quietly and surfaces, however many scenes
-later—and its exposure lands harder than the original conflict would have. In
-state terms: concealment shows up as `costs[]` entries paid in full.
+The earlier mapping of appetite onto powers and arc state is incomplete. The current
+renderer supplies ledger summaries and some concealment phrasing, but the feature
+described in APPETITE.md still needs representation and rendering design. Its storage
+and update mechanics remain open.
 
 **The grammar rules.** These are the spec, derived from the reroll evidence—the same
 beat rerolled until the difference between tether-writing and springboard-writing was

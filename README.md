@@ -53,6 +53,7 @@ markdown-linted before anything lands.
 
 | File | What it is |
 | --- | --- |
+| `APPETITE.md` | Appetite design: first taste, wanting, shame and movement |
 | `index.js` | Entry point. Wires `APP_READY`, the button's scan action, hooks |
 | `manifest.json` | Loader descriptor |
 | `src/state.js` | State load/migrate/save, provenance-gated mutations, ruling log |
