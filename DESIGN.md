@@ -123,11 +123,12 @@ section, so a pass sees what she has been keeping, what she has reworded and wha
 she refuses. What is not, yet: acting on it—ranking proposals from that history is
 §8, and until it exists the feedback is context rather than policy.
 
-## 4. The appetite layer — digest grammar
+## 4. The appetite layer—digest grammar
 
 [APPETITE.md](APPETITE.md) is the design reference for Sidekick's backbone: first
 taste, appetite, hunger and starvation, shame, and movement toward what nurtures.
-The digest turns that approved character material into leans the model acts through.
+Appetite supplies the motive; concrete impulses are its practical output in the
+current beat or scene. The digest makes that direction explicit for generation.
 
 A first taste can be vicarious and precede play: growing up watching heroes and
 wishing to become their ideal. Appetite carries that attraction forward; later
@@ -137,7 +138,12 @@ permits the wanting to appear, including the actions that conceal it.
 The earlier mapping of appetite onto powers and arc state is incomplete. The current
 renderer supplies ledger summaries and some concealment phrasing, but the feature
 described in APPETITE.md still needs representation and rendering design. Its storage
-and update mechanics remain open.
+and update mechanics remain open. Planned impulse selection is automatic, grounded
+in approved appetite and the scene, and maintained by one background assessment
+after character generation. A fitting impulse can persist across several replies;
+satiated impulses support downtime. Injection performs no model assessment and has
+configurable depth and message role. APPETITE.md records the completion-hook findings
+and the remaining freshness and partial-reply decisions.
 
 **The grammar rules.** These are the spec, derived from the reroll evidence—the same
 beat rerolled until the difference between tether-writing and springboard-writing was
@@ -165,11 +171,14 @@ legible:
 ## 5. The render
 
 **Mechanism.** A `generate_interceptor` runs on every non-dry-run generation, builds the
-digest from state, and inserts one ephemeral message before the last user message—never
+digest from state, and currently inserts one ephemeral message before the last user message—never
 writing to the real chat array. The digest is prose in DM-brief voice, roughly 200
 tokens, budget-enforced against context size: when over budget, limits and costs
 compress before the arc does, and the arc is never dropped—it is what makes her
 behave differently over time. Quiet generations and sessions with no state are skipped.
+The planned appetite work makes injection depth and message role configurable and
+adds the prepared scene impulse; see APPETITE.md. The interceptor still reads state
+without waiting for a model assessment.
 
 **The worked render.** Hailey, freshly manifested, ledger to date: the spark
 (capability: a blue-black force that wraps what she protects; limits: no control,
@@ -559,6 +568,8 @@ panel is still the old 340 by 420 was never resized and is read as unplaced.
 - Single hero, chatMetadata store, schema versioning + migration hook.
 - Hero sheet UI (powers/arc/cosmology edit forms, inline).
 - Digest injection via interceptor with budget policy and the §4 grammar.
+- Appetite and scene-bound impulses as specified in APPETITE.md, including satiated
+  downtime, background maintenance and configurable injection placement (planned).
 - Evaluation pass with cadence + manual trigger; review queue with apply/edit/dismiss.
 - Ruling log feeding proposal ranking; the scan drafts in the DM's idiom over time.
 - Discussion board with state digest in context, "apply as change" on outputs.
@@ -569,10 +580,13 @@ panel is still the old 340 by 420 was never resized and is read as unplaced.
 - Parties/multiple tracked characters (the schema allows a hero array later; the UI does
   not).
 - Any dice or mechanical resolution. Narrative stays the sole arbiter.
-- World Info read/write integration (a "copy digest as World Info entries" export is a
-  cheap stretch goal, not a dependency).
-- **Story proposals of any kind.** The scan never proposes what happens next. This is a
-  hard non-goal, enforced at the schema level: proposals address state, not scenes.
+- World Info writes and automatic whole-lorebook ingestion. Manually selected entries
+  are intended source material for appetite intake; a "copy digest as World Info
+  entries" export remains a cheap stretch goal, not a dependency.
+- **World-level story routes and predetermined outcomes.** Ledger proposals address
+  state, not scenes. The separate impulse pass may explicitly direct the tracked
+  AI-driven character's wanting and next actions from approved appetite, while
+  leaving outcomes and the DM's character free (APPETITE.md).
 - **Per-model tuning.** The digest is instance-agnostic by design; no per-branch card
   patching, no model-specific phrasing branches.
 - No i18n, no preset-field storage, no bundlers or frameworks (vanilla JS + Handlebars
