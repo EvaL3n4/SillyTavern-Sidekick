@@ -1,10 +1,9 @@
-# Pi
+# Claude et al.
 .pi/
 AGENTS.md
-
-# Claude
 CLAUDE.md
 .claude/
+.codex/
 .serena/
 
 # Beads
