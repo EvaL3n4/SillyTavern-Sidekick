@@ -37,7 +37,8 @@ or it is cut.
 
 ## 2. The state model
 
-Three registers of state. Everything in the extension serves these.
+The ledger holds powers, arc, cosmology and approved appetite. A prepared scene
+impulse is stored separately from those lasting records.
 
 **Powers are capability + limits + cost, one indivisible entry.** Every tracked power
 all three parts: what it does in the hero's own vocabulary, what it can't do or is
@@ -52,6 +53,12 @@ ledger's memory of their weight is the feature.
 **Cosmology is the setting's own words.** Where powers come from, what the stages are
 called, what the costs are called, what the world forbids. Empty until the DM writes
 them—the ledger never invents a vocabulary. The reference campaign's is in the appendix.
+
+**Appetite holds the motive; impulse holds its present direction.** Appetite records
+the want, first taste if known, condition, expression and residue as prose. An impulse
+has its own direction, scene context and status. Satisfying an impulse does not
+rewrite appetite. Empty first taste means unknown, and no numeric hunger scale is
+imposed. See APPETITE.md for the behavior and planned authoring surface.
 
 **Deltas and provenance.** State changes are events, not field edits. Every accepted
 change records its narrative summary ("stopped holding back after the bridge"), its
@@ -220,12 +227,28 @@ interface SidekickState {
     taboos: string;                      // what this world forbids/never does
   };
   hero: { name: string; codename: string; statusQuo: string };
+  appetite: Appetite;
+  impulse: Impulse;
   powers: Power[];
   arc: Arc;
   queue: PendingChange[];                // proposals awaiting DM action
   history: ChangeEvent[];                // applied changes with provenance
   rulings: Ruling[];                     // DM feedback that trains the scan (§3)
   settings: LocalSettings;               // per-chat overrides (cadence, digest budget)
+}
+
+interface Appetite {
+  want: string;
+  firstTaste: string;                    // blank means unknown
+  condition: string;                     // hunger, satiation, denial in prose
+  expression: string;                    // how wanting appears, including shame
+  residue: string;
+}
+
+interface Impulse {
+  text: string;                          // concrete direction in this beat or scene
+  context: string;                       // why it matters now
+  status: 'inactive' | 'active' | 'suspended' | 'satisfied';
 }
 
 interface Power {
@@ -305,6 +328,13 @@ other field empty, and the next index of `limits`, `costs`, `arc.pressures` or
 dead path and the change is refused. A creation is not stale: a change whose `from` is
 empty matches a field that does not exist yet. A thread, pressure or line created this
 way is stamped with the newest message it cites.
+
+Schema version 2 adds empty appetite and impulse records to version-one ledgers
+without rewriting their existing entries. Their direct prose fields use paths such
+as `appetite.want` and `impulse.text`; nested, unknown and non-string writes to these
+records are refused. An impulse without direction is inactive. Its status cannot
+be activated, suspended or satisfied until direction exists. Blank direction clears
+its active status; appetite condition stays independent.
 
 Hygiene: never hold a long-lived reference to `chatMetadata` (the reference changes on
 `CHAT_CHANGED`); fetch via `SillyTavern.getContext().chatMetadata`, persist with

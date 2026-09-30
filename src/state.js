@@ -7,7 +7,31 @@
  */
 
 /** Schema version. Bump only with a matching entry in MIGRATIONS. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+const APPETITE_FIELDS = ['want', 'firstTaste', 'condition', 'expression', 'residue'];
+export const IMPULSE_STATUSES = ['inactive', 'active', 'suspended', 'satisfied'];
+
+/** Read only owned prose fields; an absent first taste remains unknown. */
+function proseFields(raw, fields) {
+    return Object.fromEntries(fields.map((key) => [
+        key,
+        isPlainObject(raw) && Object.hasOwn(raw, key) && typeof raw[key] === 'string' ? raw[key] : '',
+    ]));
+}
+
+export function normalizeAppetite(raw) {
+    return proseFields(raw, APPETITE_FIELDS);
+}
+
+export function normalizeImpulse(raw) {
+    const prose = proseFields(raw, ['text', 'context']);
+    const status = isPlainObject(raw) && Object.hasOwn(raw, 'status') ? raw.status : null;
+    return {
+        ...prose,
+        status: prose.text.trim() && IMPULSE_STATUSES.includes(status) ? status : 'inactive',
+    };
+}
 
 /** Rolling window for the ruling log. Older rulings go first (§3). */
 export const RULING_WINDOW = 50;
@@ -44,6 +68,8 @@ export function createState(overrides = {}) {
             taboos: '',
         },
         hero: { name: '', codename: '', statusQuo: '' },
+        appetite: normalizeAppetite(),
+        impulse: normalizeImpulse(),
         powers: [],
         arc: { phase: '', threads: [], pressures: [], linesCrossed: [] },
         queue: [],
@@ -54,7 +80,11 @@ export function createState(overrides = {}) {
     };
 
     if (isPlainObject(overrides)) {
-        mergeInto(state, overrides);
+        mergeInto(state, {
+            ...overrides,
+            appetite: normalizeAppetite(overrides.appetite),
+            impulse: normalizeImpulse(overrides.impulse),
+        });
     }
 
     return state;
@@ -92,6 +122,12 @@ MIGRATIONS.set(0, (state) => {
     });
 });
 
+/** Add separate appetite and impulse records without rewriting existing entries. */
+MIGRATIONS.set(1, (state) => {
+    state.appetite = normalizeAppetite(state.appetite);
+    state.impulse = normalizeImpulse(state.impulse);
+});
+
 /**
  * Walks a stored state forward to SCHEMA_VERSION.
  * @param {object|null|undefined} raw state as read from chatMetadata
@@ -115,6 +151,11 @@ export function migrate(raw) {
         }
         step(state);
         state.version += 1;
+    }
+
+    if (state.version === SCHEMA_VERSION) {
+        state.appetite = normalizeAppetite(state.appetite);
+        state.impulse = normalizeImpulse(state.impulse);
     }
 
     return state;
@@ -200,6 +241,25 @@ function createEntry(list, listPath, key, context) {
  */
 export function setPath(root, path, value, { at = 0, citation = null } = {}) {
     const keys = splitPath(path);
+    if (keys[0] === 'appetite' || keys[0] === 'impulse') {
+        const fields = keys[0] === 'appetite' ? APPETITE_FIELDS : ['text', 'context', 'status'];
+        const validStatus = keys[1] !== 'status' || IMPULSE_STATUSES.includes(value);
+        if (keys.length !== 2 || String(path) !== keys.join('.') || !fields.includes(keys[1])
+            || typeof value !== 'string' || !validStatus) {
+            throw new Error(`Sidekick: invalid appetite or impulse field "${path}"`);
+        }
+        if (keys[0] === 'impulse' && keys[1] === 'status' && value !== 'inactive'
+            && !normalizeImpulse(root.impulse).text.trim()) {
+            throw new Error('Sidekick: an impulse needs direction before its status can change');
+        }
+        const normalize = keys[0] === 'appetite' ? normalizeAppetite : normalizeImpulse;
+        root[keys[0]] = normalize(root[keys[0]]);
+        root[keys[0]][keys[1]] = value;
+        if (keys[0] === 'impulse') {
+            root.impulse = normalizeImpulse(root.impulse);
+        }
+        return value;
+    }
     let node = root;
 
     for (let i = 0; i < keys.length - 1; i += 1) {

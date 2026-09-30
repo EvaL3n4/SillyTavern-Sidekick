@@ -252,7 +252,14 @@ crossed lines and phase through fixed sentence templates, including some conceal
 phrasing. `src/inject.js` delivers the resulting digest into generation. The ledger,
 review loop and injection pipeline are the existing foundation.
 
-That foundation does not yet carry the account of appetite defined here. The earlier
+The state foundation now includes separate appetite and impulse records, with a
+version-one to version-two migration and normalization. Appetite stores want,
+first taste, condition, expression and residue as prose; impulse stores direction,
+scene context and status. Blank first taste remains unknown. Status changes and
+clearing an impulse do not rewrite appetite. The authoring surface is still being
+designed under `sk-4df.1`; automatic assessment and digest delivery remain later work.
+
+That foundation does not yet deliver the full appetite behavior defined here. The earlier
 mapping of taste to a power's origin or a thread's birth is insufficient: a first
 taste can precede both, and a ledger event needs meaning for the wanting to persist.
 
