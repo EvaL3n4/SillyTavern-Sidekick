@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { committedSetting } from '../src/ui.js';
+import { committedPlacement, committedSetting } from '../src/ui.js';
 
 const CADENCE = { min: 1, max: 200 };
 const BUDGET = { min: 50, max: 2000 };
@@ -66,5 +66,28 @@ describe('committedSetting', () => {
     it('keeps any integer when the input declares no bounds', () => {
         assert.equal(committedSetting('9001'), 9001);
         assert.equal(committedSetting('-3', { min: -5 }), -3);
+    });
+});
+
+describe('committedPlacement', () => {
+    it('distinguishes blank legacy placement from zero and invalid depth', () => {
+        for (const raw of ['', '  ', null, undefined]) {
+            assert.equal(committedPlacement(raw, 'injectionDepth'), null);
+        }
+        assert.equal(committedPlacement('0', 'injectionDepth'), 0);
+        assert.equal(committedPlacement('4', 'injectionDepth'), 4);
+        assert.equal(committedPlacement('10000', 'injectionDepth'), 10000);
+        for (const raw of ['-1', '10001', '1.5', 'unknown']) {
+            assert.equal(committedPlacement(raw, 'injectionDepth'), undefined);
+        }
+    });
+
+    it('only accepts supported message roles', () => {
+        for (const role of ['system', 'user', 'assistant']) {
+            assert.equal(committedPlacement(role, 'injectionRole'), role);
+        }
+        for (const role of ['', 'developer', 'SYSTEM', null, undefined]) {
+            assert.equal(committedPlacement(role, 'injectionRole'), undefined);
+        }
     });
 });

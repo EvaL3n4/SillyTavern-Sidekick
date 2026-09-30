@@ -88,6 +88,28 @@ body.no-blur {
     width: 6em;
 }
 
+.sidekick-settings .sidekick-placement {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    margin: 4px 0 0;
+    padding: 10px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: 4px;
+}
+
+.sidekick-placement legend {
+    padding: 0 4px;
+    font-size: 0.9em;
+}
+
+.sidekick-placement #sidekick_depth,
+.sidekick-placement #sidekick_role {
+    flex: 1;
+    min-width: 0;
+}
+
 /* The button and everything behind it. */
 .sidekick-button {
     /* The four-point spark, drawn as a mask so it takes the text colour. */

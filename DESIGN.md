@@ -181,14 +181,20 @@ legible:
 ## 5. The render
 
 **Mechanism.** A `generate_interceptor` runs on every non-dry-run generation, builds the
-digest from state, and currently inserts one ephemeral message before the last user message—never
+digest from state, and inserts one ephemeral message at the configured scene depth—never
 writing to the real chat array. The digest is prose in DM-brief voice, roughly 200
 tokens, budget-enforced against context size: when over budget, limits and costs
 compress before the arc does, and the arc is never dropped—it is what makes her
 behave differently over time. Quiet generations and sessions with no state are skipped.
-The planned appetite work makes injection depth and message role configurable and
-adds the prepared scene impulse; see APPETITE.md. The interceptor still reads state
-without waiting for a model assessment.
+The appetite render adds an explicit prepared impulse with its approved cause.
+Depth counts backward from the newest scene message; 0 follows it and 1 precedes
+it, with excessive depth clamped to the start. Role is System, User or Assistant.
+Unconfigured sheets keep the original before-last-user placement and assistant
+role. The host's narrator marker carries system content through its provider
+prompt conversion. The interceptor reads state without awaiting assessment.
+Newer scene facts govern how the direction is pursued; that provisional instruction
+still needs behavioral trials. Budget allocation and continuation semantics are
+defined in [APPETITE.md](APPETITE.md).
 
 **The worked render.** Hailey, freshly manifested, ledger to date: the spark
 (capability: a blue-black force that wraps what she protects; limits: no control,
@@ -316,7 +322,12 @@ interface Ruling {
   at: number;
 }
 
-interface LocalSettings { evaluationCadence: number; digestBudgetTokens: number; }
+interface LocalSettings {
+  evaluationCadence: number;
+  digestBudgetTokens: number;
+  injectionDepth?: number | null;        // unset/null preserves original placement
+  injectionRole?: 'system' | 'user' | 'assistant';
+}
 ```
 
 **Paths.** A change names one field by a dot path from the ledger's root
@@ -369,7 +380,7 @@ src/board-prompt.js  the board's prose, in one file the DM edits herself
 src/board.js        the board's store, prompt and tool-call protocol; the panel
                     renders it
 src/ui.js          the button and its panel: tabs for the Sheet, the Queue (which
-                   carries run a scan) and the Board; the two live drawer settings;
+                   carries run a scan) and the Board; the per-chat drawer settings;
                    the Board applies a change on the DM's click, not on generation
 style.css          near-mono palette + single warm accent
 ```
@@ -390,9 +401,11 @@ style.css          near-mono palette + single warm accent
 
 Launcher, menu, pane, FAB and badge are retired.
 
-The extensions drawer holds settings only—cadence and digest budget, both per chat
-by §6's hygiene line, both writing the state the scan and the digest render already
-read. Everything the DM touches during play—Sheet, Queue, Board—sits behind the
+The extensions drawer holds per-chat cadence, digest budget and Digest placement.
+The approved placement group sits below budget with a Depth number and Role
+dropdown. A blank Depth preserves the original placement. These controls write
+the state the scan and digest already read. Everything the DM touches during
+play—Sheet, Queue, Board—sits behind the
 button, and once the panel is open the three are tabs in it, one click apart; a
 surface that waits for a click is a surface that gets opened late.
 
@@ -425,7 +438,7 @@ scans append their new proposals to fresh state so neither overwrites the other'
 newer work. Failures preserve the last valid impulse. A three-minute assessment
 deadline clears busy state and suppresses late results; the host raw API does not
 expose per-request transport cancellation. See [APPETITE.md](APPETITE.md) for the
-behavior and remaining injection work.
+behavior and delivery policy.
 
 A pass returns [] for every outcome—nothing found, a refused backend, a
 non-conforming response—so the queue cannot tell them apart. The console can:

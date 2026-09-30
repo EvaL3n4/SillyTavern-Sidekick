@@ -178,8 +178,11 @@ cannot distinguish that failure from success. Provider errors and stopped
 attempts remain excluded; failed streams never qualify through retained text.
 
 The next DM turn can introduce circumstances the background pass has not seen.
-Handling a scene change before a prepared impulse is used still needs design.
-Moving another model check onto the prompt path would contradict the agreed timing.
+The digest keeps the prepared direction explicit, then instructs the character
+model to adapt its pursuit to newer scene facts. An obsolete action gives way;
+the approved appetite remains. This instruction was tentatively approved on
+2026-09-30. It does not certify that the impulse still fits: its effect on behavior
+belongs to the constructed-scene trials. Injection performs no model check.
 
 ## What the digest must do
 
@@ -203,8 +206,31 @@ explain that motive in dialogue, but the instruction to the model must be usable
 
 The DM configures injection depth and message role to suit their preset. A system
 message at depth 4 and a user message at depth 1 are both intended use cases.
-Placement must remain ephemeral and respect the digest budget. Configuration
-controls, depth semantics and budget allocation still need implementation design.
+Placement remains ephemeral. A small Digest placement group below the existing
+budget setting holds Depth and Role (System, User or Assistant), approved on
+2026-09-30. Both settings belong to the current chat. Until configured, placement
+remains before the last user message, with the existing assistant role.
+
+Depth counts backward through the prompt's scene messages before this digest is
+inserted: 0 follows the newest message, 1 precedes it, and 4 leaves four messages
+after the digest. Depth beyond the available messages clamps to the start. Host
+filtering and swipe removal happen first; preset prompts, examples and later
+extension injections are outside this count. Continuations count the retained
+character message too. Depth 0 during a continuation behaves as depth 1, keeping
+the retained character reply last so the host can extract it as the continuation
+target. The host may move that reply into its prefill or nudge afterward. Changing
+Role with an unset depth selects depth 1. Clearing Depth
+restores the original placement; Role still controls how the message is delivered.
+
+The appetite render reserves space for the complete want, active impulse and its
+scene context, plus the instruction preserving newer facts, uncertain outcomes
+and the DM's agency. Secondary appetite fields compress first, then legacy
+sections follow their existing degradation order; optional sections can be
+omitted, but the arc and concrete direction stay intact. If even that minimum
+cannot fit the effective budget, injection says nothing rather than truncating an
+action. The existing four-characters-per-token estimate and five-percent context
+cap remain the budget mechanism; they are not an exact provider token count.
+Sheets without approved appetite retain their existing render behavior.
 
 Appetite makes commitment available while leaving the outcome open. The world and
 other people retain their own actions. More impulsive prose by itself does not prove
@@ -286,12 +312,17 @@ and up to 30 played messages, bounded to 24,000 characters. It keeps a fitting
 direction, selects another concrete want or recognizes satisfaction. Replies must
 name a present object, connect it to approved appetite and cite shown scene
 messages; malformed replies leave the last valid impulse intact. Neither appetite
-nor the bookkeeping queue is rewritten by this pass. Digest delivery remains
-`sk-4df.3`.
+nor the bookkeeping queue is rewritten by this pass. `sk-4df.3` adds delivery:
+the grammar renders approved wanting, the active scene direction and its context,
+with secondary appetite fields as space permits. Suspended, inactive and satisfied
+impulses are not reissued. Impersonation skips appetite direction so it cannot
+assign that wanting to the DM's character. Quiet, raw and dry-run paths stay clear.
+Sheets without approved appetite keep the earlier grammar.
 
-That foundation does not yet deliver the full appetite behavior defined here. The earlier
-mapping of taste to a power's origin or a thread's birth is insufficient: a first
-taste can precede both, and a ledger event needs meaning for the wanting to persist.
+The first workflow is implemented, but behavioral verification and broader source
+intake remain separate work. The earlier mapping of taste to a power's origin or a
+thread's birth is insufficient: a first taste can precede both, and a ledger event
+needs meaning for the wanting to persist.
 
 The installed Bed completion flow was checked separately on 2026-09-30 (Beads
 `sk-2c6`). Streaming emits `GENERATION_ENDED` before `MESSAGE_RECEIVED`;

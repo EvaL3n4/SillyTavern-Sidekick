@@ -16,6 +16,22 @@
                 <span>Digest budget (tokens)</span>
                 <input type="number" id="sidekick_budget" class="text_pole" min="50" max="2000" value="200" />
             </label>
+            <fieldset class="sidekick-placement">
+                <legend>Digest placement</legend>
+                <label for="sidekick_depth">
+                    <span>Depth (messages)</span>
+                    <input type="number" id="sidekick_depth" class="text_pole" min="0" max="10000" value="" placeholder="Before last user" aria-describedby="sidekick-depth-help" />
+                </label>
+                <label for="sidekick_role">
+                    <span>Role</span>
+                    <select id="sidekick_role" class="text_pole" data-default="assistant">
+                        <option value="system">System</option>
+                        <option value="user">User</option>
+                        <option value="assistant" selected>Assistant</option>
+                    </select>
+                </label>
+                <p class="text_muted" id="sidekick-depth-help">0 follows the newest message; 1 precedes it. Continuations use 1 for depth 0. Blank keeps the original placement. Changing Role with a blank Depth sets 1.</p>
+            </fieldset>
             <p class="text_muted" id="sidekick-settings-note" hidden></p>
         </div>
     </div>

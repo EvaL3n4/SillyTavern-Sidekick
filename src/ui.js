@@ -71,6 +71,8 @@ const chatLength = () => SillyTavern.getContext().chat?.length ?? 0;
 const SETTING_FIELDS = [
     { selector: '#sidekick_cadence', setting: 'evaluationCadence' },
     { selector: '#sidekick_budget', setting: 'digestBudgetTokens' },
+    { selector: '#sidekick_depth', setting: 'injectionDepth' },
+    { selector: '#sidekick_role', setting: 'injectionRole' },
 ];
 
 /**
@@ -100,6 +102,17 @@ export function committedSetting(raw, bounds = {}) {
     return value;
 }
 
+/** Placement accepts a blank depth and only the host's three message roles. */
+export function committedPlacement(raw, setting) {
+    if (setting === 'injectionRole') {
+        return ['system', 'user', 'assistant'].includes(raw) ? raw : undefined;
+    }
+    if (String(raw ?? '').trim() === '') {
+        return null;
+    }
+    return committedSetting(raw, { min: 0, max: 10000 }) ?? undefined;
+}
+
 /**
  * The words a settings input is introduced by, when it must be named.
  */
@@ -109,15 +122,11 @@ function settingLabel($input) {
 }
 
 /**
- * Renders the settings template into the extensions panel, then makes its two
- * live controls real.
+ * Renders the per-chat settings template into the extensions drawer.
  *
- * Both settings are per-chat by §6's hygiene line, so the drawer reads and
- * writes exactly what already runs: the cadence ticker reads
- * state.settings.evaluationCadence on every message, and the digest render reads
- * state.settings.digestBudgetTokens on every generation. CHAT_CHANGED refills
- * the inputs, because the panel outlives the chat it was opened in and showing
- * one chat's cadence while another is open is the same lie in a quieter voice.
+ * Controls read and write the current chat's settings. The ticker reads cadence
+ * on every message; the digest reads budget and placement on every generation.
+ * CHAT_CHANGED refills the inputs because the drawer outlives the open chat.
  *
  * @param {object} options
  * @param {string} options.folder extension folder, e.g. 'third-party/Sidekick'
@@ -151,7 +160,7 @@ export async function mountSettings({ folder, context, getState, persist }) {
     })).filter((entry) => entry.$input.length > 0);
 
     /** The draft in the template, there for a chat that holds no setting yet. */
-    const declared = ($input) => $input.attr('value');
+    const declared = ($input) => $input.attr('data-default') ?? $input.attr('value');
 
     /** What the active chat has committed, read from the store, not the DOM. */
     const committed = (entry, state) =>
@@ -167,20 +176,25 @@ export async function mountSettings({ folder, context, getState, persist }) {
     const save = async (entry) => {
         const { $input, setting } = entry;
         const state = getState();
-        const value = committedSetting($input.val(), {
-            min: Number($input.attr('min')),
-            max: Number($input.attr('max')),
-        });
+        const placement = setting === 'injectionDepth' || setting === 'injectionRole';
+        const value = placement ? committedPlacement($input.val(), setting)
+            : committedSetting($input.val(), {
+                min: Number($input.attr('min')),
+                max: Number($input.attr('max')),
+            }) ?? undefined;
 
-        if (value === null) {
+        if (value === undefined) {
             $input.val(committed(entry, state));
             note(
-                `${settingLabel($input)} must be a whole number from ${$input.attr('min')} to ${$input.attr('max')}.`,
+                setting === 'injectionRole' ? 'Choose System, User or Assistant.'
+                    : `${settingLabel($input)} must be a whole number from ${$input.attr('min')} to ${$input.attr('max')}.`,
             );
             return;
         }
 
-        if (value === Number(committed(entry, state))) {
+        const previous = placement ? committedPlacement(committed(entry, state), setting)
+            : Number(committed(entry, state));
+        if (value === previous) {
             note('');
             return;
         }
@@ -198,19 +212,23 @@ export async function mountSettings({ folder, context, getState, persist }) {
             state.settings = {};
         }
         state.settings[setting] = value;
+        if (setting === 'injectionRole'
+            && (state.settings.injectionDepth === null || state.settings.injectionDepth === undefined)) {
+            state.settings.injectionDepth = 1;
+        }
 
         try {
             await persist(state);
         } catch (error) {
             // Never trust the object just written: read the store back and show
             // the value it really holds.
-            const stored = getState()?.settings?.[setting];
-            $input.val(stored ?? declared($input));
+            fill();
             note('That could not be saved—the console has the reason.');
             console.error('[Sidekick] could not persist a settings change', error);
             return;
         }
 
+        fill();
         note('Saved for this chat.');
     };
 

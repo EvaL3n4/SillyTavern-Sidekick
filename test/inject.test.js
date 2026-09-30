@@ -5,6 +5,7 @@ import {
     DIGEST_AUTHOR,
     INTERCEPTOR_NAME,
     createInterceptor,
+    digestPlacement,
     isDigestMessage,
     lastUserMessageIndex,
     registerInterceptor,
@@ -167,6 +168,91 @@ describe('createInterceptor', () => {
         await interceptor(chat, 4000, abort, 'normal');
 
         assert.equal(abort.mock.callCount(), 0);
+    });
+});
+
+describe('configured impulse delivery', () => {
+    const prepared = (settings = {}) => createState({
+        hero: { name: 'Bench hero' },
+        appetite: { want: 'Protect her family' },
+        impulse: { text: 'Get home to her brother now.', context: 'The robbery blocks the exit.', status: 'active' },
+        settings,
+    });
+
+    it('delivers system depth 4, user depth 1 and assistant depth 0 without touching real messages', async () => {
+        for (const [depth, role] of [[4, 'system'], [1, 'user'], [0, 'assistant']]) {
+            const state = prepared({ injectionDepth: depth, injectionRole: role });
+            const real = Array.from({ length: 6 }, (_, i) => mes('Fixture', `Scene ${i}`, i % 2 === 1));
+            const before = structuredClone(real);
+            const core = real.filter(() => true);
+            const inject = createInterceptor({ getState: () => state });
+            await inject(core, 4000, () => {}, 'normal');
+            assert.deepEqual(real, before);
+            assert.equal(core.length, 7);
+            const digest = core[6 - depth];
+            assert.equal(isDigestMessage(digest), true);
+            assert.equal(digest.is_user, role === 'user');
+            assert.equal(digest.extra.type, role === 'system' ? 'narrator' : undefined);
+            assert.match(digest.mes, /Get home to her brother now/);
+            assert.match(digest.mes, /Protect her family/);
+            assert.match(digest.mes, /Newer scene facts take precedence/);
+        }
+    });
+
+    it('clamps short and empty chats and counts retained continuation messages', async () => {
+        for (const size of [0, 1, 2, 6]) {
+            for (const type of ['normal', 'continue', 'swipe']) {
+                const core = Array.from({ length: size }, (_, i) => mes('Fixture', `Scene ${i}`, false));
+                await createInterceptor({ getState: () => prepared({ injectionDepth: 4 }) })(core, 4000, null, type);
+                assert.equal(isDigestMessage(core[Math.max(0, size - 4)]), true);
+            }
+        }
+        for (const size of [0, 1, 3]) {
+            const core = Array.from({ length: size }, (_, i) => mes('Fixture', `Scene ${i}`, false));
+            await createInterceptor({ getState: () => prepared({ injectionDepth: 0 }) })(core, 4000, null, 'continue');
+            assert.equal(isDigestMessage(core[Math.max(0, size - 1)]), true);
+            if (size) {
+                assert.equal(core.at(-1).mes, `Scene ${size - 1}`);
+            }
+        }
+    });
+
+    it('uses the latest manual or background result without any assessment dependency or await', async () => {
+        let state = prepared({ injectionDepth: 1 });
+        const inject = createInterceptor({ getState: () => structuredClone(state) });
+        const first = [mes('DM', 'The bridge fell.')];
+        await inject(first, 4000, null, 'normal');
+        assert.match(first[0].mes, /Get home to her brother now/);
+        assert.match(first[0].mes, /abandon obsolete actions/);
+        state.impulse = { text: 'Stay beside her brother and rest.', context: 'They are safe at home.', status: 'active' };
+        const second = [mes('DM', 'They settle beside the fire.')];
+        await inject(second, 4000, null, 'continue');
+        assert.match(second[0].mes, /Stay beside her brother and rest/);
+        assert.doesNotMatch(second[0].mes, /Get home/);
+        state = null;
+        const other = [mes('DM', 'Another chat')];
+        await inject(other, 4000, null, 'normal');
+        assert.equal(other.length, 1);
+    });
+
+    it('skips raw, dry-run and quiet requests and an intact dose too large for the budget', async () => {
+        for (const type of ['raw', 'dryRun', 'quiet', 'impersonate']) {
+            const core = [mes('DM')];
+            await createInterceptor({ getState: () => prepared() })(core, 4000, null, type);
+            assert.equal(core.length, 1);
+        }
+        const core = [mes('DM')];
+        await createInterceptor({ getState: () => prepared() })(core, 100, null, 'normal');
+        assert.equal(core.length, 1);
+    });
+
+    it('falls back safely for malformed or absent persisted placement', () => {
+        assert.deepEqual(digestPlacement(), { depth: null, role: 'assistant' });
+        assert.deepEqual(digestPlacement(null), { depth: null, role: 'assistant' });
+        for (const depth of [-1, 10001, 1.2, '4', NaN, null]) {
+            assert.deepEqual(digestPlacement({ injectionDepth: depth, injectionRole: 'developer' }),
+                { depth: null, role: 'assistant' });
+        }
     });
 });
 

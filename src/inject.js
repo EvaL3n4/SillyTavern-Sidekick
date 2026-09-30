@@ -1,6 +1,6 @@
 /**
- * The generate_interceptor: builds the digest and slips it in before the last
- * user message (§5).
+ * The generate_interceptor: delivers prepared direction at the chat's chosen
+ * depth and role (§5), preserving original placement until configured.
  *
  * SillyTavern hands us a filtered copy of the chat array (`coreChat =
  * chat.filter(...)` in script.js) whose message objects are shared with the
@@ -14,6 +14,19 @@ export const INTERCEPTOR_NAME = 'sidekickInterceptor';
 
 /** §5: the name the injected digest carries in the chat array. */
 export const DIGEST_AUTHOR = 'Sidekick';
+
+/** Host-supported system content marker, not the filtered is_system flag. */
+const NARRATOR_TYPE = 'narrator';
+
+/** Invalid persisted placement falls back to the original behavior. */
+export function digestPlacement(settings = {}) {
+    const depth = settings?.injectionDepth;
+    return {
+        depth: Number.isInteger(depth) && depth >= 0 && depth <= 10000 ? depth : null,
+        role: ['system', 'user', 'assistant'].includes(settings?.injectionRole)
+            ? settings.injectionRole : 'assistant',
+    };
+}
 
 /**
  * True for a message this extension inserted.
@@ -53,13 +66,18 @@ export function createInterceptor({ getState }) {
             return;
         }
 
-        chat.splice(lastUserMessageIndex(chat), 0, {
-            is_user: false,
-            name: 'Sidekick',
+        const { depth, role } = digestPlacement(state.settings);
+        // Keep the retained character reply last: the host extracts it as the
+        // continuation target/prefill. Its own depth-zero text injection does this too.
+        const offset = type === 'continue' && depth === 0 ? 1 : depth;
+        const index = depth === null ? lastUserMessageIndex(chat) : Math.max(0, chat.length - offset);
+        chat.splice(index, 0, {
+            is_user: role === 'user',
+            name: DIGEST_AUTHOR,
             send_date: Date.now(),
             mes: text,
             // so the evaluation scan can tell our render from the DM's scene
-            extra: { sidekick: true },
+            extra: { sidekick: true, ...(role === 'system' ? { type: NARRATOR_TYPE } : {}) },
         });
     };
 }

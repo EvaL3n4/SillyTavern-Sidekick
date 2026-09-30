@@ -46,6 +46,81 @@ describe('effectiveBudget', () => {
     });
 });
 
+describe('appetite digest', () => {
+    const prepared = (overrides = {}) => createState({
+        hero: { name: 'Bench hero' },
+        appetite: { want: 'Protect her family', firstTaste: 'Watching her parents help people',
+            condition: 'Hungry to be useful', expression: 'Hides her eagerness', residue: 'The rescue stayed with her' },
+        impulse: { text: 'Get home to her brother now.', context: 'The robbery blocks the exit.', status: 'active' },
+        ...overrides,
+    });
+
+    it('carries the complete concrete action, approved motive and origin without resolving outcomes', () => {
+        const state = prepared();
+        const before = structuredClone(state);
+        const result = renderDigest(state, { budget: 400 });
+        for (const text of [...Object.values(state.appetite), state.impulse.text, state.impulse.context]) {
+            assert.ok(result.text.includes(text), `Missing ${text}`);
+        }
+        assert.match(result.text, /drive their next actions/);
+        assert.match(result.text, /Leave outcomes and the DM’s character open/);
+        assert.match(result.text, /Newer scene facts take precedence/);
+        assert.deepEqual(state, before);
+        assert.ok(result.tokens <= result.budget);
+    });
+
+    it('supports quiet satiated direction and does not invent an unknown first taste', () => {
+        const text = renderDigest(prepared({ appetite: { want: 'Family companionship', condition: 'Satiated' },
+            impulse: { text: 'Stay beside her brother and rest.', status: 'active' } })).text;
+        assert.match(text, /Stay beside her brother and rest/);
+        assert.match(text, /Satiated/);
+        assert.doesNotMatch(text, /First taste|Why now|Hungry/);
+    });
+
+    it('does not reissue paused, satisfied or inactive direction, or an orphan impulse', () => {
+        for (const status of ['suspended', 'satisfied', 'inactive']) {
+            const text = renderDigest(prepared({ impulse: { text: 'Get home to her brother now.', status } })).text;
+            assert.match(text, /Protect her family/);
+            assert.doesNotMatch(text, /Get home|drive their next actions/);
+        }
+        const orphan = prepared({ appetite: {}, impulse: { text: 'Old direction', status: 'active' } });
+        assert.doesNotMatch(renderDigest(orphan).text, /Old direction/);
+        assert.equal(hasState(createState({ appetite: { want: 'Companionship' } })), true);
+    });
+
+    it('reserves an intact direction and arc, degrades optional context and obeys the effective budget', () => {
+        const state = prepared({ powers: [theSpark()], arc: { phase: 'Learning to reach' } });
+        for (const budget of [1, 80, 140, 180, 200, 400]) {
+            const result = renderDigest(state, { budget });
+            assert.ok(result.tokens <= budget);
+            if (result.text) {
+                assert.ok(result.text.includes(state.impulse.text));
+                assert.ok(result.text.includes(state.impulse.context));
+                assert.ok(result.text.includes(state.arc.phase));
+            }
+        }
+        const squeezed = renderDigest(state, { budget: 140 });
+        assert.ok(squeezed.degraded.includes('appetite details'));
+        assert.ok(squeezed.degraded.includes('capability'));
+        const tooLong = prepared({ impulse: { text: 'act '.repeat(1000), status: 'active' } });
+        assert.equal(renderDigest(tooLong).text, '');
+        assert.equal(renderDigest(state, { contextSize: 100 }).text, '');
+    });
+
+    it('can drop all optional legacy sections while preserving the arc floor', () => {
+        const state = createState({ ...ledger(), appetite: { want: 'Companionship', condition: 'Enough '.repeat(500) },
+            impulse: { text: 'Rest here.', context: 'Safe beside her sister.', status: 'active' } });
+        const result = renderDigest(state, { budget: 85 });
+        assert.ok(result.text.includes('Rest here.'));
+        assert.ok(result.text.includes(state.arc.phase));
+        assert.ok(result.degraded.includes('arc'));
+        for (const name of ['capability', 'concealment', 'threads', 'residue']) {
+            assert.ok(result.degraded.filter(value => value === name).length === 2);
+        }
+        assert.ok(result.tokens <= result.budget);
+    });
+});
+
 describe('renderDigest', () => {
     it('renders the capability with its limits and costs intact', () => {
         const { text, tokens } = renderDigest(ledger());

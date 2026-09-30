@@ -5,6 +5,7 @@
  * sentence shaping here is the product; it gets tuned against the §5 acceptance
  * beat until the render comes back springboard.
  */
+import { normalizeAppetite, normalizeImpulse } from './state.js';
 
 /** §5: the digest runs roughly 200 tokens, budget-enforced. */
 export const DEFAULT_DIGEST_BUDGET = 200;
@@ -163,6 +164,11 @@ export function renderDigest(state, options = {}) {
         contextSize: options.contextSize,
     });
 
+    const appetite = normalizeAppetite(state?.appetite);
+    if (appetite.want.trim()) {
+        return renderAppetiteDigest(state, appetite, budget);
+    }
+
     const built = sections(state);
     const levels = built.map(() => 0);
     const degraded = [];
@@ -187,6 +193,52 @@ export function renderDigest(state, options = {}) {
     return { text: rendered, tokens: estimateTokens(rendered), budget, degraded };
 }
 
+/** Keep the immediate direction intact while secondary context gives way. */
+function renderAppetiteDigest(state, appetite, budget) {
+    const impulse = normalizeImpulse(state.impulse);
+    const active = impulse.status === 'active';
+    const core = [
+        `What nourishes ${state.hero?.name || 'the tracked character'}: ${appetite.want}`,
+        active ? `Current impulse: ${impulse.text}` : '',
+        active && impulse.context ? `Why now: ${impulse.context}` : '',
+        active
+            ? 'Let this impulse drive their next actions. Newer scene facts take precedence: adapt pursuit, abandon obsolete actions, preserve the appetite. Leave outcomes and the DM’s character open.'
+            : '',
+    ].filter(Boolean).join('\n');
+    const details = [
+        appetite.firstTaste ? `First taste: ${appetite.firstTaste}` : '',
+        appetite.condition ? `Appetite now: ${appetite.condition}` : '',
+        appetite.expression ? `How it shows: ${appetite.expression}` : '',
+        appetite.residue ? `What remains: ${appetite.residue}` : '',
+    ].filter(Boolean).join('\n');
+    const built = [
+        { name: 'appetite details', levels: 1, render: (level) => level === 0 ? details : null },
+        ...sections(state).map((section) => ({
+            ...section,
+            levels: section.name === 'arc' ? section.levels : section.levels + 1,
+            render: (level) => level > section.levels ? null : section.render(level),
+        })),
+    ];
+    const levels = built.map(() => 0);
+    const degraded = [];
+    const text = () => [
+        ...built.map((section, index) => section.render(levels[index])),
+        core,
+    ].filter(Boolean).join('\n');
+
+    while (estimateTokens(text()) > budget) {
+        const next = built.findIndex((section, index) => levels[index] < section.levels);
+        if (next === -1) {
+            // An intact appetite, direction and arc are the minimum useful dose.
+            return { text: '', tokens: 0, budget, degraded: [...degraded, 'budget'] };
+        }
+        levels[next] += 1;
+        degraded.push(built[next].name);
+    }
+    const rendered = text();
+    return { text: rendered, tokens: estimateTokens(rendered), budget, degraded };
+}
+
 /**
  * §5: quiet generations and sessions with no state never get a digest.
  * @param {object} [options]
@@ -195,7 +247,10 @@ export function renderDigest(state, options = {}) {
  * @returns {boolean}
  */
 export function shouldSkip({ type, state } = {}) {
-    if (String(type) === 'quiet') {
+    if (['quiet', 'raw', 'dryRun'].includes(String(type))) {
+        return true;
+    }
+    if (type === 'impersonate' && normalizeAppetite(state?.appetite).want.trim()) {
         return true;
     }
     return !hasState(state);
@@ -204,6 +259,7 @@ export function shouldSkip({ type, state } = {}) {
 export function hasState(state) {
     return Boolean(state && (
         state.hero?.name
+        || normalizeAppetite(state.appetite).want.trim()
         || state.powers?.length
         || state.arc?.phase
         || state.arc?.threads?.length
