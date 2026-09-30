@@ -405,9 +405,9 @@ combined into one system in Modus's `docs/ux-concept.md` §6:
   mono, and errors ride a separate cool channel that never borrows the accent.
 - **Mono for facts.** Every number, id, turn count and state value in mono with tabular
   figures; micro-labels 10–11px, uppercase where scannable.
-- **Structure by hairlines, not stacked cards.** A panel is a border plus one
-  background step, and a Sheet card (below) is that same border and step and nothing
-  more: the rule is against depth, not against grouping. Controls are pills with at
+- **Structure by hairlines and spacing.** A panel is a border plus one background
+  step. The Sheet groups entries with headings, space and fine rules, without a
+  repeated stack of bordered boxes. Controls are pills with at
   most one inverted primary per context; icons thin and small. The one exception is
   the button, which is a disc.
 - **Frosted and matte, never glossy.** The button and the panel are a translucent
@@ -460,22 +460,24 @@ What changes is its surface: a hairline, frosted and matte, the glyph in the tex
 colour, and the accent spent only on the marker that straddles its rim. The glyph is
 a thin four-point spark, drawn in CSS, never a letter.
 
-**The Sheet's shape.** The Sheet reads as cards, not a list of text. A card is a
-hairline-bordered group with one background step and no shadow, and cards never sit
-on one another. There is a card for the hero (name and codename as its header, the
-status quo beneath), one for each power (the name, its stage as a mono micro-label,
-the capability, then limits and costs as short lines under their own micro-labels),
-one for each thread, pressure and crossed line, and one for the cosmology. The
-cosmology is the one card the scan can never fill, because the setting's vocabulary
-is hers to write (§3): by hand is the only way in, so the Sheet has to offer it.
+**The Sheet's shape.** The Sheet is a reading surface with two unequal columns when
+the panel is wide enough. The main column holds the hero header and powers; the
+smaller column holds phase, threads, pressures, crossed lines and setting. A narrow
+or manually shrunk panel reads in one column, with the same hierarchy. The hero's
+name leads, followed by codename and status quo. Each power has a distinct heading
+and mono stage, capability as the main text, and separate labelled limits and costs
+with breathing room beneath. Entries are separated by space and fine rules, without
+repeated card backgrounds or surrounding boxes. Removal controls become visible on
+hover or keyboard focus and stay available on touch screens. The setting's vocabulary
+is hers to write (§3), so the Sheet always offers that section.
 
-**Empty fields collapse; they do not vanish.** An empty field is one faint "+ limit",
-"+ cost" or "+ stage" line, not a row that says nothing is written. A power without
-limits stays noticeable, which is what §2 wants, at the price of a line instead of a
-row per field. It is also the way in: a collapsed field is a real, addressable slot,
-and choosing it opens the same edit a filled field opens. A card with nothing under a
-heading shows that heading's "+" and nothing else. The Sheet offers exactly the slots
-§6's Paths allow, so it never offers one that would be a dead path.
+**Empty fields collapse; they do not vanish.** An empty field is a quiet "+ limit",
+"+ cost" or "+ stage" control. The plus stays: it is succinct and names the action.
+Limits and costs belong to their own labelled groups, with space between them and
+the capability; empty fields are not packed onto one shared line. Each slot is a
+real, addressable field, and choosing it opens the same edit as a filled field. An
+active edit has a visible field label, padded input and clear boundary. The Sheet
+offers exactly the slots §6's Paths allow, so it never offers a dead path.
 
 **Writing by hand.** Choosing a field turns it into an input in place. Enter or
 leaving the field commits it, Shift+Enter is a line break and Esc cancels; nothing
@@ -546,16 +548,10 @@ proposal has no Apply and no Edit, only Dismiss, and putting it away records `st
 like Clear old does. It counts as old whatever its age, and a card proposal is no
 exception.
 
-**Panel size.** The panel opens at up to 440 by 560, not 340 by 420: a panel that
-narrow reads as a column of wrapped fragments. Measured in SillyTavern 1.18: the chat
-column is half the viewport, centred, under a 35px top bar and above a 39px send form,
-so each gutter is a quarter of the viewport (480px at 1920, 360 at 1440, 320 at 1280,
-256 at 1024); at 1000px and below the column fills the screen and there are no
-gutters. On a wide viewport the panel docks against the right edge, 12px in and 12px
-under the top bar, as wide as its gutter allows: 440 from about 1920px, the gutter
-less 24px between there and 1440, and never under 340. Below about 1360px no gutter
-holds 340, so the panel overlaps the column's edge (32px at 1280, 96px at 1024) rather
-than shrink; she can move it. At 1000px and below it is a sheet across the width,
+**Panel size.** The desktop panel opens at 800 by 560, 12px inside the right edge
+and 12px below the measured top bar. It overlaps some chat to give the Sheet width;
+fitting it into SillyTavern's gutter produced a cramped column of wrapped fragments.
+At 1000px and below it is a sheet across the width,
 standing on the send form, 70% of the room above the form and never over 560. The
 column's edge is measured from the page, not assumed, so a chat width she has changed
 moves the dock with it. The minimum stays 280.

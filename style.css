@@ -258,6 +258,7 @@ body.no-blur {
     flex-direction: column;
     box-sizing: border-box;
     overflow: hidden;
+    container-type: inline-size;
     /* The bottom gutter is the grip's: it is 16px tall, so the body ends above
        it and the grip never sits over a control (the board's Send, say). */
     padding: 12px 12px 16px;
@@ -481,16 +482,38 @@ body.no-blur {
 }
 
 /* The hero sheet's quiet ledger rows. */
-.sidekick-section {
-    margin-top: 12px;
+.sidekick-sheet {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+    padding: 12px 8px 24px;
+    line-height: 1.55;
 }
 
-.sidekick-section:first-child {
-    margin-top: 0;
+.sidekick-sheet-main,
+.sidekick-sheet-aside {
+    min-width: 0;
+}
+
+@container (min-width: 680px) {
+    .sidekick-sheet {
+        grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+        gap: 32px;
+        padding: 16px 12px 28px;
+    }
+
+    .sidekick-sheet-aside {
+        border-left: 1px solid var(--sidekick-line);
+        padding-left: 24px;
+    }
+}
+
+.sidekick-section + .sidekick-section {
+    margin-top: 32px;
 }
 
 .sidekick-section h3 {
-    margin: 0 0 6px;
+    margin: 0 0 16px;
     color: var(--sidekick-muted);
     font: inherit;
     font-size: 11px;
@@ -499,19 +522,51 @@ body.no-blur {
     letter-spacing: 0.08em;
 }
 
-/* A Sheet card (§7): a hairline border and one background step, no shadow, never
-   stacked on another card. The step is the text colour at a few percent, so it reads
-   on the host's theme instead of pasting a colour over it. */
+/* Entries are open reading groups (§7): headings, space and a fine rule between
+   neighbours. There is no repeated box or background competing with the words. */
 .sidekick-card {
-    margin: 6px 0;
-    padding: 8px 10px;
-    border: 1px solid var(--sidekick-line);
-    border-radius: var(--sidekick-radius);
-    background: color-mix(in srgb, var(--sidekick-fg) 4%, transparent);
+    padding: 0 0 20px;
+}
+
+.sidekick-card + .sidekick-card {
+    padding-top: 20px;
+    border-top: 1px solid var(--sidekick-line);
 }
 
 .sidekick-card > * + * {
-    margin-top: 4px;
+    margin-top: 12px;
+}
+
+.sidekick-entry-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 14px;
+    padding-right: 24px;
+}
+
+.sidekick-power-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    padding-top: 8px;
+}
+
+@container (max-width: 420px) {
+    .sidekick-power-details {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+}
+
+.sidekick-sheet [data-card="hero"] .sidekick-card-title {
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.sidekick-sheet [data-card="hero"] .sidekick-entry-heading {
+    margin-bottom: 16px;
 }
 
 .sidekick-card-caption,
@@ -524,11 +579,14 @@ body.no-blur {
 }
 
 .sidekick-card-label {
-    margin-right: 6px;
+    display: block;
+    margin-bottom: 8px;
 }
 
 .sidekick-card-title {
     font-weight: 600;
+    font-size: 17px;
+    line-height: 1.3;
 }
 
 /* Facts in mono, like every other number and id here. */
@@ -541,7 +599,7 @@ body.no-blur {
 }
 
 .sidekick-card-list > * + * {
-    margin-top: 2px;
+    margin-top: 8px;
 }
 
 .sidekick-card-title,
@@ -552,23 +610,24 @@ body.no-blur {
     overflow-wrap: anywhere;
 }
 
-/* Collapsed empty fields: one faint line of "+ noun" per card, not one row each.
-   They are real slots; writing by hand attaches to them. */
+/* Plus controls belong to their field group, with their own hit area and room.
+   They stay succinct while the section labels establish the reading hierarchy. */
 .sidekick-slots {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px 12px;
+    gap: 8px 16px;
 }
 
 .sidekick-slot {
-    padding: 0;
+    min-height: 28px;
+    padding: 4px 0;
     border: 0;
     background: none;
     color: var(--sidekick-muted);
     font: inherit;
     font-family: var(--sidekick-mono);
     font-size: 0.85em;
-    opacity: 0.7;
+    opacity: 0.8;
     cursor: pointer;
     transition: opacity var(--sidekick-time) var(--sidekick-ease);
 }
@@ -583,6 +642,8 @@ body.no-blur {
    are set here on purpose: a bare textarea takes the host's, which on a dark panel
    is a white box with pale text. */
 .sidekick-editable {
+    display: inline-block;
+    max-width: 100%;
     border-radius: 2px;
     cursor: text;
 }
@@ -591,6 +652,31 @@ body.no-blur {
 .sidekick-editable:focus-visible {
     background: color-mix(in srgb, var(--sidekick-fg) 8%, transparent);
     outline: 0;
+}
+
+.sidekick-editable:focus-visible {
+    outline: 1px solid var(--sidekick-muted);
+    outline-offset: 3px;
+}
+
+.sidekick-section > .sidekick-slots {
+    margin-top: 8px;
+}
+
+.sidekick-writing {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+.sidekick-input-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--sidekick-muted);
+    font: 600 10px var(--sidekick-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 /* Old proposals (§7, Shelf life): still there, set below the current ones and
@@ -643,7 +729,7 @@ body.no-blur {
     width: 100%;
     min-height: 0;
     margin: 0;
-    padding: 2px 4px;
+    padding: 10px 12px;
     resize: none;
     overflow: hidden;
     border: 1px solid var(--sidekick-fg);
@@ -659,7 +745,8 @@ body.no-blur {
 }
 
 .sidekick-inline:focus {
-    outline: 0;
+    outline: 1px solid var(--sidekick-muted);
+    outline-offset: 2px;
 }
 
 /* The quiet ×, and the yes/no it turns into. The card's sits in its corner; a list
@@ -675,6 +762,10 @@ body.no-blur {
     gap: 8px;
 }
 
+.sidekick-card-item > .sidekick-editable {
+    min-width: 0;
+}
+
 .sidekick-remove,
 .sidekick-confirm button {
     padding: 0 2px;
@@ -687,21 +778,30 @@ body.no-blur {
 }
 
 .sidekick-remove {
-    opacity: 0.35;
+    opacity: 0;
     transition: opacity var(--sidekick-time) var(--sidekick-ease);
 }
 
 .sidekick-card > .sidekick-remove {
     position: absolute;
-    top: 6px;
-    right: 8px;
+    top: 0;
+    right: 0;
 }
 
 .sidekick-remove:hover,
 .sidekick-remove:focus-visible,
-.sidekick-card:hover > .sidekick-remove {
+.sidekick-card:hover > .sidekick-remove,
+.sidekick-card:focus-within > .sidekick-remove,
+.sidekick-card-item:hover > .sidekick-remove,
+.sidekick-card-item:focus-within > .sidekick-remove {
     opacity: 1;
     color: var(--sidekick-fg);
+}
+
+@media (hover: none) {
+    .sidekick-remove {
+        opacity: 0.6;
+    }
 }
 
 .sidekick-confirm {
@@ -712,8 +812,8 @@ body.no-blur {
 
 .sidekick-card > .sidekick-confirm {
     position: absolute;
-    top: 6px;
-    right: 8px;
+    top: 0;
+    right: 0;
 }
 
 .sidekick-confirm button {

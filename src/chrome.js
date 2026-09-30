@@ -43,18 +43,10 @@ export const BUTTON_SIZE = { width: 48, height: 48 };
 export const PANEL_MIN = { width: 280, height: 260 };
 
 /**
- * The panel's opening size at its largest, before she has resized it. Measured in
- * SillyTavern (§7, Panel size): the chat column is half the viewport, centred, so
- * each gutter is a quarter of it, and 440 fits a gutter from 1920px up.
+ * The panel's opening size before she has resized it (§7, Panel size). Reading
+ * the Sheet takes width, so the panel overlaps the chat rather than fit a gutter.
  */
-export const PANEL_DEFAULT = { width: 440, height: 560 };
-
-/**
- * The narrowest the panel opens in a gutter. Below about 1360px no gutter holds
- * more than this, and the panel overlaps the chat column's edge rather than
- * shrink into a column of wrapped fragments.
- */
-export const PANEL_DOCK_MIN_WIDTH = 340;
+export const PANEL_DEFAULT = { width: 800, height: 560 };
 
 /**
  * SillyTavern's own mobile breakpoint, as measured: at this width and below the
@@ -109,15 +101,12 @@ const asSize = (size) => ({ width: size.w, height: size.h });
 
 /**
  * Where the panel opens before she has placed it (§7, Panel size). On a wide
- * viewport it docks against the right edge, in the gutter beside the chat column,
- * as wide as that gutter allows between PANEL_DOCK_MIN_WIDTH and PANEL_DEFAULT. On a
+ * viewport it opens at its reading width against the right edge. On a
  * narrow one, where SillyTavern's column fills the screen, it is a near-full-width
  * sheet standing on the send form.
  *
  * `host` is what the page measured of SillyTavern's own layout. Every part of it is
- * optional: without the column's right edge it assumes SillyTavern's default of a
- * centred half-width column, so the pure tests and a missing element both get an
- * answer.
+ * optional: without the top bar or send form their heights read as zero.
  *
  * @param {{width: number, height: number}} [viewport]
  * @param {Host} [host]
@@ -138,9 +127,7 @@ export function panelDefault(viewport = DEFAULT_VIEWPORT, host = {}) {
         };
     }
 
-    const columnRight = isFinite(host?.column?.right) ? host.column.right : width * 0.75;
-    const gutter = width - columnRight;
-    const w = Math.round(Math.min(Math.max(gutter - 2 * GAP, PANEL_DOCK_MIN_WIDTH), PANEL_DEFAULT.width));
+    const w = Math.min(PANEL_DEFAULT.width, width - 2 * GAP);
     return {
         x: width - w - GAP,
         y: top + GAP,

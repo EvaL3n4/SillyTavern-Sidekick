@@ -82,8 +82,8 @@ describe('defaultGeometry', () => {
         }
     });
 
-    it('docks the panel against the right edge, in the gutter', () => {
-        assert.deepEqual(defaultGeometry(VIEWPORT).panel, { x: 928, y: 12, w: 340, h: 560 });
+    it('opens a wide reading panel against the right edge', () => {
+        assert.deepEqual(defaultGeometry(VIEWPORT).panel, { x: 468, y: 12, w: 800, h: 560 });
     });
 
     it('starts with a panel she has not placed', () => {
@@ -111,38 +111,36 @@ describe('defaultGeometry', () => {
 const ST = (width) => ({ column: { right: width * 0.75 }, top: 35, bottom: 39 });
 
 describe('panelDefault', () => {
-    it('opens at its full size in a gutter that holds it', () => {
+    it('opens at its reading width on desktop', () => {
         for (const width of [1920, 2560]) {
             const panel = panelDefault({ width, height: 1080 }, ST(width));
-            assert.equal(panel.w, 440, String(width));
+            assert.equal(panel.w, 800, String(width));
             assert.equal(panel.h, 560);
         }
     });
 
     it('docks 12px in from the right edge and 12px under the top bar', () => {
-        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, ST(1920)), { x: 1468, y: 47, w: 440, h: 560 });
+        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, ST(1920)), { x: 1108, y: 47, w: 800, h: 560 });
     });
 
-    it('fits the gutter it has, down to the docked minimum', () => {
-        // gutter 480 -> 456 -> capped at 440; gutter 400 -> 376; below 364 the minimum holds
-        assert.equal(panelDefault({ width: 1600, height: 900 }, ST(1600)).w, 376);
-        assert.equal(panelDefault({ width: 1440, height: 900 }, ST(1440)).w, 340);
-        assert.equal(panelDefault({ width: 1280, height: 800 }, ST(1280)).w, 340);
-        assert.equal(panelDefault({ width: 1024, height: 768 }, ST(1024)).w, 340);
+    it('keeps its reading width rather than fit the gutter', () => {
+        for (const width of [1600, 1440, 1280, 1024]) {
+            assert.equal(panelDefault({ width, height: 900 }, ST(width)).w, 800);
+        }
     });
 
-    it('overlaps the chat column rather than shrink below the docked minimum', () => {
+    it('overlaps the chat column to make room for reading', () => {
         const panel = panelDefault({ width: 1280, height: 800 }, ST(1280));
         assert.ok(panel.x < 1280 * 0.75, 'the panel reaches into the column');
     });
 
-    it('follows a chat column she has widened, wherever its edge is', () => {
-        assert.equal(panelDefault({ width: 1920, height: 1080 }, { column: { right: 1700 } }).w, 340);
-        assert.equal(panelDefault({ width: 1920, height: 1080 }, { column: { right: 1200 } }).w, 440);
+    it('does not lose its reading width when the chat column is widened', () => {
+        assert.equal(panelDefault({ width: 1920, height: 1080 }, { column: { right: 1700 } }).w, 800);
+        assert.equal(panelDefault({ width: 1920, height: 1080 }, { column: { right: 1200 } }).w, 800);
     });
 
-    it('assumes SillyTavern\'s centred half-width column when nothing was measured', () => {
-        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }), { x: 1468, y: 12, w: 440, h: 560 });
+    it('opens at its reading width even when host measurements are absent', () => {
+        assert.deepEqual(panelDefault({ width: 1920, height: 1080 }), { x: 1108, y: 12, w: 800, h: 560 });
         assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, {}), panelDefault({ width: 1920, height: 1080 }));
         assert.deepEqual(panelDefault({ width: 1920, height: 1080 }, null), panelDefault({ width: 1920, height: 1080 }));
     });

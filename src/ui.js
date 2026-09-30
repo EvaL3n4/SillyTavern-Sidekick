@@ -333,9 +333,8 @@ export function mountChrome({ getState } = {}) {
         setStored: (key, value) => localStorage.setItem(key, value),
     };
 
-    // Where SillyTavern's own layout is, measured, so a panel she has not placed
-    // docks in the gutter beside the chat column (§7, Panel size). Any element that
-    // is missing reads as undefined, and chrome.js falls back to the stock layout.
+    // Measure the button's anchor and the host's top bar and send form. Any
+    // element that is missing reads as undefined, and chrome.js supplies a fallback.
     const hostLayout = () => {
         const sheld = document.querySelector('#sheld')?.getBoundingClientRect();
         const form = document.querySelector('#form_sheld')?.getBoundingClientRect();
@@ -1209,7 +1208,7 @@ export function mountSheet({ getState, persist }) {
 
 /**
  * Draws the Sheet into a panel body: the groups src/sheet.js makes of the ledger,
- * as cards (§7). A ledger with nothing in it is still drawn, as collapsed slots;
+ * as open sections (§7). A ledger with nothing in it is still drawn, as plus slots;
  * only a chat with no ledger at all has nothing to show.
  * @param {object} body jQuery panel body
  * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
@@ -1236,16 +1235,21 @@ function drawSheet(body, deps) {
         },
     };
 
+    const sheet = $('<div>', { class: 'sidekick-sheet' });
+    const main = $('<div>', { class: 'sidekick-sheet-main' });
+    const aside = $('<div>', { class: 'sidekick-sheet-aside' });
+    sheet.append(main, aside);
     for (const group of groups) {
-        const section = sectionOf(group.title);
+        const section = sectionOf(group.title).attr('data-section', group.id);
         for (const card of group.cards) {
             section.append(cardOf(card, ctx));
         }
         if (group.adds) {
             section.append(slotsOf(group.adds.map((add) => ({ noun: add.noun, path: add.path, add: true })), ctx));
         }
-        body.append(section);
+        (group.id === 'hero' || group.id === 'powers' ? main : aside).append(section);
     }
+    body.append(sheet);
 }
 
 /**
@@ -1353,10 +1357,12 @@ function beginEdit(target, { mode, path, value = '', placeholder }, ctx) {
     box.on('blur', () => settle(true));
     box.on('input', grow);
 
+    const input = $('<label>', { class: 'sidekick-writing' })
+        .append($('<span>', { class: 'sidekick-input-label' }).text(placeholder), box);
     if (mode === 'slot' || mode === 'entry') {
-        target.replaceWith(box);
+        target.replaceWith(input);
     } else {
-        target.empty().append(box);
+        target.empty().append(input);
     }
     grow();
     box[0].focus();
@@ -1398,9 +1404,8 @@ function removeControl(path, ctx) {
 }
 
 /**
- * One card: a hairline group of rows. Consecutive empty rows are not drawn as rows
- * at all but flow onto one line of collapsed slots, so an empty card costs a line
- * and not a screen (§7, Empty fields collapse).
+ * One entry: its heading, prose and labelled fields, grouped by spacing (§7).
+ * Lists keep their plus control under their own label, even when empty.
  * @param {object} card a Card from src/sheet.js
  * @param {{deps: object, redraw: () => void}} ctx
  * @returns {object} the card element
@@ -1416,28 +1421,29 @@ function cardOf(card, ctx) {
         root.append($('<div>', { class: 'sidekick-card-caption' }).text(card.caption));
     }
 
-    let slots = [];
-    const flush = () => {
-        if (slots.length > 0) {
-            root.append(slotsOf(slots, ctx));
-            slots = [];
-        }
-    };
-
+    const heading = $('<div>', { class: 'sidekick-entry-heading' });
+    const details = $('<div>', { class: 'sidekick-power-details' });
     for (const row of card.rows) {
-        if (isEmptyRow(row)) {
-            slots.push({ noun: row.noun, path: row.style === 'list' ? row.addPath : row.path });
-            continue;
-        }
-        flush();
-        root.append(rowOf(row, ctx));
         if (row.style === 'list') {
-            // Something is written, so the way to add another is one faint slot
-            // under it, and it flows onto the same line as any empty slots after.
-            slots.push({ noun: row.noun, path: row.addPath });
+            const list = rowOf(row, ctx);
+            (card.id.startsWith('power:') ? details : root).append(list);
+        } else {
+            const field = isEmptyRow(row)
+                ? slotsOf([{ noun: row.noun, path: row.path }], ctx)
+                : rowOf(row, ctx);
+            if (row.style === 'title' || row.style === 'meta') {
+                heading.append(field);
+                if (!heading.parent().length) {
+                    root.append(heading);
+                }
+            } else {
+                root.append($('<div>', { class: 'sidekick-field' }).append(field));
+            }
         }
     }
-    flush();
+    if (details.children().length) {
+        root.append(details);
+    }
 
     const chip = card.cite ? resolveChip(card.cite.citation) : null;
     if (chip?.dead) {
@@ -1466,6 +1472,7 @@ function rowOf(row, ctx) {
             line.append(text, removeControl(item.path, ctx));
             list.append(line);
         }
+        list.append(slotsOf([{ noun: row.noun, path: row.addPath }], ctx));
         return list;
     }
 
