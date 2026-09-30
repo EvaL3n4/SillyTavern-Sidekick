@@ -280,6 +280,13 @@ remain unresolved. Fear is compatible with that movement; inventing a tidy,
 safe solution does not demonstrate it. A heroic scene can offer no satisfactory
 answer that protects everyone, including the person reaching to help.
 
+A fight with a deadline tests whether danger displaces the character's goal.
+Defending herself, disabling an opponent or creating an opening can serve the
+goal. Judge whether she uses the opening and accepts the remaining risk while
+time still matters, rather than letting complete neutralization of the threat
+become a prerequisite for pursuing what she wants. Ignoring a necessary defense
+is not itself proof of appetite.
+
 Private campaign logs remain source material outside tracked documents. Use
 paraphrased examples here. For later comparisons, hold the DM's turns constant so
 differences in pacing are visible rather than mistaken for model behavior.
@@ -403,3 +410,62 @@ spending through call count and reported usage. Single cases with a compact prom
 do not establish reliability or reproduce the motivating long-context campaign
 behavior. Private campaign material and raw provider replies remain outside
 tracked artifacts.
+
+### Expanded comparison—2026-09-30
+
+Eva approved a second batch and added combat under a deadline. Four constructed
+fixtures each received two baseline replies, two appetite replies, an initial
+model-selected impulse and an assessment after the first appetite reply: 24 calls
+in total. The installed Bed prompt builder applied the configured roleplay preset
+to the same constructed card and DM facts in both versions. Initial paired
+payloads differed only in the digest. Second replies inherited their own version's
+first reply. Call order alternated across fixtures and reversed for the second
+beat; there were no repeated samples or fixed seeds.
+
+The preset already requests an active impulse, goals, stakes and concrete action
+commitment. This comparison therefore tests Sidekick's contribution alongside
+existing initiative guidance. Persona, World Info, campaign examples and extension
+context were empty. A shared trial instruction requested short prose and control
+of the tracked character only; the preset's planning and sheet format nevertheless
+remained in many replies.
+
+- **Costly rescue:** Both entered the unstable bridge. By the second reply, the
+  baseline used the burst across the gap; the appetite version was still
+  approaching it. Appetite did not advance the rescue farther.
+- **Robbery obstructing home:** Both sought an exit to reach the endangered
+  brother. The appetite version used the burst during the brief distraction and
+  accepted its landing cost; the baseline climbed into the corridor and added a
+  convenient exit glow. This is one observed difference in attempt, not a reliable
+  effect.
+- **Urgency becoming quiet:** Both left to find the brother, then sat with him
+  after the DM established his safety. The appetite version abandoned its
+  still-prepared get-home direction without a new assessment. Neither introduced
+  a crisis.
+- **Fight with a deadline:** Both used the opening past the armed attacker and
+  kept reaching for the rescue control. Neither required defeating him first.
+  The appetite version supplied no distinct improvement in goal preservation.
+
+All four initial assessments selected concrete scene directions. All four later
+assessments retained their direction word for word and recognized that the attempt
+had not yet fulfilled it. The approved appetite stayed intact. Unsupported details
+and assumptions about other characters appeared in both versions; this batch does
+not attribute those to Sidekick.
+
+The expected baseline weakness was not reproduced consistently: the model with
+this preset already found the motive and acted despite danger. Adding a direction
+often reinforced an existing choice rather than supplying missing initiative.
+That is a possible explanation for the small differences, not proof that appetite
+cannot help in longer or different play. These four unrepeated, two-beat cases
+cannot establish reliability, isolate appetite prose from impulse direction, or
+reproduce the motivating campaign's context.
+
+The batch used the configured 10,000-token allowance for both roleplay and
+assessment. This is a test-only assessment override: production still requests
+512 output tokens. Six of the eight assessments used more than 512 total
+completion tokens, including reasoning. The larger-budget results do not establish
+that the production cap is adequate, nor prove how the model would behave under
+that smaller cap. All 24 requests returned HTTP 200 with a `stop` finish reason;
+no output truncation was observed. Reported usage was 70,615 prompt tokens and
+34,581 completion tokens, including 19,828 reasoning tokens. Provider-reported
+cost totaled 0.01342593675 USD, below the 0.05 USD batch target. Constructed inputs,
+replies, preset payloads and usage remain in the local trial artifact.
