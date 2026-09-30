@@ -357,6 +357,9 @@ src/inject.js      generate_interceptor, digest renderer, budget policy
 src/grammar.js     the §4 grammar: state → lean prose (the dosage rules live here)
 src/evaluate.js    evaluator jsonSchema + validation, cadence policy
 src/scan-prompt.js the scan's prose, in one file the DM edits herself
+src/impulse-prompt.js     scene impulse instructions, distinct from bookkeeping
+src/impulse-assessment.js bounded scene reading, raw generation and result validation
+src/impulse-lifecycle.js  completion proof, coalescing and guarded impulse persistence
 src/citations.js   locators: resolve, heal, retire (survives delete and re-roll)
 src/labels.js      a change's path as the words the DM would use (the Queue's words)
 src/sheet.js       the Sheet's cards and collapsed slots, as data; ui.js draws them
@@ -398,6 +401,31 @@ re-anchor), `MESSAGE_DELETED` (citation re-anchor), `APP_READY` (setup). Overlap
 are guarded by the in-flight pass itself, because a quiet generation emits no end event—
 `GENERATION_ENDED` fires only for interactive ones. A pass also runs on the DM's click:
 the Queue tab's Run a scan control is the manual trigger, and no command is typed.
+
+Impulse assessment has its own completion flow, independent of scan cadence. It
+joins `GENERATION_STARTED`, `MESSAGE_RECEIVED` and deferred `GENERATION_ENDED`,
+then rejects stops, failed streaming processors and tool intermediaries. Finished,
+unstopped, unaborted processor flags prove streaming completion. A completed
+non-streaming model reply qualifies even if later host bookkeeping fails—Eva
+approved that boundary because public events cannot distinguish the latter case.
+Provider errors and stopped attempts remain excluded.
+
+A passive observer delegates the public `ToolManager.invokeFunctionTools` call
+unchanged while recording whether it follows an intermediary reply. One background
+raw pass chooses, retains or satisfies a scene impulse. It never edits approved
+appetite, runs on the character prompt path or creates bookkeeping proposals.
+Manual pause suppresses assessment; raw/quiet/impersonation requests do not trigger
+it. Initial direction can still be authored in the shared footer.
+
+`CHAT_CHANGED` and message send/edit/update/swipe/delete notifications invalidate
+changed readings. Before persistence, the scheduler also compares chat identity,
+scene content/swipe revision, appetite and impulse against its snapshot. Pending
+completions coalesce to the latest scene. Impulse results merge into fresh state;
+scans append their new proposals to fresh state so neither overwrites the other's
+newer work. Failures preserve the last valid impulse. A three-minute assessment
+deadline clears busy state and suppresses late results; the host raw API does not
+expose per-request transport cancellation. See [APPETITE.md](APPETITE.md) for the
+behavior and remaining injection work.
 
 A pass returns [] for every outcome—nothing found, a refused backend, a
 non-conforming response—so the queue cannot tell them apart. The console can:

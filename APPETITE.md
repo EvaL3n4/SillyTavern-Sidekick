@@ -170,6 +170,13 @@ even when SillyTavern retains partial text. Their end signals must not satisfy,
 replace or retire the active impulse. A failed background assessment likewise
 leaves the last valid impulse in place.
 
+Completion means a completed model reply, not success of all later host work. A
+complete non-streaming reply can qualify even if SillyTavern subsequently fails
+while recording logprobs or doing other bookkeeping. This boundary was approved
+on 2026-09-30 after verifying that the public non-streaming completion signals
+cannot distinguish that failure from success. Provider errors and stopped
+attempts remain excluded; failed streams never qualify through retained text.
+
 The next DM turn can introduce circumstances the background pass has not seen.
 Handling a scene change before a prepared impulse is used still needs design.
 Moving another model check onto the prompt path would contradict the agreed timing.
@@ -274,7 +281,13 @@ first taste, condition, expression and residue as prose; impulse stores directio
 scene context and status. Blank first taste remains unknown. Status changes and
 clearing an impulse do not rewrite appetite. The authoring layout above is
 implemented under `sk-4df.1`, including appetite paths in scan and Board review.
-Automatic assessment and digest delivery remain later work.
+`sk-4df.2` adds automatic assessment from approved appetite, the current impulse
+and up to 30 played messages, bounded to 24,000 characters. It keeps a fitting
+direction, selects another concrete want or recognizes satisfaction. Replies must
+name a present object, connect it to approved appetite and cite shown scene
+messages; malformed replies leave the last valid impulse intact. Neither appetite
+nor the bookkeeping queue is rewritten by this pass. Digest delivery remains
+`sk-4df.3`.
 
 That foundation does not yet deliver the full appetite behavior defined here. The earlier
 mapping of taste to a power's origin or a thread's birth is insufficient: a first
@@ -286,25 +299,43 @@ non-streaming emits them in the reverse order. Intermediate tool-call messages c
 emit received events before generation finishes. Opening greetings, stops and some
 streaming errors also emit events that resemble completion.
 
-`GENERATION_ENDED` marks the Stop button being hidden, not a guarantee of successful
-generation. Combine a received-message marker with deferred end scheduling and
-verify successful completion before starting assessment; retained text alone does
-not prove success. The scheduler must demonstrate reliable detection of stopped and
-failed attempts rather than assuming this event pair is sufficient. Sidekick's
-`generateRaw` path emits neither character lifecycle event, so that path does not
-itself trigger another impulse assessment.
-It still emits prompt-ready events and listens for Stop; the actual scheduler needs
-regression coverage for those interactions.
+`src/impulse-lifecycle.js` combines a received character reply with deferred end
+scheduling. For streaming, it captures the public `streamingProcessor` before the
+host clears it and requires finished, unstopped, unaborted completion. For
+non-streaming, the installed `saveReply` flow provides the completed model reply;
+provider errors occur before that marker. The later-bookkeeping boundary above
+still applies. Stop cancels the candidate even when it follows the end event.
+
+Tool intermediaries do not qualify. A passive observer of the public
+`ToolManager.invokeFunctionTools` records whether a non-streaming reply invokes
+tools, delegating the host's arguments, receiver, result and errors unchanged.
+Streaming intermediaries carry tool calls on the processor itself. Only a final
+character reply starts assessment. Unsupported hosts without public streaming
+completion flags fail closed.
+
+One pass runs at a time, with the latest completed scene pending behind it. Chat
+identity, message/swipe/content revision, approved appetite and manual impulse are
+checked again before saving. The result merges into the latest ledger; a late
+bookkeeping scan likewise appends proposals without replacing a newer impulse.
+Pause suppresses automatic work. A three-minute assessment deadline clears busy
+state and ignores late results. The host's raw-generation API has no per-request
+cancellation input, so that deadline cannot abort its underlying transport.
+
+Sidekick's `generateRaw` path emits neither character lifecycle event and does not
+itself trigger another impulse assessment. It still emits prompt-ready events and
+listens for Stop; isolated execution of the installed host functions and mock
+browser fixtures cover these interactions without campaign/provider writes.
 
 The first implementation slice should connect an approved appetite, scene-relevant
 automatic impulse selection, background maintenance and configurable digest
 injection. Prove that path with constructed scenes and a mock provider before
-expanding source intake. This describes planned work, not an implemented feature.
+expanding source intake. Automatic preparation is implemented; configurable
+injection and the full workflow verification are still planned work.
 
 The unfinished-pass and partial-reply policies are settled: keep the last valid
 impulse during background work, and skip stopped or failed character attempts.
 Handling a scene change before a prepared result is used still needs design.
-Representation, migration, authoring controls and source selection also need
-concrete designs. Present new UI structure to the DM before implementing it;
+Representation, migration and authoring controls are implemented. Source selection
+still needs a concrete design. Present new UI structure to the DM before implementing it;
 storage details and routine implementation choices can be resolved
 within the agreed behavior.

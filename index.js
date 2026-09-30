@@ -19,6 +19,7 @@ import {
 import { hasState } from './src/grammar.js';
 import { loadState } from './src/state.js';
 import { BOARD_KEY, readBoard, runBoardTurn } from './src/board.js';
+import { mountImpulseAssessment } from './src/impulse-lifecycle.js';
 
 /** The folder SillyTavern mounts us under. Used for template lookups. */
 export const EXTENSION_FOLDER = 'third-party/SillyTavern-Sidekick';
@@ -69,6 +70,7 @@ const log = {
 };
 
 let messagesSince = 0;
+let impulseAssessment = null;
 
 function bindState() {
     readState = () => {
@@ -128,6 +130,27 @@ export async function persistState(state) {
     const { chatMetadata, saveMetadata } = context();
     chatMetadata[STORAGE_KEY] = state;
     await saveMetadata();
+}
+
+/** Commit background impulse state, restoring the previous ledger on save failure. */
+export async function persistImpulse(state, captured) {
+    const { chatMetadata, saveMetadata } = context();
+    if (chatMetadata !== captured) {
+        return false;
+    }
+    const previous = chatMetadata[STORAGE_KEY];
+    chatMetadata[STORAGE_KEY] = state;
+    try {
+        await saveMetadata();
+    } catch (error) {
+        // Another manual write owns a different ledger pointer. Never roll it
+        // back when a preceding background save fails.
+        if (chatMetadata[STORAGE_KEY] === state) {
+            chatMetadata[STORAGE_KEY] = previous;
+        }
+        throw error;
+    }
+    return true;
 }
 
 /**
@@ -247,8 +270,12 @@ async function evaluateNow(state) {
         return { queued, persisted: false, failed };
     }
 
+    // A background impulse pass may have committed while this bookkeeping scan
+    // ran. Only its new proposals belong to this save, never its old ledger copy.
+    const live = readState();
+    live.queue.push(...queued);
     try {
-        await persistState(state);
+        await persistState(live);
     } catch (error) {
         // The entries are real and in memory; the chat just never learned
         // them. Naming the phase keeps the next debug pass off the pass.
@@ -379,6 +406,15 @@ async function onAppReady() {
     eventSource.on(event_types.CHAT_CHANGED, onCitationsStale);
     eventSource.on(event_types.MESSAGE_DELETED, onCitationsStale);
     eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
+
+    impulseAssessment ??= mountImpulseAssessment({
+        getContext: context,
+        getState: () => readState(),
+        persist: persistImpulse,
+        generate: (args) => context().generateRaw(args),
+        refresh: refreshChrome,
+        log,
+    });
 
     // The drawer's two live controls are per-chat by §6, so they go through the
     // same state the scan and the digest render already read.
