@@ -49,8 +49,37 @@ describe('chromeKey', () => {
 });
 
 describe('defaultGeometry', () => {
-    it('sits the button above the send form, on the right', () => {
-        assert.deepEqual(defaultGeometry(VIEWPORT).button, { x: 1208, y: 728 });
+    it('starts below the toolbar inside the chat edge when no anchor is measured', () => {
+        assert.deepEqual(defaultGeometry(VIEWPORT).button, { x: 900, y: 47 });
+    });
+
+    it('starts below character management on the chat-facing side of the drawer', () => {
+        const host = { characters: { right: 1059, bottom: 34 }, column: { right: 1080 }, top: 35 };
+        assert.deepEqual(defaultGeometry({ width: 1440, height: 900 }, host).button, { x: 1011, y: 46 });
+    });
+
+    it('uses the measured chat edge and toolbar when the character control is absent', () => {
+        assert.deepEqual(defaultGeometry(VIEWPORT, { column: { right: 800 }, top: 40 }).button,
+            { x: 740, y: 52 });
+    });
+
+    it('keeps a missing or invalid anchor on screen even in a tiny viewport', () => {
+        assert.deepEqual(defaultGeometry({ width: 30, height: 30 }, null).button, { x: 0, y: 0 });
+        assert.deepEqual(defaultGeometry({ width: 600, height: 500 }, {
+            characters: { right: NaN, bottom: Infinity }, column: { right: NaN }, top: NaN,
+        }).button, { x: 540, y: 47 });
+        assert.deepEqual(defaultGeometry(VIEWPORT, {
+            characters: { right: 5000, bottom: 5000 },
+        }).button, { x: 1232, y: 752 });
+    });
+
+    it('preserves saved positions, including the old default, when an anchor moves', () => {
+        for (const button of [{ x: 100, y: 200 }, { x: 1208, y: 728 }]) {
+            const stored = JSON.stringify({ ...DEFAULTS, button });
+            const read = readGeometry({ getStored: () => stored, viewport: VIEWPORT,
+                host: { characters: { right: 900, bottom: 35 } } });
+            assert.deepEqual(read.button, button);
+        }
     });
 
     it('docks the panel against the right edge, in the gutter', () => {
@@ -559,7 +588,7 @@ describe('the defaults and the constants agree', () => {
         const viewport = { width: 500, height: 500 };
         const button = defaultGeometry(viewport).button;
 
-        assert.equal(button.x, 500 - BUTTON_SIZE.width - 24);
-        assert.equal(button.y, 500 - BUTTON_SIZE.height - 24);
+        assert.equal(button.x, 500 - BUTTON_SIZE.width - 12);
+        assert.equal(button.y, 35 + 12);
     });
 });

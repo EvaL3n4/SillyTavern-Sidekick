@@ -62,10 +62,7 @@ export const PANEL_DOCK_MIN_WIDTH = 340;
  */
 export const NARROW_VIEWPORT = 1000;
 
-/** The gap the defaults leave between the chrome and the viewport's edges. */
-const MARGIN = 24;
-
-/** The gap between the panel and whatever it docks against. */
+/** The gap between the chrome and whatever it starts beside. */
 const GAP = 12;
 
 /** The gap either side of the bottom sheet a narrow viewport gets. */
@@ -81,7 +78,7 @@ const SHEET_SHARE = 0.7;
  */
 const OLD_PANEL_DEFAULT = { width: 340, height: 420 };
 
-/** The chat column, measured in the live page. @typedef {{column?: {right: number}, top?: number, bottom?: number}} Host */
+/** The host controls, measured in the live page. @typedef {{column?: {right: number}, characters?: {right: number, bottom: number}, top?: number, bottom?: number}} Host */
 
 /**
  * Only used when the caller has no viewport to give: tests, and read's own
@@ -153,23 +150,25 @@ export function panelDefault(viewport = DEFAULT_VIEWPORT, host = {}) {
 }
 
 /**
- * Where the chrome sits before she has ever moved it: the button above the
- * send form's corner, the panel where panelDefault says. Both are starting
- * points only.
+ * Where the chrome starts: the button below character management, aligned at
+ * its right edge on the chat-facing side of the drawer, and the panel where
+ * panelDefault says. A saved button position always wins over this default.
  *
  * @param {{width: number, height: number}} [viewport]
  * @param {Host} [host]
  * @returns {{v: number, button: {x: number, y: number}, panel: {x: number, y: number, w: number, h: number}, panelSet: boolean}}
  */
 export function defaultGeometry(viewport = DEFAULT_VIEWPORT, host = {}) {
-    const { width, height } = viewport;
+    const columnRight = isFinite(host?.column?.right)
+        ? host.column.right
+        : viewport.width <= NARROW_VIEWPORT ? viewport.width : viewport.width * 0.75;
+    const right = isFinite(host?.characters?.right) ? host.characters.right : columnRight - GAP;
+    const bottom = isFinite(host?.characters?.bottom) ? host.characters.bottom
+        : isFinite(host?.top) ? host.top : 35;
 
     return {
         v: VERSION,
-        button: {
-            x: width - BUTTON_SIZE.width - MARGIN,
-            y: height - BUTTON_SIZE.height - MARGIN,
-        },
+        button: clampPosition(right - BUTTON_SIZE.width, bottom + GAP, BUTTON_SIZE, viewport),
         panel: panelDefault(viewport, host),
         panelSet: false,
     };

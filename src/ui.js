@@ -339,8 +339,11 @@ export function mountChrome({ getState } = {}) {
     const hostLayout = () => {
         const sheld = document.querySelector('#sheld')?.getBoundingClientRect();
         const form = document.querySelector('#form_sheld')?.getBoundingClientRect();
+        const characters = document.querySelector('#rightNavDrawerIcon')?.getBoundingClientRect();
         return {
             column: sheld ? { right: sheld.right } : undefined,
+            characters: characters?.width > 0 && characters?.height > 0
+                ? { right: characters.right, bottom: characters.bottom } : undefined,
             top: sheld?.top,
             bottom: form?.height,
         };

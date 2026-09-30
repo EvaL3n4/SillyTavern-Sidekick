@@ -101,7 +101,7 @@ body.no-blur {
     width: 48px;
     height: 48px;
     padding: 0;
-    border: 1px solid var(--sidekick-line);
+    border: 2px solid var(--sidekick-muted);
     border-radius: 50%;
     background: var(--sidekick-button-fill);
     -webkit-backdrop-filter: blur(var(--sidekick-button-blur));
@@ -131,7 +131,7 @@ body.no-blur {
 /* Pressed is also being dragged: the pointer stays down for the whole gesture. */
 .sidekick-button:hover,
 .sidekick-button:active {
-    border-color: var(--sidekick-muted);
+    border-color: var(--sidekick-fg);
     background: var(--sidekick-button-fill-hover);
 }
 
@@ -298,7 +298,8 @@ body.no-blur {
     flex: none;
     align-items: center;
     justify-content: flex-end;
-    min-height: 24px;
+    min-height: 32px;
+    margin-bottom: 8px;
     cursor: move;
     user-select: none;
     /* The drag is this module's own gesture; a touch-drag must not scroll the
@@ -860,6 +861,25 @@ body.no-blur {
 }
 
 .sidekick-editor .sidekick-edit {
+    box-sizing: border-box;
     width: 100%;
     margin-top: 2px;
+    padding: 6px 8px;
+    border: 1px solid var(--sidekick-line);
+    border-radius: 2px;
+    background: var(--sidekick-bg);
+    color: var(--sidekick-fg);
+    caret-color: var(--sidekick-fg);
+    color-scheme: dark;
+    font-family: var(--sidekick-mono);
+}
+
+.sidekick-editor .sidekick-edit:focus-visible {
+    outline: 1px solid var(--sidekick-fg);
+    outline-offset: 1px;
+}
+
+.sidekick-editor .sidekick-edit::selection {
+    background: var(--sidekick-fg);
+    color: var(--sidekick-bg);
 }

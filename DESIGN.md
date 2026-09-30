@@ -430,6 +430,16 @@ instruments. Her terminals run multi-hue pastel while these run near-mono becaus
 two answer different jobs, not because the taste split. Catppuccin is retired and does
 not come back.
 
+**Button place.** A new button starts 12px below the character-management button,
+with their right edges aligned, on the chat-facing side of the character drawer.
+Its anchor is measured from the page, so changing the chat width changes the initial
+place too. Without that control it starts just inside the chat column's top-right
+edge. Existing saved coordinates always win, even if they match the old default;
+only keeping the button on screen can clamp them. Its border is a stronger neutral
+line so the translucent disc can be found over dark chat backgrounds. The strip
+label has its own breathing room above the tabs, and Queue edit fields carry explicit
+dark backgrounds, text and focus colors instead of inheriting unreadable host inputs.
+
 **Nothing fixed.** Two rules sit above the visual language, both paid for elsewhere:
 
 - **No fixed UI elements.** A control pinned to a corner fights the host and every
