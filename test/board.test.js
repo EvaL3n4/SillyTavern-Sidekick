@@ -21,6 +21,7 @@ import {
     BOARD_SYSTEM_PROMPT,
 } from '../src/board-prompt.js';
 import { ledger } from './fixtures.js';
+import { createState } from '../src/state.js';
 
 /** A reply that ends in a valid tool call. */
 function withTool(summary = 'she is ready for a second limit') {
@@ -225,6 +226,19 @@ describe('boardContext', () => {
 });
 
 describe('ledgerMap', () => {
+    it('addresses an appetite-only ledger but excludes scene impulse writes', () => {
+        const state = createState({
+            appetite: { want: 'To be trusted', firstTaste: 'watched a rescuer as a child' },
+            impulse: { text: 'Reach the shelter', status: 'active' },
+        });
+        const map = ledgerMap(state);
+        assert.match(map, /^appetite\.want = "To be trusted"$/m);
+        assert.match(map, /^appetite\.firstTaste = "watched a rescuer as a child"$/m);
+        assert.match(map, /^appetite\.expression = ""$/m);
+        assert.ok(!map.includes('impulse.'));
+        assert.equal(ledgerMap(createState()), '');
+        assert.equal(ledgerMap(createState({ appetite: { want: '   ' } })), '');
+    });
     it('addresses a power by its id, the way a path is written', () => {
         // The digest render names what a power does and never where it lives, so
         // without this the path a tool call needs is not in the context at all.
@@ -241,6 +255,7 @@ describe('ledgerMap', () => {
         assert.match(map, /^powers\.the-spark\.capability = "a blue-black force that wraps what she protects"$/m);
         // an unwritten field is still addressable, and still visibly empty
         assert.match(map, /^hero\.codename = ""$/m);
+        assert.match(map, /^appetite\.firstTaste = ""$/m);
     });
 
     it('names the vocabulary a constrained field accepts', () => {

@@ -33,6 +33,8 @@ You may propose:
 - threads to surface: one that has gone quiet, or one coming due
 - pressures coming due: tolerance spent, denials accumulating
 - phrasing for a turn the DM should record
+- a supported appetite interpretation: what nurtures this character's wanting,
+  its first taste if known, present condition, expression and lingering residue
 
 You never propose:
 - story outcomes
@@ -48,8 +50,14 @@ current word on the ledger as it now stands.
 Cite the chat message indices that justify each proposal. If nothing in the
 scene justifies a change, propose nothing.
 
+Appetite describes a lasting want, not a scene instruction. It may already exist
+before play, and traits can support a present want without explaining its origin.
+Leave firstTaste unwritten when its origin is unknown; do not invent a backstory.
+Do not propose impulse fields or next actions: scene impulses are prepared separately.
+
 Each change names one field by a dot path from the ledger root:
 - hero.name, hero.codename, hero.statusQuo
+- appetite.want, .firstTaste, .condition, .expression, .residue
 - powers.<id>.name, .capability, .stage; powers.<id>.limits.<n>, .costs.<n>
 - arc.phase; arc.threads.<id>.text; arc.pressures.<n>.text;
   arc.linesCrossed.<n>.line, .provides, .cost
@@ -71,7 +79,9 @@ each with what it does, what limits it and what it costs, in the card's own
 words, whether or not the scene has shown the power yet. If the card names no
 powers, propose none. Set "source": "card" on a proposal that rests on the
 card rather than on a message, and cite message indices for the rest. Do not
-propose a cosmology: the setting's vocabulary is hers to write.`;
+propose a cosmology: the setting's vocabulary is hers to write. You may also propose
+an appetite supported by the card or scene. A pre-existing first taste is valid;
+when no source explains it, leave firstTaste blank rather than inventing one.`;
 
 /**
  * Headings that frame the user half. The scan reads the ledger as structure and

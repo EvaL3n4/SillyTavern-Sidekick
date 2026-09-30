@@ -338,6 +338,111 @@ body.no-blur {
     overflow: hidden;
 }
 
+/* The shared impulse stays within the panel; expanded content is bounded. */
+.sidekick-impulse-footer {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-height: clamp(68px, calc(100% - 250px), 40%);
+    overflow: auto;
+    border-top: 1px solid var(--sidekick-line);
+    margin-top: 8px;
+}
+
+.sidekick-impulse-footer[hidden] {
+    display: none;
+}
+
+.sidekick-impulse > summary {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--sidekick-bg);
+    padding: 10px 24px 8px 8px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.sidekick-impulse > summary::-webkit-details-marker {
+    display: none;
+}
+
+.sidekick-impulse > summary::after {
+    content: "+";
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    color: var(--sidekick-muted);
+}
+
+.sidekick-impulse[open] > summary::after {
+    content: "−";
+}
+
+.sidekick-impulse-heading {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--sidekick-muted);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sidekick-impulse-status {
+    font-family: var(--sidekick-mono);
+}
+
+.sidekick-impulse-preview {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    margin-top: 6px;
+    line-height: 1.45;
+}
+
+.sidekick-impulse[open] .sidekick-impulse-preview {
+    display: none;
+}
+
+.sidekick-impulse-content {
+    padding: 8px;
+    line-height: 1.55;
+}
+
+.sidekick-impulse-content > * + * {
+    margin-top: 16px;
+}
+
+.sidekick-impulse-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
+
+.sidekick-impulse-action {
+    min-height: 28px;
+    border: 0;
+    padding: 4px 0;
+    background: none;
+    color: var(--sidekick-fg);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sidekick-impulse > summary:focus-visible,
+.sidekick-appetite-details > summary:focus-visible,
+.sidekick-impulse-action:focus-visible {
+    outline: 1px solid var(--sidekick-muted);
+    outline-offset: -1px;
+}
+
+.sidekick-impulse-error {
+    margin-bottom: 0;
+    color: var(--sidekick-fg);
+}
+
 /* One resize grip, bottom-right: two hairline strokes, no accent. */
 .sidekick-panel-grip {
     position: absolute;
@@ -584,6 +689,16 @@ body.no-blur {
 .sidekick-card-label {
     display: block;
     margin-bottom: 8px;
+}
+
+.sidekick-appetite-details > summary {
+    color: var(--sidekick-muted);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.sidekick-appetite-details > .sidekick-field {
+    margin-top: 16px;
 }
 
 .sidekick-card-title {

@@ -209,6 +209,20 @@ describe('buildPrompt', () => {
         assert.match(user, /kept: stopped holding back/);
     });
 
+    it('reads approved appetite without turning the current impulse into bookkeeping', () => {
+        const state = createState({
+            appetite: { want: 'Find acceptance', condition: 'hungry' },
+            impulse: { text: 'IMPULSE-DIRECTION-MUST-STAY-OUT', status: 'active' },
+        });
+        const { system, user } = buildPrompt(state, scene);
+        assert.match(user, /"want": "Find acceptance"/);
+        assert.match(user, /"firstTaste": ""/);
+        assert.ok(!user.includes('IMPULSE-DIRECTION-MUST-STAY-OUT'));
+        assert.match(system, /appetite\.want, \.firstTaste/);
+        assert.match(system, /do not invent a backstory/);
+        assert.match(system, /Do not propose impulse fields/);
+    });
+
     it('tells the model how to read her rulings', () => {
         // The section is worthless if the model is not told what it is for, so
         // this asserts the instruction, not just the render.

@@ -42,20 +42,35 @@ describe('sheetGroups', () => {
     it('still draws an empty ledger, as collapsed slots she can write into', () => {
         const groups = sheetGroups(createState());
 
-        assert.deepEqual(groups.map((one) => one.id), ['hero', 'powers', 'arc', 'cosmology']);
+        assert.deepEqual(groups.map((one) => one.id), ['hero', 'appetite', 'powers', 'arc', 'cosmology']);
         assert.ok(groups[0].cards[0].rows.every(isEmptyRow));
-        assert.equal(groups[1].cards.length, 0);
-        assert.deepEqual(groups[1].adds, [{ noun: 'power', path: 'powers' }]);
-        assert.deepEqual(groups[2].cards.map((card) => card.id), ['phase']);
-        assert.ok(groups[3].cards[0].rows.every(isEmptyRow));
+        assert.ok(groups[1].cards[0].rows.every(isEmptyRow));
+        assert.equal(groups[2].cards.length, 0);
+        assert.deepEqual(groups[2].adds, [{ noun: 'power', path: 'powers' }]);
+        assert.deepEqual(groups[3].cards.map((card) => card.id), ['phase']);
+        assert.ok(groups[4].cards[0].rows.every(isEmptyRow));
     });
 
     it('reads a state with none of its parts as empty rather than throwing', () => {
         const groups = sheetGroups({});
 
-        assert.equal(groups.length, 4);
-        assert.equal(groups[1].cards.length, 0);
+        assert.equal(groups.length, 5);
+        assert.equal(groups[2].cards.length, 0);
         assert.equal(rowOf(groups[0].cards[0], 'hero.name').value, '');
+    });
+
+    it('keeps unknown appetite origin blank and scene impulses outside the Sheet', () => {
+        const state = createState({
+            appetite: { want: 'To be needed', condition: 'hungry', expression: 'ashamed' },
+            impulse: { text: 'Get home before the storm', status: 'active' },
+        });
+        const card = group(state, 'appetite').cards[0];
+        assert.equal(rowOf(card, 'appetite.firstTaste').value, '');
+        assert.equal(rowOf(card, 'appetite.want').value, 'To be needed');
+        assert.deepEqual(card.rows.filter((row) => row.secondary).map((row) => row.path),
+            ['appetite.firstTaste', 'appetite.expression', 'appetite.residue']);
+        assert.ok(sheetGroups(state).flatMap((one) => one.cards).flatMap((one) => one.rows)
+            .every((row) => !row.path?.startsWith('impulse.')));
     });
 
     it('gives the hero card its three fields in reading order', () => {
@@ -187,6 +202,7 @@ describe('what she may remove whole', () => {
 
         assert.deepEqual(removes, [
             ['hero', undefined],
+            ['appetite', undefined],
             ['power:the-spark', 'powers.the-spark'],
             ['power:bare', 'powers.bare'],
             ['phase', undefined],

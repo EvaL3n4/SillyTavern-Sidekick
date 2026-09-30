@@ -19,6 +19,7 @@
  * @property {string} value what the ledger holds, '' when nothing is written
  * @property {string} noun what an empty field says it would add: "stage" -> "+ stage"
  * @property {string} [label] a caption for a field whose value is not self-evident
+ * @property {boolean} [secondary] held in the appetite's Details disclosure
  *
  * @typedef {object} ListRow
  * @property {'list'} style
@@ -81,6 +82,28 @@ function heroGroup(hero) {
                 field('title', 'hero.name', hero?.name, 'name'),
                 field('meta', 'hero.codename', hero?.codename, 'codename'),
                 field('text', 'hero.statusQuo', hero?.statusQuo, 'status quo'),
+            ],
+        }],
+    };
+}
+
+function appetiteGroup(appetite) {
+    return {
+        id: 'appetite',
+        title: 'Appetite',
+        cards: [{
+            id: 'appetite',
+            rows: [
+                field('text', 'appetite.want', appetite?.want, 'want'),
+                field('note', 'appetite.condition', appetite?.condition, 'condition', 'Condition'),
+                ...[
+                    ['firstTaste', 'first taste', 'First taste'],
+                    ['expression', 'expression', 'Expression'],
+                    ['residue', 'residue', 'Residue'],
+                ].map(([key, noun, label]) => ({
+                    ...field('text', `appetite.${key}`, appetite?.[key], noun, label),
+                    secondary: true,
+                })),
             ],
         }],
     };
@@ -199,7 +222,7 @@ function cosmologyGroup(cosmology) {
  *
  * @param {object|null} state a SidekickState (§6)
  * @returns {Group[]|null} null when there is no ledger to draw at all; a ledger
- *   with nothing in it is still four groups of collapsed slots
+ *   with nothing in it still offers every group's editable slots
  */
 export function sheetGroups(state) {
     if (state === null || typeof state !== 'object') {
@@ -207,6 +230,7 @@ export function sheetGroups(state) {
     }
     return [
         heroGroup(state.hero),
+        appetiteGroup(state.appetite),
         powersGroup(state.powers),
         arcGroup(state.arc),
         cosmologyGroup(state.cosmology),

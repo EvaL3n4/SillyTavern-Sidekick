@@ -12,6 +12,8 @@
 import { splitPath } from './state.js';
 
 const HERO = { name: 'Name', codename: 'Codename', statusQuo: 'Status quo' };
+const APPETITE = { want: 'Want', firstTaste: 'First taste', condition: 'Condition', expression: 'Expression', residue: 'Residue' };
+const IMPULSE = { text: 'Direction', context: 'Why now', status: 'State' };
 const POWER = { name: 'Name', capability: 'Capability', stage: 'Stage' };
 const POWER_LIST = { limits: 'Limit', costs: 'Cost' };
 const COSMOLOGY_LIST = { sources: 'Source', stageVocabulary: 'Stage word', costVocabulary: 'Cost word' };
@@ -123,6 +125,10 @@ export function labelChange(state, change, changes = [change]) {
     let label = null;
     if (root === 'hero' && own(HERO, rest[0]) && rest.length === 1) {
         label = `Hero · ${own(HERO, rest[0])}`;
+    } else if (root === 'appetite' && own(APPETITE, rest[0]) && rest.length === 1) {
+        label = `Appetite · ${own(APPETITE, rest[0])}`;
+    } else if (root === 'impulse' && own(IMPULSE, rest[0]) && rest.length === 1) {
+        label = `Impulse · ${own(IMPULSE, rest[0])}`;
     } else if (root === 'powers') {
         label = powerLabel(state, rest, siblings);
     } else if (root === 'arc' && rest[0] === 'phase' && rest.length === 1) {

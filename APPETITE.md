@@ -245,6 +245,22 @@ Private campaign logs remain source material outside tracked documents. Use
 paraphrased examples here. For later comparisons, hold the DM's turns constant so
 differences in pacing are visible rather than mistaken for model behavior.
 
+## Authoring
+
+Appetite belongs in the Sheet below the hero and above powers. Want is the leading
+prose; condition is a quiet labelled note. A collapsible Details disclosure holds
+first taste, expression and residue. Blank fields remain editable plus slots, and
+blank first taste means unknown. Existing Queue and Board review can keep, rephrase
+or refuse an appetite interpretation before it becomes approved state.
+
+The current impulse lives in one collapsible panel footer shared by Sheet, Queue
+and Board, outside the scrolling surface. Compact view shows direction and state.
+Expanded view offers scene context, manual editing and pause, resume and satisfied
+controls. Its height is bounded to retain space for the surface and Board composer.
+A new direction activates the impulse; editing a paused direction preserves the
+pause. Satisfying an impulse leaves appetite intact. The first slice prepares an
+impulse manually; automatic selection follows separately.
+
 ## Implementation boundary
 
 Implementation snapshot from 2026-09-30: `src/grammar.js` renders powers, pressures, threads,
@@ -256,8 +272,9 @@ The state foundation now includes separate appetite and impulse records, with a
 version-one to version-two migration and normalization. Appetite stores want,
 first taste, condition, expression and residue as prose; impulse stores direction,
 scene context and status. Blank first taste remains unknown. Status changes and
-clearing an impulse do not rewrite appetite. The authoring surface is still being
-designed under `sk-4df.1`; automatic assessment and digest delivery remain later work.
+clearing an impulse do not rewrite appetite. The authoring layout above is
+implemented under `sk-4df.1`, including appetite paths in scan and Board review.
+Automatic assessment and digest delivery remain later work.
 
 That foundation does not yet deliver the full appetite behavior defined here. The earlier
 mapping of taste to a power's origin or a thread's birth is insufficient: a first

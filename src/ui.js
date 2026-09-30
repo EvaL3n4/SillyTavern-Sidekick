@@ -6,7 +6,7 @@
  * for a click is a surface that gets opened late.
  */
 
-import { applyProposal, getPath, recordRuling, removeAt } from './state.js';
+import { applyProposal, getPath, normalizeImpulse, recordRuling, removeAt } from './state.js';
 import { fingerprintCitations, resolveCitation } from './citations.js';
 import { labelChange } from './labels.js';
 import { bornWithMessage, createHandLog, entryPath } from './handwriting.js';
@@ -278,9 +278,10 @@ export function refreshChrome() {
  * @param {object} [options]
  * @param {() => object|null} [options.getState] reads this chat's queue, for the
  *     markers
+ * @param {(state: object) => Promise<void>} [options.persist] saves manual impulse edits
  * @returns {void}
  */
-export function mountChrome({ getState } = {}) {
+export function mountChrome({ getState, persist } = {}) {
     if ($('.sidekick-button').length > 0) {
         return;
     }
@@ -324,8 +325,10 @@ export function mountChrome({ getState } = {}) {
         'aria-label': 'Surfaces',
     });
     const body = $('<div>', { class: 'sidekick-panel-body', role: 'tabpanel' });
+    const footer = $('<div>', { class: 'sidekick-impulse-footer' });
     const grip = $('<div>', { class: 'sidekick-panel-grip', 'aria-hidden': 'true' });
-    panel.append(strip, tabs, body, grip);
+    panel.append(strip, tabs, body, footer, grip);
+    const paintImpulse = () => drawImpulse(footer, { getState, persist });
 
     const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
     const storage = {
@@ -397,6 +400,9 @@ export function mountChrome({ getState } = {}) {
     };
 
     const renderActive = () => {
+        if (!footer.find('.sidekick-inline').length) {
+            paintImpulse();
+        }
         // A fresh class list every time: the Board marks its own body, and that
         // mark must not follow her to the next tab.
         body.empty().attr('class', 'sidekick-panel-body');
@@ -486,6 +492,9 @@ export function mountChrome({ getState } = {}) {
         repaintMarkers: paintMarkers,
         refresh: () => {
             paintMarkers();
+            if (!footer.find('.sidekick-inline').length) {
+                paintImpulse();
+            }
             if (panel.prop('hidden') || active !== 'queue') {
                 return;
             }
@@ -609,7 +618,13 @@ export function mountChrome({ getState } = {}) {
     // is left to go stale, which retires the residual the button's badge carried.
     const { eventSource, event_types } = SillyTavern.getContext();
     eventSource.on(event_types.CHAT_CHANGED, paintMarkers);
-    eventSource.on(event_types.CHAT_CHANGED, () => handLog.close());
+    eventSource.on(event_types.CHAT_CHANGED, () => {
+        handLog.close();
+        paintImpulse();
+        if (!panel.prop('hidden')) {
+            renderActive();
+        }
+    });
     // A proposal ages as the chat grows, so the count is read again when it does.
     for (const name of ['MESSAGE_SENT', 'MESSAGE_RECEIVED', 'MESSAGE_DELETED']) {
         if (event_types[name]) {
@@ -617,6 +632,7 @@ export function mountChrome({ getState } = {}) {
         }
     }
     paintMarkers();
+    paintImpulse();
 
     window.addEventListener('resize', () => {
         geometry = clampRecord(geometry, viewport(), hostLayout());
@@ -1207,14 +1223,76 @@ export function mountSheet({ getState, persist }) {
 }
 
 /**
- * Draws the Sheet into a panel body: the groups src/sheet.js makes of the ledger,
- * as open sections (§7). A ledger with nothing in it is still drawn, as plus slots;
- * only a chat with no ledger at all has nothing to show.
- * @param {object} body jQuery panel body
+ * Draws the shared scene impulse without changing the active surface.
+ * @param {object} host jQuery footer
  * @param {{getState: () => object|null, persist: (state: object) => Promise<void>}} deps
+ * @param {string} [notice] a failed manual write, kept visible for retry
+ * @returns {void}
+ */
+function drawImpulse(host, deps, notice = '') {
+    const open = host.find('.sidekick-impulse').prop('open') ?? false;
+    host.empty();
+    const state = deps.getState?.();
+    host.prop('hidden', !state);
+    if (!state) {
+        return;
+    }
+
+    const impulse = normalizeImpulse(state.impulse);
+    const details = $('<details>', { class: 'sidekick-impulse', open });
+    const summary = $('<summary>', { 'aria-label': 'Current impulse' });
+    const heading = $('<span>', { class: 'sidekick-impulse-heading' })
+        .append($('<span>').text('Current impulse'),
+            $('<span>', { class: 'sidekick-impulse-status' }).text(impulse.status));
+    summary.append(heading, $('<span>', { class: 'sidekick-impulse-preview' })
+        .text(impulse.text || '+ impulse'));
+    const content = $('<div>', { class: 'sidekick-impulse-content' });
+    let error = notice;
+    const ctx = {
+        deps,
+        reportError: (message) => { error = message; },
+        redraw: () => {
+            // A preceding save can settle while she is already writing the next
+            // field. Readback must leave that unfinished draft in place.
+            if (host.find('.sidekick-inline:not([data-settled])').length) {
+                return;
+            }
+            drawImpulse(host, deps, error);
+            host.find('summary')[0]?.focus();
+        },
+    };
+    for (const [key, noun, label] of [['text', 'impulse', 'Direction'], ['context', 'why now', 'Why now']]) {
+        const row = { style: 'text', path: `impulse.${key}`, value: impulse[key], noun, label };
+        const field = impulse[key] ? rowOf(row, ctx) : slotsOf([{ path: row.path, noun }], ctx);
+        content.append($('<div>', { class: 'sidekick-field' }).append(field));
+    }
+    if (impulse.text) {
+        const controls = $('<div>', { class: 'sidekick-impulse-controls' });
+        const actions = impulse.status === 'active'
+            ? [['suspended', 'Pause'], ['satisfied', 'Satisfied']]
+            : [['active', impulse.status === 'suspended' ? 'Resume' : 'Activate']];
+        for (const [status, label] of actions) {
+            controls.append($('<button>', { type: 'button', class: 'sidekick-impulse-action' })
+                .text(label).on('click', () => void writeByHand(ctx, 'impulse.status', status)));
+        }
+        content.append(controls);
+    }
+    if (notice) {
+        content.append($('<p>', { class: 'sidekick-impulse-error', role: 'alert' }).text(notice));
+        details.prop('open', true);
+    }
+    details.append(summary, content);
+    host.append(details);
+}
+
+/**
+ * Draws the Sheet's open sections, keeping secondary appetite fields collapsed.
+ * @param {object} body jQuery surface body
+ * @param {object} deps live state reader and persistence
  * @returns {void}
  */
 function drawSheet(body, deps) {
+    const detailsOpen = body.find('.sidekick-appetite-details').prop('open') ?? false;
     body.empty();
 
     const groups = sheetGroups(deps.getState());
@@ -1228,6 +1306,7 @@ function drawSheet(body, deps) {
     // near the bottom must not send her back to the top.
     const ctx = {
         deps,
+        detailsOpen,
         redraw: () => {
             const top = body.scrollTop();
             drawSheet(body, deps);
@@ -1247,7 +1326,7 @@ function drawSheet(body, deps) {
         if (group.adds) {
             section.append(slotsOf(group.adds.map((add) => ({ noun: add.noun, path: add.path, add: true })), ctx));
         }
-        (group.id === 'hero' || group.id === 'powers' ? main : aside).append(section);
+        (['hero', 'appetite', 'powers'].includes(group.id) ? main : aside).append(section);
     }
     body.append(sheet);
 }
@@ -1263,7 +1342,10 @@ function drawSheet(body, deps) {
  * @returns {Promise<void>}
  */
 async function writeByHand(ctx, path, value) {
+    const metadata = SillyTavern.getContext().chatMetadata;
     const state = ctx.deps.getState();
+    let saved = true;
+    ctx.reportError?.('');
     if (state) {
         // A thread, pressure or line that this write brings into being is born at
         // the newest message in the chat; anything else carries no citation.
@@ -1271,16 +1353,28 @@ async function writeByHand(ctx, path, value) {
         const born = bornWithMessage(state, path) && Array.isArray(chat) && chat.length > 0
             ? fingerprintCitations(chat, [chat.length - 1])[0] ?? null
             : null;
-        const outcome = handLog.commit(state, path, value, { citation: born });
+        let outcome = handLog.commit(state, path, value, { citation: born });
+        // A new direction is ready to use. A pause is deliberate and survives an
+        // edit; satisfying the preceding direction does not pause its replacement.
+        if (outcome !== 'unchanged' && path === 'impulse.text' && value.trim() && ['inactive', 'satisfied'].includes(state.impulse.status)) {
+            outcome = handLog.commit(state, 'impulse.status', 'active');
+        }
         if (outcome !== 'unchanged') {
             try {
                 await ctx.deps.persist(state);
             } catch (error) {
+                saved = false;
+                ctx.reportError?.('Could not save this change. Try again.');
                 console.error('[Sidekick] could not persist what she wrote', error);
             }
         }
     }
-    ctx.redraw();
+    if (SillyTavern.getContext().chatMetadata === metadata) {
+        if (saved) {
+            refreshChrome();
+        }
+        ctx.redraw();
+    }
 }
 
 /**
@@ -1318,6 +1412,7 @@ async function removeByHand(ctx, path) {
  * @returns {void}
  */
 function beginEdit(target, { mode, path, value = '', placeholder }, ctx) {
+    const metadata = SillyTavern.getContext().chatMetadata;
     const box = $('<textarea>', {
         class: 'sidekick-inline',
         rows: 1,
@@ -1332,6 +1427,12 @@ function beginEdit(target, { mode, path, value = '', placeholder }, ctx) {
             return;
         }
         settled = true;
+        box.prop('readOnly', true).attr('data-settled', 'true');
+        // Blur can arrive after a chat switch removed the old editor. Its draft
+        // belongs to the old chat and must never be applied to the new one.
+        if (SillyTavern.getContext().chatMetadata !== metadata) {
+            return;
+        }
         const text = String(box.val()).trim();
         if (!commit || (text === '' && mode !== 'field')) {
             ctx.redraw();
@@ -1423,6 +1524,8 @@ function cardOf(card, ctx) {
 
     const heading = $('<div>', { class: 'sidekick-entry-heading' });
     const details = $('<div>', { class: 'sidekick-power-details' });
+    const appetiteDetails = $('<details>', { class: 'sidekick-appetite-details', open: ctx.detailsOpen })
+        .append($('<summary>').text('Details'));
     for (const row of card.rows) {
         if (row.style === 'list') {
             const list = rowOf(row, ctx);
@@ -1431,7 +1534,9 @@ function cardOf(card, ctx) {
             const field = isEmptyRow(row)
                 ? slotsOf([{ noun: row.noun, path: row.path }], ctx)
                 : rowOf(row, ctx);
-            if (row.style === 'title' || row.style === 'meta') {
+            if (row.secondary) {
+                appetiteDetails.append($('<div>', { class: 'sidekick-field' }).append(field));
+            } else if (row.style === 'title' || row.style === 'meta') {
                 heading.append(field);
                 if (!heading.parent().length) {
                     root.append(heading);
@@ -1443,6 +1548,9 @@ function cardOf(card, ctx) {
     }
     if (details.children().length) {
         root.append(details);
+    }
+    if (appetiteDetails.children().length > 1) {
+        root.append(appetiteDetails);
     }
 
     const chip = card.cite ? resolveChip(card.cite.citation) : null;

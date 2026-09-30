@@ -492,7 +492,7 @@ colour, and the accent spent only on the marker that straddles its rim. The glyp
 a thin four-point spark, drawn in CSS, never a letter.
 
 **The Sheet's shape.** The Sheet is a reading surface with two unequal columns when
-the panel is wide enough. The main column holds the hero header and powers; the
+the panel is wide enough. The main column holds the hero header, appetite and powers; the
 smaller column holds phase, threads, pressures, crossed lines and setting. A narrow
 or manually shrunk panel reads in one column, with the same hierarchy. The hero's
 name leads, followed by codename and status quo. Each power has a distinct heading
@@ -501,6 +501,22 @@ with breathing room beneath. Entries are separated by space and fine rules, with
 repeated card backgrounds or surrounding boxes. Removal controls become visible on
 hover or keyboard focus and stay available on touch screens. The setting's vocabulary
 is hers to write (§3), so the Sheet always offers that section.
+
+Appetite sits below the hero and above powers. Its want leads as prose, with
+condition as a quiet labelled note. First taste, expression and residue sit in a
+collapsible Details disclosure, each with its own label and editable plus slot
+when blank. An unknown first taste stays blank; authoring does not invent a past.
+
+**The current impulse.** One collapsible footer belongs to the panel, shared across
+Sheet, Queue and Board. It sits outside the scrolling surface and above the resize
+grip. Its compact view shows direction and state; opening it reveals scene context,
+inline editing and pause, resume and satisfied controls. Expanded content scrolls
+within a bounded height so the surface and Board composer retain room, including
+on mobile and in a manually shrunk panel. There is no additional tab. Editing a
+new direction activates it; editing a paused direction preserves the pause. Marking
+an impulse satisfied changes only that immediate want, never appetite. Initial
+impulse authoring is manual and off the prompt path; automatic selection is later
+work under `sk-4df.2`.
 
 **Empty fields collapse; they do not vanish.** An empty field is a quiet "+ limit",
 "+ cost" or "+ stage" control. The plus stays: it is succinct and names the action.

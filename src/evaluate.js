@@ -118,6 +118,7 @@ function renderState(state) {
     const seen = {
         cosmology: state.cosmology,
         hero: state.hero,
+        appetite: state.appetite,
         powers: state.powers,
         arc: state.arc,
     };

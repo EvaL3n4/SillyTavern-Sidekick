@@ -30,6 +30,18 @@ describe('labelChange', () => {
         assert.equal(label('powers.the-spark.costs.2'), 'The Spark · Cost 3');
     });
 
+    it('names appetite and impulse fields without treating arbitrary keys as fields', () => {
+        for (const [key, name] of Object.entries({ want: 'Want', firstTaste: 'First taste', condition: 'Condition', expression: 'Expression', residue: 'Residue' })) {
+            assert.equal(label(`appetite.${key}`), `Appetite · ${name}`);
+        }
+        for (const [key, name] of Object.entries({ text: 'Direction', context: 'Why now', status: 'State' })) {
+            assert.equal(label(`impulse.${key}`), `Impulse · ${name}`);
+        }
+        for (const path of ['appetite.constructor', 'appetite.want.extra', 'impulse.__proto__', 'impulse.text.extra']) {
+            assert.equal(label(path), path);
+        }
+    });
+
     it('says a power is new, by the name the same proposal gives it', () => {
         const changes = [
             { path: 'powers.light-throw.name', to: 'Throw Light' },

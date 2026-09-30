@@ -152,7 +152,7 @@ import {
  * @returns {string} `path = value` lines, one per addressable leaf
  */
 export function ledgerMap(state) {
-    if (!hasState(state)) {
+    if (!hasState(state) && !Object.values(state?.appetite ?? {}).some((value) => typeof value === 'string' && value.trim())) {
         return '';
     }
 
@@ -162,6 +162,10 @@ export function ledgerMap(state) {
     put('hero.name', state.hero.name);
     put('hero.codename', state.hero.codename);
     put('hero.statusQuo', state.hero.statusQuo);
+
+    for (const key of ['want', 'firstTaste', 'condition', 'expression', 'residue']) {
+        put(`appetite.${key}`, state.appetite?.[key]);
+    }
 
     for (const power of state.powers) {
         const base = `powers.${power.id}`;
