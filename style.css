@@ -299,8 +299,11 @@ body.no-blur {
     flex: none;
     align-items: center;
     justify-content: flex-end;
-    min-height: 32px;
-    margin-bottom: 8px;
+    /* The label and the close control ride 4px high, and the 4px comes back under
+       them, so the tabs stay where they were: more air over the label was not the
+       ask, the label sitting a little low was. */
+    min-height: 24px;
+    margin: -4px 0 4px;
     cursor: move;
     user-select: none;
     /* The drag is this module's own gesture; a touch-drag must not scroll the
