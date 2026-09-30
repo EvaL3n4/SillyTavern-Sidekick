@@ -1,12 +1,22 @@
 # Sidekick—Appetite
 
-Appetite is Sidekick's backbone. It carries what draws a character toward more of
-what nurtures them, so their history shapes what they notice, pursue and do.
+Status—2026-09-30: Eva ended the current appetite experiment as unsuccessful.
+Integration worked, but the model comparisons did not demonstrate consistent
+roleplay improvement. Unstarted source-intake and output-budget follow-ups are
+cancelled with this approach. Sidekick continues as a cape and ability tracker.
+
+This document preserves the hypothesis, implementation and evaluation evidence.
+The existing appetite code remains experimental; the plans below are historical
+scope for the discontinued approach.
+
+Appetite was intended as Sidekick's backbone. It carries what draws a character
+toward more of what nurtures them, so their history shapes what they notice,
+pursue and do.
 Impulses are its practical output: concrete wants that invite action in the current
 beat or scene. Appetite supplies the motive; the digest delivers the impulse into
 generation. The Sheet and review loop help the DM maintain the underlying appetite.
 
-This document is the design reference for appetite. [DESIGN.md](DESIGN.md) covers
+This document records the appetite design. [DESIGN.md](DESIGN.md) covers
 the surrounding product, editorial control and generation pipeline.
 
 ## The first taste

@@ -1,8 +1,14 @@
 # Sidekick — Design
 
-Status: concept phase, restarted 2026-09-28. Target: SillyTavern 1.18.0+ (client-only
+Status: cape and ability tracker. Target: SillyTavern 1.18.0+ (client-only
 extension, no server plugin, no Extras). Every example in this document is drawn from
 real campaigns; the reference campaign is oriented in the appendix.
+
+On 2026-09-30, Eva ended the current appetite experiment as unsuccessful after
+model comparisons showed no consistent roleplay improvement. Its unstarted
+follow-ups are cancelled. [APPETITE.md](APPETITE.md) preserves the hypothesis,
+implementation and findings; appetite plans below are historical experiment
+scope. The existing appetite implementation remains experimental.
 
 This document supersedes the "Trellis" draft. What survives from it: the appetite
 rendering layer, the pressure clock, shame-as-concealment, and residue—rebuilt here as
@@ -13,17 +19,21 @@ they were always meant to pass.
 
 ## 1. What this is
 
-A dosage instrument against LLM flatness.
+A cape and ability tracker with durable campaign state and a compact generation
+digest.
+
+The original appetite experiment was motivated by the following behavior:
 
 Models smooth friction. They pause, defer, tidy, and negotiate wants away—and under
 pressure they insure. The failure has a recognizable shape: give a model a hero
 mid-lunge to catch a falling friend and a hedgy model reroutes the sentence into safety
 procedure—because a body described as a rigging problem never has to risk itself. Run
 the same card, same settings, different model, and the behavior flips: one instance
-tethers, one springs. That is the flatness Sidekick treats. Not bad grammar, not stat
-drift, but the main character's survival being quietly promoted above their want.
+tethers, one springs. That was the flatness Sidekick set out to treat. Not bad
+grammar, not stat drift, but the main character's survival being quietly promoted
+above their want.
 
-Sidekick doses the counterweight. It keeps durable campaign state—what the hero can do,
+Sidekick keeps durable campaign state—what the hero can do,
 what it costs, what they have crossed, what is unresolved and under pressure—and renders
 a lean prose digest of *who the hero is right now* into every generation. The digest is
 the product; everything else is calibration machinery for setting its dose.
@@ -132,7 +142,7 @@ she refuses. What is not, yet: acting on it—ranking proposals from that histor
 
 ## 4. The appetite layer—digest grammar
 
-[APPETITE.md](APPETITE.md) is the design reference for Sidekick's backbone: first
+[APPETITE.md](APPETITE.md) records the discontinued appetite design: first
 taste, appetite, hunger and starvation, shame, and movement toward what nurtures.
 Appetite supplies the motive; concrete impulses are its practical output in the
 current beat or scene. The digest makes that direction explicit for generation.
