@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createState } from '../src/state.js';
+import { createState, loadState, setPath } from '../src/state.js';
 import { createImpulseAssessment, mountImpulseAssessment, sceneRevision, streamSucceeded } from '../src/impulse-lifecycle.js';
+import { createInterceptor, isDigestMessage } from '../src/inject.js';
 
 const reply = () => ({ name: 'Bench hero', mes: 'She tries another exit to reach her brother.',
     is_user: false, gen_started: 'start', gen_finished: 'finish', send_date: 'date', swipe_id: 0 });
@@ -62,6 +63,95 @@ function bench({ generate, manager, context: overrides = {}, assessmentOptions =
     return { controller, context, calls, saves, warnings, flush, complete, listeners, timers, deps,
         get ledger() { return ledger; }, set ledger(value) { ledger = value; }, get refreshed() { return refreshed; } };
 }
+
+describe('appetite workflow with a scripted provider', () => {
+    it('carries urgent direction through obstacles, satisfaction, quiet replacement and reload', async () => {
+        const pending = deferred();
+        const scripted = [
+            { decision: 'retain', text: 'Get home to her brother now.', context: 'The side exit is locked.' },
+            { decision: 'retain', text: 'Get home to her brother now.', context: 'The window opens onto a fenced yard.' },
+            { decision: 'satisfied', text: 'Get home to her brother now.', context: 'She reaches home and finds him safe.' },
+            { decision: 'replace', text: 'Stay beside her brother and rest.', context: 'Everyone is safe at home.' },
+        ];
+        const b = bench({ mount: true, generate: async args => {
+            // Scene assessment reads played evidence, never its own persuasive digest.
+            assert.doesNotMatch(args.prompt, /Newer scene facts take precedence/);
+            if (b.calls.length === 1) {
+                return pending.promise;
+            }
+            const next = scripted.shift();
+            assert.ok(next, 'No unscripted provider calls');
+            return JSON.stringify({ ...next, target: 'Her brother', connection: 'Protect her family',
+                evidence: [b.context.chat.length - 1] });
+        } });
+        b.ledger = createState({ hero: { name: 'Bench hero' }, appetite: { want: 'Protect her family',
+            firstTaste: 'Watching her parents care for others', condition: 'Hungry to be useful' },
+        settings: { injectionDepth: 1, injectionRole: 'system' } });
+        setPath(b.ledger, 'impulse.text', 'Keep her brother safe.');
+        setPath(b.ledger, 'impulse.context', 'He is home alone during the storm.');
+        setPath(b.ledger, 'impulse.status', 'active');
+        const approved = structuredClone(b.ledger.appetite);
+        const inject = createInterceptor({ getState: b.deps.getState });
+        const delivered = async (type = 'normal') => {
+            const before = structuredClone(b.context.chat);
+            const core = b.context.chat.filter(() => true);
+            const calls = b.calls.length;
+            await inject(core, 8000, null, type);
+            assert.equal(b.calls.length, calls, 'Injection starts no assessment');
+            assert.deepEqual(b.context.chat, before, 'The real chat stays unchanged');
+            const digest = core.find(isDigestMessage);
+            assert.equal(digest.extra.type, 'narrator');
+            assert.equal(core.length - core.indexOf(digest) - 1, 1);
+            return digest.mes;
+        };
+        const played = async (line, type = 'normal') => {
+            const emit = (name, ...args) => b.listeners.get(name)?.(...args);
+            emit('GENERATION_STARTED', type, {}, false);
+            b.context.chat.push({ ...reply(), mes: line, send_date: `date-${b.context.chat.length}` });
+            b.context.streamingProcessor = { isFinished: true, isStopped: false,
+                abortController: new AbortController(), toolCalls: [] };
+            emit('GENERATION_ENDED');
+            emit('MESSAGE_RECEIVED', b.context.chat.length - 1, type);
+            await b.flush();
+        };
+        try {
+            assert.match(await delivered(), /Keep her brother safe/);
+            await played('The robbery blocks the exit. She looks for a way home.');
+            assert.equal(b.controller.busy, true);
+            assert.match(await delivered(), /Keep her brother safe/);
+            pending.resolve(JSON.stringify({ decision: 'replace', text: 'Get home to her brother now.',
+                context: 'The robbery obstructs her way home.', target: 'Her brother', connection: approved.want, evidence: [1] }));
+            await settle();
+            assert.match(await delivered(), /Get home to her brother now/);
+            await played('The side exit is locked. She tries the window.');
+            assert.match(await delivered(), /Get home to her brother now/);
+            assert.match(await delivered(), /side exit is locked/);
+            await played('The window opens onto a fenced yard. She studies the fence.', 'continue');
+            assert.match(await delivered('continue'), /Get home to her brother now/);
+            assert.match(await delivered('continue'), /fenced yard/);
+            await played('She reaches home and finds her brother safe.');
+            assert.doesNotMatch(await delivered(), /Get home to her brother now/);
+            await played('Everyone is safe. She sits beside her brother after the ordeal.');
+            const quiet = await delivered();
+            assert.match(quiet, /Stay beside her brother and rest/);
+            assert.doesNotMatch(quiet, /robbery|Get home to her brother now/);
+            assert.deepEqual(b.ledger.appetite, approved);
+            assert.equal(scripted.length, 0);
+            assert.equal(b.warnings.length, 0);
+            const stored = JSON.stringify(b.ledger);
+            b.controller.dispose();
+            b.ledger = loadState(JSON.parse(stored));
+            b.context.chatMetadata = {};
+            assert.equal(await delivered(), quiet);
+            b.ledger = createState();
+            const other = b.context.chat.filter(() => true);
+            await inject(other, 8000, null, 'normal');
+            assert.equal(other.some(isDigestMessage), false, 'Another unwritten chat inherits no impulse');
+        } finally {
+            b.controller.dispose();
+        }
+    });
+});
 
 describe('settled character impulse lifecycle', () => {
     it('runs once for either completion order, every character reply type, and ignores repeated notifications', async () => {

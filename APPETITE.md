@@ -274,6 +274,12 @@ the character's upbringing, ability and attraction to an ideal become movement, 
 what that experience leaves available afterward. The chosen Bed exchange is a bud
 for a taste, not proof of an appetite already developed through play.
 
+For a heroic appetite, Eva's criterion is accepting personal danger to help
+someone, including a stranger, despite difficulty. The danger and outcome can
+remain unresolved. Fear is compatible with that movement; inventing a tidy,
+safe solution does not demonstrate it. A heroic scene can offer no satisfactory
+answer that protects everyone, including the person reaching to help.
+
 Private campaign logs remain source material outside tracked documents. Use
 paraphrased examples here. For later comparisons, hold the DM's turns constant so
 differences in pacing are visible rather than mistaken for model behavior.
@@ -291,8 +297,8 @@ and Board, outside the scrolling surface. Compact view shows direction and state
 Expanded view offers scene context, manual editing and pause, resume and satisfied
 controls. Its height is bounded to retain space for the surface and Board composer.
 A new direction activates the impulse; editing a paused direction preserves the
-pause. Satisfying an impulse leaves appetite intact. The first slice prepares an
-impulse manually; automatic selection follows separately.
+pause. Satisfying an impulse leaves appetite intact. Manual preparation remains
+available alongside automatic selection from approved appetite and the scene.
 
 ## Implementation boundary
 
@@ -319,8 +325,9 @@ impulses are not reissued. Impersonation skips appetite direction so it cannot
 assign that wanting to the DM's character. Quiet, raw and dry-run paths stay clear.
 Sheets without approved appetite keep the earlier grammar.
 
-The first workflow is implemented, but behavioral verification and broader source
-intake remain separate work. The earlier mapping of taste to a power's origin or a
+The first workflow is implemented; the verification snapshot below separates
+integration proof from model behavior. Broader source intake remains separate
+work. The earlier mapping of taste to a power's origin or a
 thread's birth is insufficient: a first taste can precede both, and a ledger event
 needs meaning for the wanting to persist.
 
@@ -357,16 +364,42 @@ itself trigger another impulse assessment. It still emits prompt-ready events an
 listens for Stop; isolated execution of the installed host functions and mock
 browser fixtures cover these interactions without campaign/provider writes.
 
-The first implementation slice should connect an approved appetite, scene-relevant
-automatic impulse selection, background maintenance and configurable digest
-injection. Prove that path with constructed scenes and a mock provider before
-expanding source intake. Automatic preparation is implemented; configurable
-injection and the full workflow verification are still planned work.
-
 The unfinished-pass and partial-reply policies are settled: keep the last valid
 impulse during background work, and skip stopped or failed character attempts.
-Handling a scene change before a prepared result is used still needs design.
-Representation, migration and authoring controls are implemented. Source selection
-still needs a concrete design. Present new UI structure to the DM before implementing it;
-storage details and routine implementation choices can be resolved
-within the agreed behavior.
+Configurable depth and role are implemented. When a newer DM turn changes the
+situation, the digest instructs the character to adapt pursuit to newer facts,
+abandon obsolete action and preserve the appetite. This instruction has tentative
+approval; it adds no model call to prompt construction. Source selection still
+needs a concrete design. Present new UI structure to the DM before implementing
+it; storage details and routine implementation choices can be resolved within the
+agreed behavior.
+
+### Verification snapshot—2026-09-30
+
+Constructed scenes with a scripted provider connect approved appetite, successful
+completion, background assessment, digest delivery and persistence. The robbery
+impulse survives changing obstacles across replies, reaches satisfaction and gives
+way to quiet company. Another generation uses the last valid direction while
+assessment is pending. Reload preserves the prepared direction; switching chats
+does not inherit it. Separate installed-Bed mock checks cover streaming errors,
+Stop, swipes, continuations, tool intermediaries, stale results, authoring controls
+and final provider payload roles and depth. These checks prove integration, not
+that a model will choose or follow a useful impulse.
+
+With Eva's authorization, five short GLM 5.3 Flash calls used constructed material
+and a compact shared prompt through Bed's configured connection. Both the rescue
+baseline and the appetite version accepted personal danger and left the rescue
+unresolved. This pair therefore does not demonstrate improvement from appetite.
+The assessment retained the unfinished rescue impulse. The quiet reply introduced
+no crisis, and the newer-facts reply abandoned obsolete urgency to get home.
+However, the quiet reply invented the brother's dialogue and voluntary reactions
+despite an explicit instruction to control only the tracked character. That is
+a model agency-boundary failure in this trial, not evidence of a code defect.
+
+All five calls returned complete prose or valid assessment JSON with a `stop`
+finish reason. The small output cap showed no truncation in this batch. Future
+trials must allow headroom for reasoning as well as visible output, controlling
+spending through call count and reported usage. Single cases with a compact prompt
+do not establish reliability or reproduce the motivating long-context campaign
+behavior. Private campaign material and raw provider replies remain outside
+tracked artifacts.
